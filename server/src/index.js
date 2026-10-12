@@ -67,6 +67,32 @@ function toLines(v) {
   return arr.map(s => s.trim()).filter(Boolean).slice(0, 40).map(s => s.slice(0, 160));
 }
 
+/* ---------- Open Food Facts ---------- */
+async function offFetch(url, ctx) {
+  const key = new Request(url);
+  const hit = await caches.default.match(key);
+  if (hit) return hit.json();
+  const r = await fetch(url, { headers: { 'User-Agent': 'Jarvis/1.0 (assistant personnel ; https://frensh-developpeur.github.io/jarvis/)' } });
+  if (!r.ok) fail(r.status === 404 ? 404 : 502, r.status === 404 ? 'Produit introuvable' : 'Open Food Facts indisponible');
+  const text = await r.text();
+  ctx.waitUntil(caches.default.put(key, new Response(text, { headers: { 'Content-Type': 'application/json', 'Cache-Control': 'public, max-age=86400' } })));
+  return JSON.parse(text);
+}
+function offItem(p) {
+  const n = p.nutriments || {};
+  const num = v => (v === undefined || v === null || v === '' || isNaN(+v)) ? null : Math.round(+v * 10) / 10;
+  let kcal = num(n['energy-kcal_100g']);
+  if (kcal === null && num(n.energy_100g) !== null) kcal = Math.round(num(n.energy_100g) / 4.184);
+  const name = (p.product_name_fr || p.product_name || '').trim();
+  if (!name || kcal === null) return null;
+  const brand = Array.isArray(p.brands) ? p.brands.join(', ') : (p.brands || '');
+  return {
+    name, brand: brand.split(',')[0].trim(), code: p.code || null,
+    per100: { kcal: Math.round(kcal), p: num(n.proteins_100g) || 0, c: num(n.carbohydrates_100g) || 0, f: num(n.fat_100g) || 0 },
+    serving: num(p.serving_quantity), qty: p.quantity || '', img: p.image_front_small_url || null,
+  };
+}
+
 /* ---------- crypto ---------- */
 const B32 = 'ABCDEFGHIJKLMNOPQRSTUVWXYZ234567';
 function randomBytes(n) { return crypto.getRandomValues(new Uint8Array(n)); }
@@ -373,6 +399,27 @@ const routes = {
       ON CONFLICT(user_id, module) DO UPDATE SET json = excluded.json, updated_at = excluded.updated_at`)
       .bind(u.id, JSON.stringify(doc), Date.now()).run();
     return { ok: true, date: day, recu: d };
+  },
+
+  /* ---------- aliments (Open Food Facts, via le serveur : identification + cache) ---------- */
+  'GET /api/food/search': async (req, env, params, ctx) => {
+    await auth(req, env);
+    const q = (new URL(req.url).searchParams.get('q') || '').trim().slice(0, 80);
+    if (q.length < 2) return { items: [] };
+    const url = 'https://search.openfoodfacts.org/search?page_size=30&langs=fr&q=' + encodeURIComponent(q) +
+      '&fields=code,product_name,product_name_fr,brands,nutriments,serving_quantity,quantity,image_front_small_url';
+    const data = await offFetch(url, ctx);
+    const items = (data.hits || []).map(offItem).filter(Boolean).slice(0, 20);
+    return { items };
+  },
+
+  'GET /api/food/code/:code': async (req, env, { code }, ctx) => {
+    await auth(req, env);
+    if (!/^\d{6,14}$/.test(code)) fail(400, 'Code-barres invalide');
+    const data = await offFetch(`https://world.openfoodfacts.org/api/v2/product/${code}?fields=code,product_name,product_name_fr,brands,nutriments,serving_quantity,quantity,image_front_small_url`, ctx);
+    const item = data.product && offItem(Object.assign({ code }, data.product));
+    if (!item) fail(404, 'Produit introuvable ou sans valeurs nutritionnelles');
+    return { item };
   },
 
   /* ---------- administration ---------- */
