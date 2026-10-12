@@ -8,7 +8,7 @@
    ============================================================ */
 'use strict';
 (() => {
-const APP_VERSION = '9';
+const APP_VERSION = '10';
 const API = location.hostname === 'localhost' ? 'http://localhost:8787' : 'https://jarvis-api.frensh-developpeur.workers.dev';
 const APP_URL = 'https://frensh-developpeur.github.io/jarvis/';
 
@@ -337,6 +337,7 @@ function renderHub(){
   }).join('');
   J.setArc($('#hubReactor'), d.getSeconds() / 60, '#3fe0ff');
   setSync(syncState);
+  if (J.onHubShow) J.onHubShow();
 }
 $('#tiles').addEventListener('click', e => {
   const b = e.target.closest('[data-mod]'); if (!b) return;
@@ -346,9 +347,7 @@ $('#tiles').addEventListener('click', e => {
   J.go(m.id);
 });
 $('#hubReactor').addEventListener('click', () => {
-  const reports = J.modules.filter(m => !m.soon && m.report).map(m => { try { return m.report(); } catch(e) { return ''; } }).filter(Boolean);
-  const d = new Date();
-  const txt = `${J.greeting()} Il est ${d.getHours()} heures ${d.getMinutes() || ''}. ${reports.join(' ')}`;
+  const txt = J.briefingSpeech();
   J.say(txt); J.speak(txt);
 });
 setInterval(() => { if (!current && document.visibilityState === 'visible' && session) { const d = new Date(); $('#hubTime').textContent = d.toLocaleTimeString('fr-FR', {hour:'2-digit', minute:'2-digit'}); J.setArc($('#hubReactor'), d.getSeconds() / 60, '#3fe0ff'); } }, 1000);
@@ -364,6 +363,11 @@ function openSettings(){
   $$('#sVoiceMode button').forEach(b => b.classList.toggle('on', b.dataset.v === (prefs.data.voiceMode || 'jarvis')));
   $$('#sVoiceName button').forEach(b => b.classList.toggle('on', b.dataset.v === (prefs.data.voiceName || 'george')));
   S$('#sVoiceNameField').hidden = prefs.data.voiceMode === 'iphone';
+  S$('#sCity').value = prefs.data.city || '';
+  S$('#sUsage').textContent = '';
+  J.api('GET', '/api/tts/usage').then(u => {
+    if (u.premium) S$('#sUsage').textContent = `Voix premium : ${u.chars.toLocaleString('fr-FR')} / ${u.budget.toLocaleString('fr-FR')} caractères ce mois-ci (partagés par tous les comptes). Au-delà, voix de secours jusqu'au mois suivant.`;
+  }).catch(() => {});
   S$('#sAccount').textContent = session.user.username + (session.user.isAdmin ? ' · administrateur' : '');
   S$('#adminBox').hidden = !session.user.isAdmin;
   S$('#inviteOut').hidden = true;
@@ -385,7 +389,24 @@ S$('#sVoiceName').addEventListener('click', e => {
   $$('#sVoiceName button').forEach(x => x.classList.toggle('on', x === b));
   J.speak(`Bonjour ${prefs.data.name}. Je suis Jarvis, à votre service.`);
 });
+S$('#sCity').addEventListener('change', e => { prefs.data.city = e.target.value.trim(); prefs.save(); ls.del('jarvis.weather'); J.refreshWeather && J.refreshWeather(); });
+S$('#openGuide').addEventListener('click', () => J.openGuide());
 S$('#closeSettings').addEventListener('click', closeSheet);
+
+/* ---------- guide : raccourci iPhone (Santé, Calendrier, Rappels) ---------- */
+const G$ = s => $(s, $('#guide'));
+J.openGuide = () => { const was = !!openSheetEl; closeSheet(); setTimeout(() => openSheet($('#guide')), was ? 320 : 0); };
+G$('#gGen').addEventListener('click', async () => {
+  try {
+    const {url} = await J.api('POST', '/api/ingest-token');
+    G$('#gUrl').textContent = url; G$('#gUrlBox').hidden = false;
+    G$('#gGen').textContent = 'RÉGÉNÉRER (INVALIDE L\'ANCIEN LIEN)';
+  } catch(e) { J.toast(e.message); }
+});
+G$('#gCopy').addEventListener('click', async () => {
+  try { await navigator.clipboard.writeText(G$('#gUrl').textContent); J.toast('Lien copié'); J.haptic(); } catch(e) { J.toast('Copie impossible'); }
+});
+G$('#gClose').addEventListener('click', closeSheet);
 S$('#logout').addEventListener('click', () => logout(false));
 
 /* sauvegarde manuelle (en plus du serveur) */

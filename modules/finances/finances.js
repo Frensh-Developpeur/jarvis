@@ -233,6 +233,7 @@ function del(mode){
 J.module({
   id: 'finances',
   code: '01',
+  order: 20,
   name: 'Finances',
   tagline: 'Comptes, budget et dépenses prévues',
   accent: '#3fe0ff',
@@ -255,6 +256,25 @@ J.module({
     return left >= 0 ? `Il vous reste ${eur(left)} prévus ce mois-ci.` : `Attention, budget dépassé de ${eur(-left)} ce mois-ci.`;
   },
   report(){ return spoken(thisMonth()); },
+  briefing(){
+    const k = thisMonth(), T = totals(k), d = new Date().getDate();
+    if (!T.list.length) return null;
+    const due = T.list.filter(t => !t.done && t.day <= d).sort((a, b) => a.day - b.day);
+    const soon = T.list.filter(t => !t.done && t.day > d && t.day <= d + 3).sort((a, b) => a.day - b.day);
+    const left = r2(T.inc - T.out);
+    const line = (t, when) => `<li><span class="bt2">${when}</span><span>${esc(t.label)}</span><em class="${t.type}">${t.type === 'in' ? '+' : '−'}${eur(t.amount)}</em></li>`;
+    return {order:20, cls:'wide', icon:J.modules.find(m => m.id === 'finances').icon, title:'FINANCES', act:'mod:finances', right:'›', body:`
+      <p class="bs">Reste prévu ce mois : <b class="${left < 0 ? 'neg' : ''}">${eur(left)}</b></p>
+      ${due.length || soon.length ? '<ul class="blist">' + due.map(t => line(t, t.day === d ? "AUJ." : 'RETARD')).join('') + soon.map(t => line(t, 'LE ' + t.day)).join('') + '</ul>' : '<p class="bs muted">Aucune opération prévue dans les 3 prochains jours.</p>'}`};
+  },
+  briefingSpeech(){
+    const k = thisMonth(), T = totals(k), d = new Date().getDate();
+    if (!T.list.length) return '';
+    const todayOps = T.list.filter(t => !t.done && t.day === d);
+    const left = r2(T.inc - T.out);
+    return (todayOps.length ? `Prévu aujourd'hui : ${todayOps.slice(0, 2).map(t => `${t.label}, ${eur(t.amount)}`).join(' ; ')}. ` : '') +
+      (left >= 0 ? `Il vous reste ${eur(left)} ce mois-ci.` : `Budget dépassé de ${eur(-left)}.`);
+  },
 
   mount(body, fx){
     root = body; fixed = fx;

@@ -47,6 +47,7 @@ function speakable(text){
       return (e < 0 ? 'moins ' : '') + words(e) + (Math.abs(e) > 1 ? ' euros' : ' euro') + (cents ? ' et ' + words(cents) + ' centimes' : '');
     })
     .replace(new RegExp(NUM + '\\s?%', 'g'), (_, i) => words(parseInt(i.replace(/\D/g, ''), 10)) + ' pour cent')
+    .replace(/\d{1,3}(?:[\u00a0\u202f ]\d{3})+(?!\d)/g, n => words(parseInt(n.replace(/\D/g, ''), 10)))   // 5 432 → cinq mille…
     .replace(/\b\d+\b/g, n => words(parseInt(n, 10)))
     .replace(/[«»"]/g, '').replace(/\s+/g, ' ').trim();
 }

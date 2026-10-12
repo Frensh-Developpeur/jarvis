@@ -17,6 +17,7 @@
 <link href="https://fonts.googleapis.com/css2?family=Orbitron:wght@500;700;900&family=Rajdhani:wght@500;600;700&display=swap" rel="stylesheet">
 <link rel="stylesheet" href="core/core.css">
 <link rel="stylesheet" href="modules/finances/finances.css">
+<link rel="stylesheet" href="modules/sante/sante.css">
 </head>
 <body>
 
@@ -117,6 +118,11 @@
     <div class="msg"></div>
 
     <section class="panel">
+      <div class="ph"><span>BRIEFING DU JOUR</span><span id="briefDate"></span></div>
+      <div class="briefing" id="briefing"></div>
+    </section>
+
+    <section class="panel">
       <div class="ph"><span>MODULES</span><span>Où allons-nous ?</span></div>
       <div class="tiles" id="tiles"></div>
     </section>
@@ -137,7 +143,11 @@
   <div class="field"><label>TYPE DE VOIX</label><div class="seg" id="sVoiceMode" style="margin:0"><button data-v="jarvis">JARVIS (IA)</button><button data-v="iphone">IPHONE</button></div></div>
   <div class="field" id="sVoiceNameField"><label>VOIX DE JARVIS (TOUCHER POUR ÉCOUTER)</label><div class="seg" id="sVoiceName" style="margin:0"><button data-v="george">GEORGE</button><button data-v="daniel">DANIEL</button></div></div>
 
-  <div class="toggle"><span>Compte<small id="sAccount"></small></span><button class="mini red" id="logout">DÉCONNEXION</button></div>
+  <p class="note" id="sUsage"></p>
+  <div class="field" style="margin-top:12px"><label>VILLE POUR LA MÉTÉO (VIDE = MA POSITION)</label><input id="sCity" maxlength="60" autocomplete="off" placeholder="Ex : Lyon"></div>
+  <button class="btn" id="openGuide">CONNECTER L'IPHONE (SANTÉ, AGENDA, RAPPELS)</button>
+
+  <div class="toggle" style="margin-top:14px"><span>Compte<small id="sAccount"></small></span><button class="mini red" id="logout">DÉCONNEXION</button></div>
   <p class="note">Vos données sont enregistrées sur votre compte et synchronisées entre vos appareils.</p>
 
   <div id="adminBox" hidden>
@@ -154,19 +164,63 @@
   <button class="btn ghost" id="closeSettings">FERMER</button>
 </div>
 
+<!-- ============ GUIDE RACCOURCI IPHONE ============ -->
+<div class="sheet guide" id="guide" role="dialog" aria-label="Connecter l'iPhone">
+  <div class="grab"></div>
+  <h2>CONNEXION IPHONE</h2>
+  <p class="note">Apple ne laisse pas les web apps lire Santé, Calendrier et Rappels. L'app <b>Raccourcis</b> le peut : elle m'enverra ces informations plusieurs fois par jour. Configuration unique, environ 10 minutes.</p>
+
+  <h3>1 · VOTRE LIEN PERSONNEL</h3>
+  <button class="btn primary" id="gGen">GÉNÉRER MON LIEN</button>
+  <div id="gUrlBox" hidden>
+    <button type="button" class="secret" id="gCopy"><code id="gUrl"></code><small>TOUCHER POUR COPIER</small></button>
+    <p class="note">Gardez ce lien pour vous : il permet d'écrire dans votre Jarvis.</p>
+  </div>
+
+  <h3>2 · CRÉER LE RACCOURCI</h3>
+  <p class="note">App <b>Raccourcis</b> → <b>+</b> → nommez-le exactement <b>Jarvis</b>. Ajoutez ces actions dans l'ordre (cherchez-les dans la barre de recherche en bas) :</p>
+  <ol class="steps">
+    <li><b>Rechercher des échantillons de santé</b><br>Type : <i>Nombre de pas</i> · filtre <i>Date de début</i> <i>est aujourd'hui</i></li>
+    <li><b>Calculer des statistiques</b> → <i>Somme</i></li>
+    <li><b>Rechercher des échantillons de santé</b><br>Type : <i>Énergie active</i> · <i>Date de début est aujourd'hui</i></li>
+    <li><b>Calculer des statistiques</b> → <i>Somme</i></li>
+    <li><span class="opt">FACULTATIF</span> <b>Rechercher des échantillons de santé</b><br>Type : <i>Analyse du sommeil</i> · <i>Date de début</i> <i>dans les derniers 1 jours</i> · <i>Valeur</i> <i>n'est pas</i> <i>Au lit</i><br>puis <b>Calculer des statistiques</b> → <i>Somme</i></li>
+    <li><b>Rechercher des événements de calendrier</b><br><i>Date de début est aujourd'hui</i> · trier par <i>Date de début</i>, <i>Plus ancien en premier</i></li>
+    <li><b>Répéter avec chaque élément</b>, et à l'intérieur une action <b>Texte</b> contenant :<br><i>Élément répété › Date de début</i> (touchez-le → Format de date <i>Aucun</i>, Format d'heure <i>Court</i>), un espace, puis <i>Élément répété › Titre</i></li>
+    <li>Après la répétition : <b>Combiner du texte</b> (Résultats de la répétition) avec <i>Nouvelles lignes</i></li>
+    <li><b>Rechercher des rappels</b><br><i>Est terminé</i> est <i>désactivé</i> · <i>Date d'échéance est aujourd'hui</i></li>
+    <li><b>Obtenir le contenu de l'URL</b><br>URL : <i>collez votre lien</i> · touchez <i>›</i> : Méthode <i>POST</i>, Corps de la requête <i>JSON</i>, puis ajoutez ces champs :
+      <table class="ftable">
+        <tr><td><code>steps</code></td><td>Nombre</td><td>Statistiques (1<sup>re</sup>)</td></tr>
+        <tr><td><code>energy</code></td><td>Nombre</td><td>Statistiques (2<sup>e</sup>)</td></tr>
+        <tr><td><code>sleep</code></td><td>Nombre</td><td>Statistiques (3<sup>e</sup>, facultatif)</td></tr>
+        <tr><td><code>agenda</code></td><td>Texte</td><td>Texte combiné</td></tr>
+        <tr><td><code>reminders</code></td><td>Texte</td><td>Rappels</td></tr>
+      </table>
+    </li>
+  </ol>
+  <p class="note">Touchez ▶ pour le lancer une fois et <b>autorisez</b> l'accès à Santé, Calendrier et Rappels. Revenez ici : le briefing doit se remplir.</p>
+
+  <h3>3 · AUTOMATISER</h3>
+  <p class="note">Raccourcis → <b>Automatisation</b> → <b>+</b> → <b>Heure de la journée</b> → <i>7:00</i>, <i>Quotidien</i>, cochez <b>Exécuter immédiatement</b> → raccourci <b>Jarvis</b>.<br>Refaites-le pour <i>12:00</i>, <i>17:00</i> et <i>21:00</i>. Le bouton « ↻ Synchroniser » du hub le lance aussi à la demande.</p>
+  <button class="btn ghost" id="gClose">FERMER</button>
+</div>
+
 <div class="toast" id="toast"></div>
 
 <script src="core/core.js"></script>
 <script src="core/voice.js"></script>
+<script src="core/briefing.js"></script>
 <!-- Modules actifs : un fichier par module -->
 <script src="modules/finances/finances.js"></script>
+<script src="modules/sante/sante.js"></script>
 <script>
 /* Modules à venir : affichés dans le hub, grisés */
-J.soon({id:'nutrition', code:'02', name:'Nutrition', tagline:'Compteur de calories et suivi des repas', accent:'#4dffc3',
+J.soon({id:'nutrition', code:'03', name:'Nutrition', tagline:'Compteur de calories et suivi des repas', accent:'#4dffc3',
   icon:'<svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.8"><path d="M12 21c-4 0-7-3.5-7-8 0-3 2-5 4.5-5 1.2 0 1.8.5 2.5.5s1.3-.5 2.5-.5C17 8 19 10 19 13c0 4.5-3 8-7 8z"/><path d="M12 8c0-2 1-4 3-5"/></svg>'});
-J.soon({id:'sport', code:'03', name:'Entraînement', tagline:'Séances, poids et progression', accent:'#ffb347',
+J.soon({id:'sport', code:'04', name:'Entraînement', tagline:'Séances, poids et progression', accent:'#ffb347',
   icon:'<svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.8"><path d="M6 7v10M18 7v10M3 10v4M21 10v4M6 12h12"/></svg>'});
-J.soon({id:'taches', code:'04', name:'Tâches', tagline:'To-do, rappels et objectifs', accent:'#b98cff',
+J.soon({id:'taches', code:'05', name:'Tâches', tagline:'To-do, rappels et objectifs', accent:'#b98cff',
   icon:'<svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.8"><path d="M9 11l3 3 8-8"/><path d="M20 12v7a2 2 0 0 1-2 2H6a2 2 0 0 1-2-2V5a2 2 0 0 1 2-2h9"/></svg>'});
 J.start();
 </script>

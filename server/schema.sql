@@ -5,6 +5,7 @@ CREATE TABLE IF NOT EXISTS users (
   totp_secret TEXT NOT NULL,
   is_admin    INTEGER NOT NULL DEFAULT 0,
   last_step   INTEGER NOT NULL DEFAULT 0,   -- dernier code utilisé (anti-rejeu)
+  ingest_hash TEXT,                          -- jeton du raccourci iPhone (Santé, Agenda, Rappels)
   created_at  INTEGER NOT NULL
 );
 
@@ -57,4 +58,12 @@ CREATE TABLE IF NOT EXISTS tts_cache (
   mime       TEXT NOT NULL,
   audio      BLOB NOT NULL,
   created_at INTEGER NOT NULL
+);
+
+CREATE INDEX IF NOT EXISTS users_ingest ON users(ingest_hash);
+
+-- Caractères de synthèse ElevenLabs consommés par mois (quota partagé par tous les comptes)
+CREATE TABLE IF NOT EXISTS usage (
+  month TEXT PRIMARY KEY,
+  chars INTEGER NOT NULL DEFAULT 0
 );

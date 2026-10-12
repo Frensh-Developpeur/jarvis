@@ -18,6 +18,8 @@ const VOICES = {
 const EL_MODEL = 'eleven_multilingual_v2';
 /* Diction « Jarvis » : posée, régulière, pince-sans-rire (stabilité haute, peu d'emphase, débit un peu lent).
    Changer ces réglages → changer aussi le préfixe 'el2' du cache pour régénérer les phrases. */
+const EL_BUDGET = 9500;   // caractères par mois (offre gratuite : 10 000) — au-delà, voix Cloudflare
+const month = () => new Date().toISOString().slice(0, 7);
 const VOICE_SETTINGS = { stability: 0.68, similarity_boost: 0.85, style: 0.05, use_speaker_boost: true, speed: 0.93 };
 
 const now = () => Math.floor(Date.now() / 1000);
@@ -40,6 +42,29 @@ class HttpError extends Error {
 const fail = (status, message) => { throw new HttpError(status, message); };
 async function body(req) {
   try { return await req.json(); } catch { fail(400, 'JSON invalide'); }
+}
+
+/* ---------- lecture tolérante des valeurs envoyées par Raccourcis ---------- */
+function parisDate() {
+  return new Intl.DateTimeFormat('fr-CA', { timeZone: 'Europe/Paris', year: 'numeric', month: '2-digit', day: '2-digit' }).format(new Date());
+}
+function toNum(v) {
+  if (Array.isArray(v)) { const ns = v.map(toNum).filter(n => n !== null); return ns.length ? ns.reduce((a, b) => a + b, 0) : null; }
+  if (typeof v === 'number') return isFinite(v) ? v : null;
+  const lines = String(v).split(/\n/).map(l => l.replace(/[\s\u00a0\u202f]/g, '').replace(',', '.').match(/-?\d+(\.\d+)?/)).filter(Boolean);
+  if (!lines.length) return null;
+  return lines.reduce((a, m) => a + parseFloat(m[0]), 0);   // plusieurs lignes = plusieurs échantillons → somme
+}
+/* sommeil reçu en heures, minutes ou secondes selon le raccourci → toujours en heures */
+function sleepHours(n) {
+  if (n > 86400) return null;
+  if (n > 1440) return Math.round(n / 360) / 10;   // secondes
+  if (n > 24) return Math.round(n / 6) / 10;       // minutes
+  return Math.round(n * 10) / 10;                  // heures
+}
+function toLines(v) {
+  const arr = Array.isArray(v) ? v.map(String) : String(v || '').split(/\n/);
+  return arr.map(s => s.trim()).filter(Boolean).slice(0, 40).map(s => s.slice(0, 160));
 }
 
 /* ---------- crypto ---------- */
@@ -271,7 +296,8 @@ const routes = {
     await recordFailure(env, key, 3600);           // compte chaque génération (120 par heure max)
 
     let audio = null, engine = 'melo', mime = 'audio/wav';
-    if (useEleven) {
+    const used = useEleven ? ((await env.DB.prepare('SELECT chars FROM usage WHERE month = ?').bind(month()).first()) || {chars: 0}).chars : 0;
+    if (useEleven && used + clean.length <= EL_BUDGET) {
       const r = await fetch(`https://api.elevenlabs.io/v1/text-to-speech/${voiceId}?output_format=mp3_44100_128`, {
         method: 'POST',
         headers: { 'xi-api-key': env.ELEVENLABS_API_KEY, 'Content-Type': 'application/json', Accept: 'audio/mpeg' },
@@ -280,7 +306,11 @@ const routes = {
           voice_settings: VOICE_SETTINGS,
         }),
       });
-      if (r.ok) { audio = new Uint8Array(await r.arrayBuffer()); engine = 'eleven'; mime = 'audio/mpeg'; }
+      if (r.ok) {
+        audio = new Uint8Array(await r.arrayBuffer()); engine = 'eleven'; mime = 'audio/mpeg';
+        ctx.waitUntil(env.DB.prepare('INSERT INTO usage (month, chars) VALUES (?, ?) ON CONFLICT(month) DO UPDATE SET chars = chars + excluded.chars')
+          .bind(month(), clean.length).run());
+      }
       else console.log('ElevenLabs', r.status, (await r.text()).slice(0, 300));   // quota épuisé, clé invalide… → repli
     }
     if (!audio) {
@@ -293,6 +323,56 @@ const routes = {
         .bind(hash, engine, mime, audio, now()).run());
     }
     return send(audio, engine, mime);
+  },
+
+  'GET /api/tts/usage': async (req, env) => {
+    await auth(req, env);
+    const row = await env.DB.prepare('SELECT chars FROM usage WHERE month = ?').bind(month()).first();
+    return { month: month(), chars: row ? row.chars : 0, budget: EL_BUDGET, premium: !!env.ELEVENLABS_API_KEY };
+  },
+
+  /* ---------- connexion iPhone (app Raccourcis) ----------
+     Le raccourci n'a pas de session : il utilise un lien secret propre à chaque compte. */
+  'POST /api/ingest-token': async (req, env) => {
+    const u = await auth(req, env);
+    const token = base32(randomBytes(20)).toLowerCase();
+    await env.DB.prepare('UPDATE users SET ingest_hash = ? WHERE id = ?').bind(await sha256(token), u.id).run();
+    return { url: new URL(req.url).origin + '/api/ingest/' + token };
+  },
+
+  'POST /api/ingest/:token': async (req, env, { token }) => {
+    const u = await env.DB.prepare('SELECT id FROM users WHERE ingest_hash = ?').bind(await sha256(token.toLowerCase())).first();
+    if (!u) fail(404, 'Lien inconnu');
+    await throttle(env, 'ingest:' + u.id, 120, 3600);
+    await recordFailure(env, 'ingest:' + u.id, 3600);
+    const text = await req.text();
+    if (text.length > 100_000) fail(413, 'Trop volumineux');
+    let p = {};
+    try { p = JSON.parse(text || '{}'); } catch { fail(400, 'JSON invalide'); }
+
+    const row = await env.DB.prepare("SELECT json FROM data WHERE user_id = ? AND module = 'apple'").bind(u.id).first();
+    const doc = row ? JSON.parse(row.json) : {};
+    doc.days = doc.days || {};
+    const day = /^\d{4}-\d{2}-\d{2}$/.test(p.date || '') ? p.date : parisDate();
+    const d = doc.days[day] = doc.days[day] || {};
+    const fields = { steps: 'steps', pas: 'steps', energy: 'energy', calories: 'energy', distance: 'distance',
+      sleep: 'sleep', sommeil: 'sleep', heart: 'heart', bpm: 'heart', exercise: 'exercise', flights: 'flights', weight: 'weight', poids: 'weight' };
+    for (const [k, target] of Object.entries(fields)) {
+      if (p[k] === undefined || p[k] === '') continue;
+      const n = toNum(p[k]);
+      if (n !== null) d[target] = target === 'sleep' ? sleepHours(n) : n;
+    }
+    d.at = Date.now();
+    for (const k of ['agenda', 'events', 'calendrier']) if (p[k] !== undefined) { doc.agenda = { date: day, items: toLines(p[k]), at: Date.now() }; break; }
+    for (const k of ['reminders', 'rappels']) if (p[k] !== undefined) { doc.reminders = { date: day, items: toLines(p[k]), at: Date.now() }; break; }
+    // on ne garde que 60 jours d'historique
+    const keep = Object.keys(doc.days).sort().slice(-60);
+    doc.days = Object.fromEntries(keep.map(k => [k, doc.days[k]]));
+    doc.syncedAt = Date.now();
+    await env.DB.prepare(`INSERT INTO data (user_id, module, json, updated_at) VALUES (?, 'apple', ?, ?)
+      ON CONFLICT(user_id, module) DO UPDATE SET json = excluded.json, updated_at = excluded.updated_at`)
+      .bind(u.id, JSON.stringify(doc), Date.now()).run();
+    return { ok: true, date: day, recu: d };
   },
 
   /* ---------- administration ---------- */
