@@ -10,9 +10,9 @@ PWA perso. Toutes les données restent sur l'iPhone (localStorage), aucun serveu
 ## Installer sur l'iPhone
 Ouvre l'URL dans **Safari** → bouton Partager → **Sur l'écran d'accueil**.
 
-## Mettre à jour
-Modifie les fichiers, pousse sur GitHub, et change `CACHE = 'jarvis-vX'` dans `sw.js`.
-Tes données ne sont pas touchées tant que l'URL ne change pas.
-
 ## Tester sur le Mac
 `python3 -m http.server 8000` dans ce dossier, puis http://localhost:8000
+
+## Publier une mise à jour
+`./bump.sh && git commit -am "..." && git push` — l'app détecte la nouvelle version
+à l'ouverture (ou au retour sur l'app) et se recharge toute seule.

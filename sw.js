@@ -1,9 +1,11 @@
-// Change la version à chaque mise à jour de l'app pour forcer le rafraîchissement
-const CACHE = 'jarvis-v2';
+// Change la version à chaque mise à jour (le script bump.sh le fait pour toi)
+const CACHE = 'jarvis-v3';
 const ASSETS = ['./', './index.html', './manifest.json', './icon-192.png', './icon-512.png', './apple-touch-icon.png'];
 
 self.addEventListener('install', e => {
-  e.waitUntil(caches.open(CACHE).then(c => c.addAll(ASSETS)).then(() => self.skipWaiting()));
+  e.waitUntil(caches.open(CACHE)
+    .then(c => c.addAll(ASSETS.map(u => new Request(u, {cache: 'reload'}))))
+    .then(() => self.skipWaiting()));
 });
 
 self.addEventListener('activate', e => {
@@ -12,16 +14,20 @@ self.addEventListener('activate', e => {
     .then(() => self.clients.claim()));
 });
 
-// Réseau d'abord (pour récupérer les mises à jour), cache si hors ligne
+// Réseau d'abord en ignorant le cache HTTP (toujours la dernière version), cache seulement hors ligne
 self.addEventListener('fetch', e => {
-  if (e.request.method !== 'GET') return;
+  const req = e.request;
+  if (req.method !== 'GET') return;
+  const sameOrigin = new URL(req.url).origin === self.location.origin;
   e.respondWith(
-    fetch(e.request)
+    fetch(sameOrigin ? new Request(req, {cache: 'no-store'}) : req)
       .then(res => {
-        const copy = res.clone();
-        caches.open(CACHE).then(c => c.put(e.request, copy));
+        if (res.ok || res.type === 'opaque') {
+          const copy = res.clone();
+          caches.open(CACHE).then(c => c.put(req, copy));
+        }
         return res;
       })
-      .catch(() => caches.match(e.request, {ignoreSearch: true}))
+      .catch(() => caches.match(req, {ignoreSearch: true}))
   );
 });

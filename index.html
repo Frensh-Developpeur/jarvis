@@ -652,9 +652,39 @@ setTimeout(() => {
   say(greeting() + ' ' + status(T0) + (backupOld ? ' Pensez à exporter une sauvegarde.' : ''));
 }, 1250);
 
-if ('serviceWorker' in navigator && location.protocol.startsWith('http')) {
-  navigator.serviceWorker.register('sw.js').catch(() => {});
+/* ---------- mises à jour automatiques ---------- */
+const APP_VERSION = '3';
+let swReg = null;
+async function checkUpdate(){
+  if (!location.protocol.startsWith('http')) return;
+  if (swReg) swReg.update().catch(() => {});
+  try {
+    const r = await fetch('version.json?t=' + Date.now(), {cache:'no-store'});
+    const {v} = await r.json();
+    if (v && v !== APP_VERSION) applyUpdate();
+  } catch(e) {} // hors ligne : on garde la version actuelle
 }
+let updatePending = false;
+function applyUpdate(){
+  if (openSheet) { updatePending = true; return; } // on n'interrompt pas une saisie
+  // max une tentative toutes les 30 s : évite une boucle si GitHub sert encore l'ancienne version
+  const last = +sessionStorage.getItem('jarvis.reloadAt') || 0;
+  if (Date.now() - last < 30000) return;
+  sessionStorage.setItem('jarvis.reloadAt', Date.now());
+  location.reload();
+}
+if ('serviceWorker' in navigator && location.protocol.startsWith('http')) {
+  navigator.serviceWorker.register('sw.js', {updateViaCache:'none'}).then(r => { swReg = r; }).catch(() => {});
+}
+document.addEventListener('visibilitychange', () => { if (document.visibilityState === 'visible') checkUpdate(); });
+window.addEventListener('pageshow', e => { if (e.persisted) checkUpdate(); });
+veil.addEventListener('transitionend', () => { if (updatePending && !openSheet) { updatePending = false; applyUpdate(); } });
+try {
+  const prev = localStorage.getItem('jarvis.version');
+  if (prev && prev !== APP_VERSION) setTimeout(() => toast('Jarvis mis à jour'), 1400);
+  localStorage.setItem('jarvis.version', APP_VERSION);
+} catch(e) {}
+checkUpdate();
 </script>
 </body>
 </html>
