@@ -8,7 +8,7 @@
    ============================================================ */
 'use strict';
 (() => {
-const APP_VERSION = '11';
+const APP_VERSION = '12';
 const API = location.hostname === 'localhost' ? 'http://localhost:8787' : 'https://jarvis-api.frensh-developpeur.workers.dev';
 const APP_URL = 'https://frensh-developpeur.github.io/jarvis/';
 
@@ -175,7 +175,15 @@ J.say = (text) => {
 };
 /* J.speak est fourni par core/voice.js */
 let toastT;
-J.toast = (t) => { const el = $('#toast'); el.textContent = t; el.classList.add('show'); clearTimeout(toastT); toastT = setTimeout(() => el.classList.remove('show'), 2200); };
+/* J.toast('Texte') ou J.toast('Supprimé', {action:'ANNULER', onAction(){…}}) */
+J.toast = (t, opts = {}) => {
+  const el = $('#toast');
+  el.innerHTML = esc(t) + (opts.action ? ` <button class="toast-act">${esc(opts.action)}</button>` : '');
+  if (opts.action) $('.toast-act', el).onclick = () => { el.classList.remove('show'); J.haptic(); opts.onAction(); };
+  el.classList.toggle('has-act', !!opts.action);
+  el.classList.add('show'); clearTimeout(toastT);
+  toastT = setTimeout(() => el.classList.remove('show'), opts.action ? 4500 : 2200);
+};
 
 /* ============================================================
    Feuilles (panneaux qui montent du bas)

@@ -306,3 +306,5 @@ a.btn{text-align:center;text-decoration:none}
 .gc b{flex:1;font-weight:500;overflow:hidden;text-overflow:ellipsis;white-space:nowrap}
 .gc.ok span:first-child{color:var(--green)} .gc.ko span:first-child,.ko{color:var(--red)}
 .gc.ko b{color:var(--muted)}
+.toast.has-act{display:flex;align-items:center;gap:12px;pointer-events:auto}
+.toast-act{border:none;background:none;color:var(--gold);font-family:var(--hud);font-size:11px;letter-spacing:.18em;padding:4px 0 4px 8px;border-left:1px solid var(--line)}
