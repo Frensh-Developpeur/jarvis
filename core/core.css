@@ -281,3 +281,28 @@ a.btn{text-align:center;text-decoration:none}
 .ftable{width:100%;border-collapse:collapse;margin-top:6px;font-size:13px}
 .ftable td{border-top:1px solid rgba(63,224,255,.1);padding:5px 4px;color:var(--muted)}
 .ftable code{color:var(--cyan);font-family:var(--hud);font-size:11px}
+.gstep{display:flex;gap:10px;margin:10px 0;padding:10px;border:1px solid var(--line);border-radius:12px;background:rgba(63,224,255,.03);font-size:14px;line-height:1.45}
+.gstep.key{border-color:var(--cyan);box-shadow:0 0 14px rgba(63,224,255,.15)}
+.gstep>div{flex:1;min-width:0}
+.gstep ol{margin:6px 0 0;padding-left:18px}
+.gstep li{margin-bottom:6px}
+.gstep i{color:var(--cyan);font-style:normal}
+.gstep code{font-family:var(--hud);font-size:11px;color:var(--cyan)}
+.gn{flex:none;width:26px;height:26px;border-radius:50%;border:1px solid var(--cyan);display:grid;place-items:center;font-family:var(--hud);font-size:11px;color:var(--cyan);box-shadow:0 0 8px rgba(63,224,255,.35)}
+.ftable th{text-align:left;font-family:var(--hud);font-size:8px;letter-spacing:.15em;color:var(--muted);padding:4px;font-weight:500}
+.ftable td b{color:var(--text)}
+.mock{margin:12px 0 6px;border-radius:12px;background:#1c1c1e;padding:10px 12px;font-family:-apple-system,system-ui,sans-serif;font-size:14px;color:#fff}
+.mock .mh{padding-bottom:8px;border-bottom:1px solid #333;color:#ddd}
+.mock .mh span{color:#0a84ff}
+.mock .mr{display:flex;justify-content:space-between;padding:7px 0;border-bottom:1px solid #2c2c2e;color:#aaa}
+.mock .mr b{color:#0a84ff;font-weight:500}
+.mock .mr.f{padding-left:12px}
+.mock .mr.f span{color:#eee}
+.mock .mr i{font-style:normal;color:#fff;background:#0a84ff;border-radius:6px;padding:1px 8px;font-size:13px}
+.mock .mcap{text-align:center;font-size:11px;color:#777;margin-top:8px}
+.gcheck{margin-top:8px}
+.gc{display:flex;gap:10px;align-items:baseline;padding:6px 0;border-top:1px solid rgba(63,224,255,.08);font-size:14px}
+.gc span:nth-child(2){font-family:var(--hud);font-size:11px;color:var(--muted);min-width:80px}
+.gc b{flex:1;font-weight:500;overflow:hidden;text-overflow:ellipsis;white-space:nowrap}
+.gc.ok span:first-child{color:var(--green)} .gc.ko span:first-child,.ko{color:var(--red)}
+.gc.ko b{color:var(--muted)}

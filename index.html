@@ -178,31 +178,93 @@
   </div>
 
   <h3>2 · CRÉER LE RACCOURCI</h3>
-  <p class="note">App <b>Raccourcis</b> → <b>+</b> → nommez-le exactement <b>Jarvis</b>. Ajoutez ces actions dans l'ordre (cherchez-les dans la barre de recherche en bas) :</p>
-  <ol class="steps">
-    <li><b>Rechercher des échantillons de santé</b><br>Type : <i>Nombre de pas</i> · filtre <i>Date de début</i> <i>est aujourd'hui</i></li>
-    <li><b>Calculer des statistiques</b> → <i>Somme</i></li>
-    <li><b>Rechercher des échantillons de santé</b><br>Type : <i>Énergie active</i> · <i>Date de début est aujourd'hui</i></li>
-    <li><b>Calculer des statistiques</b> → <i>Somme</i></li>
-    <li><span class="opt">FACULTATIF</span> <b>Rechercher des échantillons de santé</b><br>Type : <i>Analyse du sommeil</i> · <i>Date de début</i> <i>dans les derniers 1 jours</i> · <i>Valeur</i> <i>n'est pas</i> <i>Au lit</i><br>puis <b>Calculer des statistiques</b> → <i>Somme</i></li>
-    <li><b>Rechercher des événements de calendrier</b><br><i>Date de début est aujourd'hui</i> · trier par <i>Date de début</i>, <i>Plus ancien en premier</i></li>
-    <li><b>Répéter avec chaque élément</b>, et à l'intérieur une action <b>Texte</b> contenant :<br><i>Élément répété › Date de début</i> (touchez-le → Format de date <i>Aucun</i>, Format d'heure <i>Court</i>), un espace, puis <i>Élément répété › Titre</i></li>
-    <li>Après la répétition : <b>Combiner du texte</b> (Résultats de la répétition) avec <i>Nouvelles lignes</i></li>
-    <li><b>Rechercher des rappels</b><br><i>Est terminé</i> est <i>désactivé</i> · <i>Date d'échéance est aujourd'hui</i></li>
-    <li><b>Obtenir le contenu de l'URL</b><br>URL : <i>collez votre lien</i> · touchez <i>›</i> : Méthode <i>POST</i>, Corps de la requête <i>JSON</i>, puis ajoutez ces champs :
-      <table class="ftable">
-        <tr><td><code>steps</code></td><td>Nombre</td><td>Statistiques (1<sup>re</sup>)</td></tr>
-        <tr><td><code>energy</code></td><td>Nombre</td><td>Statistiques (2<sup>e</sup>)</td></tr>
-        <tr><td><code>sleep</code></td><td>Nombre</td><td>Statistiques (3<sup>e</sup>, facultatif)</td></tr>
-        <tr><td><code>agenda</code></td><td>Texte</td><td>Texte combiné</td></tr>
-        <tr><td><code>reminders</code></td><td>Texte</td><td>Rappels</td></tr>
-      </table>
-    </li>
-  </ol>
-  <p class="note">Touchez ▶ pour le lancer une fois et <b>autorisez</b> l'accès à Santé, Calendrier et Rappels. Revenez ici : le briefing doit se remplir.</p>
+  <p class="note">App <b>Raccourcis</b> → onglet <b>Raccourcis</b> → <b>+</b> en haut à droite. Touchez le nom en haut → <b>Renommer</b> → tapez exactement <b>Jarvis</b>.<br>
+  Pour ajouter une action : barre <b>Rechercher des actions</b> en bas → tapez son nom → touchez-la. Elle s'ajoute à la suite.</p>
 
-  <h3>3 · AUTOMATISER</h3>
-  <p class="note">Raccourcis → <b>Automatisation</b> → <b>+</b> → <b>Heure de la journée</b> → <i>7:00</i>, <i>Quotidien</i>, cochez <b>Exécuter immédiatement</b> → raccourci <b>Jarvis</b>.<br>Refaites-le pour <i>12:00</i>, <i>17:00</i> et <i>21:00</i>. Le bouton « ↻ Synchroniser » du hub le lance aussi à la demande.</p>
+  <div class="gstep"><span class="gn">A</span><div><b>Les pas</b>
+    <ol>
+      <li><b>Rechercher des échantillons de santé</b> → touchez <i>Type</i> → <i>Nombre de pas</i>. Touchez <i>Ajouter un filtre</i> → <i>Date de début</i> → <i>est aujourd'hui</i>.</li>
+      <li><b>Calculer des statistiques</b> → touchez <i>Moyenne</i> → choisissez <i>Somme</i>.</li>
+      <li><b>Définir la variable</b> → touchez <i>Nom de la variable</i> → tapez <b>Pas</b>. (La valeur se met toute seule sur <i>Statistiques</i>.)</li>
+    </ol></div></div>
+
+  <div class="gstep"><span class="gn">B</span><div><b>Les calories</b>
+    <ol>
+      <li><b>Rechercher des échantillons de santé</b> → Type <i>Énergie active</i> → filtre <i>Date de début est aujourd'hui</i>.</li>
+      <li><b>Calculer des statistiques</b> → <i>Somme</i>.</li>
+      <li><b>Définir la variable</b> → nom <b>Energie</b>.</li>
+    </ol></div></div>
+
+  <div class="gstep"><span class="gn">C</span><div><b>Le sommeil</b> <span class="opt">FACULTATIF</span>
+    <ol>
+      <li><b>Rechercher des échantillons de santé</b> → Type <i>Analyse du sommeil</i> → filtre <i>Date de début</i> <i>dans les derniers</i> <i>1 jours</i> → 2<sup>e</sup> filtre <i>Valeur</i> <i>n'est pas</i> <i>Au lit</i> (sinon le temps au lit est compté en double).</li>
+      <li><b>Calculer des statistiques</b> → <i>Somme</i>.</li>
+      <li><b>Définir la variable</b> → nom <b>Sommeil</b>.</li>
+    </ol></div></div>
+
+  <div class="gstep"><span class="gn">D</span><div><b>L'agenda</b>
+    <ol>
+      <li><b>Rechercher des événements de calendrier</b> → filtre <i>Date de début est aujourd'hui</i> → <i>Trier par</i> : <i>Date de début</i>, <i>Ordre</i> : <i>Plus ancien en premier</i>.</li>
+      <li><b>Répéter avec chaque élément</b>.</li>
+      <li>Glissez une action <b>Texte</b> <u>entre</u> « Répéter » et « Fin de la répétition ». Dans le champ, touchez <i>Élément répété</i> (au-dessus du clavier) → il s'insère → touchez-le → <i>Date de début</i>, puis <i>Format de date</i> : <i>Aucun</i>, <i>Format d'heure</i> : <i>Court</i>. Tapez un espace, puis insérez à nouveau <i>Élément répété</i> → touchez-le → <i>Titre</i>.<br><span class="muted">Le champ doit ressembler à : <code>[Date de début] [Titre]</code></span></li>
+      <li>Après « Fin de la répétition » : <b>Combiner du texte</b> → vérifiez qu'il combine <i>Résultats de la répétition</i> → touchez <i>Espaces</i> → choisissez <i>Nouvelles lignes</i>.</li>
+      <li><b>Définir la variable</b> → nom <b>Agenda</b>.</li>
+    </ol></div></div>
+
+  <div class="gstep"><span class="gn">E</span><div><b>Les rappels</b>
+    <ol>
+      <li><b>Rechercher des rappels</b> → <i>Ajouter un filtre</i> → <i>Est terminé</i> <i>n'est pas</i> activé, puis un 2<sup>e</sup> filtre <i>Date d'échéance</i> <i>est aujourd'hui</i>.</li>
+      <li><b>Définir la variable</b> → nom <b>Rappels</b>.</li>
+    </ol></div></div>
+
+  <div class="gstep key"><span class="gn">F</span><div><b>L'envoi à Jarvis</b> — l'étape importante
+    <ol>
+      <li>Ajoutez <b>Obtenir le contenu de l'URL</b>.</li>
+      <li>Touchez le champ <i>URL</i> (texte bleu) → <b>collez votre lien</b> (étape 1).</li>
+      <li>Touchez la petite flèche <b>›</b> à droite de l'action (ou <i>Afficher plus</i>) pour ouvrir les options.</li>
+      <li><i>Méthode</i> : touchez <i>GET</i> → choisissez <b>POST</b>.</li>
+      <li><i>En-têtes</i> : ne touchez à rien.</li>
+      <li><i>Corps de la requête</i> : choisissez <b>JSON</b>. Une ligne <i>Ajouter un nouveau champ</i> apparaît.</li>
+      <li>Pour chaque ligne du tableau ci-dessous : touchez <b>Ajouter un nouveau champ</b> → choisissez <b>Texte</b> → dans <i>Clé</i>, tapez le nom <u>exactement</u> (en minuscules) → touchez <i>Texte</i> à droite → au-dessus du clavier, touchez <b>Variables</b> (ou l'icône ✦) et choisissez la variable indiquée.
+        <table class="ftable">
+          <tr><th>Clé</th><th>Type</th><th>Valeur (variable)</th></tr>
+          <tr><td><code>steps</code></td><td>Texte</td><td><b>Pas</b></td></tr>
+          <tr><td><code>energy</code></td><td>Texte</td><td><b>Energie</b></td></tr>
+          <tr><td><code>sleep</code></td><td>Texte</td><td><b>Sommeil</b> <span class="muted">(si C)</span></td></tr>
+          <tr><td><code>agenda</code></td><td>Texte</td><td><b>Agenda</b></td></tr>
+          <tr><td><code>reminders</code></td><td>Texte</td><td><b>Rappels</b></td></tr>
+        </table>
+      </li>
+    </ol>
+    <div class="mock">
+      <div class="mh">Obtenir le contenu de <span>https://jarvis-api…/ingest/…</span></div>
+      <div class="mr"><span>Méthode</span><b>POST</b></div>
+      <div class="mr"><span>En-têtes</span><b>—</b></div>
+      <div class="mr"><span>Corps de la requête</span><b>JSON</b></div>
+      <div class="mr f"><span>steps</span><i>Pas</i></div>
+      <div class="mr f"><span>energy</span><i>Energie</i></div>
+      <div class="mr f"><span>sleep</span><i>Sommeil</i></div>
+      <div class="mr f"><span>agenda</span><i>Agenda</i></div>
+      <div class="mr f"><span>reminders</span><i>Rappels</i></div>
+      <div class="mcap">Voilà à quoi doit ressembler l'action une fois remplie</div>
+    </div>
+    <p class="note"><b>Pièges fréquents :</b> une clé avec une majuscule ou un espace (<code>Steps</code>, <code>steps </code>) · la méthode restée sur <i>GET</i> · le corps en <i>Formulaire</i> au lieu de <i>JSON</i> · la valeur tapée à la main au lieu d'être choisie dans les variables (elle doit apparaître dans une bulle bleue).</p>
+    </div></div>
+
+  <h3>3 · TESTER</h3>
+  <p class="note">Touchez <b>▶</b> en bas du raccourci. La première fois, iOS demande l'accès à Santé, Calendrier et Rappels : <b>autorisez tout</b> (pour Santé, activez <i>Nombre de pas</i>, <i>Énergie active</i> et <i>Sommeil</i>). Le raccourci doit se terminer sans erreur. Revenez ici :</p>
+  <button class="btn" id="gCheck">VÉRIFIER LA RÉCEPTION</button>
+  <div class="gcheck" id="gCheckOut" hidden></div>
+
+  <h3>4 · AUTOMATISER</h3>
+  <ol class="steps">
+    <li>Raccourcis → onglet <b>Automatisation</b> → <b>+</b> (ou <i>Nouvelle automatisation</i>).</li>
+    <li>Choisissez <b>Heure de la journée</b> → réglez <i>7:00</i>, <i>Répéter</i> : <i>Quotidiennement</i>.</li>
+    <li>En bas, cochez <b>Exécuter immédiatement</b> (et désactivez <i>M'avertir lors de l'exécution</i>) → <b>Suivant</b>.</li>
+    <li>Choisissez votre raccourci <b>Jarvis</b>.</li>
+    <li>Refaites-le pour <i>12:00</i>, <i>17:00</i> et <i>21:00</i>.</li>
+  </ol>
+  <p class="note">Le bouton « ↻ Synchroniser » du hub lance aussi le raccourci à la demande.</p>
   <button class="btn ghost" id="gClose">FERMER</button>
 </div>
 

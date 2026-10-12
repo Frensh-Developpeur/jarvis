@@ -8,7 +8,7 @@
    ============================================================ */
 'use strict';
 (() => {
-const APP_VERSION = '10';
+const APP_VERSION = '11';
 const API = location.hostname === 'localhost' ? 'http://localhost:8787' : 'https://jarvis-api.frensh-developpeur.workers.dev';
 const APP_URL = 'https://frensh-developpeur.github.io/jarvis/';
 
@@ -405,6 +405,23 @@ G$('#gGen').addEventListener('click', async () => {
 });
 G$('#gCopy').addEventListener('click', async () => {
   try { await navigator.clipboard.writeText(G$('#gUrl').textContent); J.toast('Lien copié'); J.haptic(); } catch(e) { J.toast('Copie impossible'); }
+});
+G$('#gCheck').addEventListener('click', async () => {
+  const out = G$('#gCheckOut'); out.hidden = false; out.innerHTML = '<p class="note">Vérification…</p>';
+  await J.sync();
+  const doc = J.store('apple', {days:{}}).data, t = (doc.days || {})[J.todayKey()];
+  if (!doc.syncedAt) { out.innerHTML = '<p class="ko">✗ Rien reçu pour l\'instant. Vérifiez l\'URL et la méthode POST de l\'étape F, puis relancez le raccourci.</p>'; return; }
+  const fresh = Date.now() - doc.syncedAt < 10 * 60e3;
+  const row = (ok, label, val) => `<div class="gc ${ok ? 'ok' : 'ko'}"><span>${ok ? '✓' : '✗'}</span><span>${label}</span><b>${val}</b></div>`;
+  const ag = doc.agenda && doc.agenda.date === J.todayKey() ? doc.agenda.items : null;
+  const rm = doc.reminders && doc.reminders.date === J.todayKey() ? doc.reminders.items : null;
+  out.innerHTML = `<p class="note">${fresh ? '✓ Données reçues ' : '⚠ Dernière réception '}${J.ago(doc.syncedAt)}.</p>` +
+    row(t && t.steps != null, 'steps', t && t.steps != null ? Math.round(t.steps).toLocaleString('fr-FR') + ' pas' : 'manquant') +
+    row(t && t.energy != null, 'energy', t && t.energy != null ? Math.round(t.energy) + ' kcal' : 'manquant') +
+    row(t && t.sleep != null, 'sleep', t && t.sleep != null ? t.sleep + ' h' : 'facultatif') +
+    row(!!ag, 'agenda', ag ? ag.length + ' événement(s)' + (ag[0] ? ' · « ' + esc(ag[0]) + ' »' : '') : 'manquant') +
+    row(!!rm, 'reminders', rm ? rm.length + ' rappel(s)' : 'manquant') +
+    '<p class="note">Une ligne ✗ ? Vérifiez l\'orthographe de la clé (minuscules) et que la valeur est bien une variable (bulle bleue). Une valeur à 0 est normale s\'il n\'y a rien aujourd\'hui.</p>';
 });
 G$('#gClose').addEventListener('click', closeSheet);
 S$('#logout').addEventListener('click', () => logout(false));
