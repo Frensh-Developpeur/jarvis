@@ -219,3 +219,12 @@ a.btn{text-align:center;text-decoration:none}
   .wrap,.sheet,.fab,.veil,.notch{visibility:hidden}
 }
 @keyframes tilt{0%,30%{transform:rotate(-90deg)}60%,100%{transform:rotate(0)}}
+
+/* ---------- réacteur pendant que Jarvis parle ---------- */
+.reactor>svg{transition:filter .25s}
+.reactor.thinking>svg{animation:think 1s ease-in-out infinite}
+@keyframes think{50%{filter:brightness(1.5) drop-shadow(0 0 10px rgba(63,224,255,.6))}}
+.reactor.speaking>svg{
+  transform:scale(calc(1 + var(--lvl, 0) * .05));
+  filter:brightness(calc(1 + var(--lvl, 0) * 1.1)) drop-shadow(0 0 calc(var(--lvl, 0) * 28px) rgba(63,224,255,.9));
+}

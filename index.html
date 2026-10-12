@@ -134,6 +134,7 @@
   <h2>RÉGLAGES SYSTÈME</h2>
   <div class="field"><label>COMMENT DOIS-JE VOUS APPELER ?</label><input id="sName" maxlength="30" autocomplete="off"></div>
   <div class="toggle"><span>Voix de Jarvis<small>Touchez un réacteur pour un rapport vocal</small></span><label class="sw"><input type="checkbox" id="sVoice"><i></i></label></div>
+  <div class="field"><label>TYPE DE VOIX</label><div class="seg" id="sVoiceMode" style="margin:0"><button data-v="jarvis">JARVIS (IA)</button><button data-v="iphone">IPHONE</button></div></div>
 
   <div class="toggle"><span>Compte<small id="sAccount"></small></span><button class="mini red" id="logout">DÉCONNEXION</button></div>
   <p class="note">Vos données sont enregistrées sur votre compte et synchronisées entre vos appareils.</p>
@@ -155,6 +156,7 @@
 <div class="toast" id="toast"></div>
 
 <script src="core/core.js"></script>
+<script src="core/voice.js"></script>
 <!-- Modules actifs : un fichier par module -->
 <script src="modules/finances/finances.js"></script>
 <script>

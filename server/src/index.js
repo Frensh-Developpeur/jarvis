@@ -241,6 +241,26 @@ const routes = {
     return { ok: true, updatedAt };
   },
 
+  /* Synthèse vocale : renvoie un fichier WAV (mis en cache pour ne pas consommer le quota deux fois) */
+  'POST /api/tts': async (req, env, params, ctx) => {
+    const u = await auth(req, env);
+    const { text } = await body(req);
+    const clean = String(text || '').trim().slice(0, 600);
+    if (!clean) fail(400, 'Texte vide');
+    const cacheKey = new Request('https://tts.jarvis/' + await sha256('melotts-fr:' + clean));
+    const cache = caches.default;
+    const hit = await cache.match(cacheKey);
+    if (hit) return hit;
+    const key = 'tts:' + u.id;
+    await throttle(env, key, 120, 3600);
+    await recordFailure(env, key, 3600);           // compte chaque génération (120 par heure max)
+    const out = await env.AI.run('@cf/myshell-ai/melotts', { prompt: clean, lang: 'fr' });
+    const bin = Uint8Array.from(atob(out.audio), c => c.charCodeAt(0));
+    const res = new Response(bin, { headers: { 'Content-Type': 'audio/wav', 'Cache-Control': 'public, max-age=2592000' } });
+    ctx.waitUntil(cache.put(cacheKey, res.clone()));
+    return res;
+  },
+
   /* ---------- administration ---------- */
   'POST /api/invites': async (req, env) => {
     const u = await auth(req, env);
@@ -301,14 +321,19 @@ function match(method, path) {
 }
 
 export default {
-  async fetch(req, env) {
+  async fetch(req, env, ctx) {
     const headers = cors(req, env);
     if (req.method === 'OPTIONS') return new Response(null, { status: 204, headers });
     const url = new URL(req.url);
     const r = match(req.method, url.pathname);
     try {
       if (!r) fail(404, 'Introuvable');
-      const out = await r.handler(req, env, r.params);
+      const out = await r.handler(req, env, r.params, ctx);
+      if (out instanceof Response) {
+        const res = new Response(out.body, out);
+        for (const [k, v] of Object.entries(headers)) res.headers.set(k, v);
+        return res;
+      }
       return Response.json(out, { headers });
     } catch (e) {
       const status = e instanceof HttpError ? e.status : 500;

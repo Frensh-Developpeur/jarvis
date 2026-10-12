@@ -8,7 +8,7 @@
    ============================================================ */
 'use strict';
 (() => {
-const APP_VERSION = '6';
+const APP_VERSION = '7';
 const API = location.hostname === 'localhost' ? 'http://localhost:8787' : 'https://jarvis-api.frensh-developpeur.workers.dev';
 const APP_URL = 'https://frensh-developpeur.github.io/jarvis/';
 
@@ -34,6 +34,8 @@ const J = window.J = {
    ============================================================ */
 let session = ls.get('jarvis.session');      // {token, user:{username,isAdmin}}
 J.user = () => session && session.user;
+J.token = () => session && session.token;
+J.API = API;
 
 J.api = async (method, path, data) => {
   const res = await fetch(API + path, {
@@ -171,16 +173,7 @@ J.say = (text) => {
     if (i >= text.length) clearInterval(typeTimer);
   }, 22);
 };
-J.speak = (text) => {
-  if (!prefs || !prefs.data.voice || !('speechSynthesis' in window)) return;
-  speechSynthesis.cancel();
-  const u = new SpeechSynthesisUtterance(text);
-  u.lang = 'fr-FR'; u.rate = 1.02; u.pitch = 0.9;
-  const v = speechSynthesis.getVoices().filter(v => v.lang.startsWith('fr'));
-  const pick = v.find(v => /Thomas|Daniel|Nicolas|male/i.test(v.name)) || v[0];
-  if (pick) u.voice = pick;
-  speechSynthesis.speak(u);
-};
+/* J.speak est fourni par core/voice.js */
 let toastT;
 J.toast = (t) => { const el = $('#toast'); el.textContent = t; el.classList.add('show'); clearTimeout(toastT); toastT = setTimeout(() => el.classList.remove('show'), 2200); };
 
@@ -368,6 +361,7 @@ $('#openSettings').addEventListener('click', openSettings);
 function openSettings(){
   S$('#sName').value = prefs.data.name;
   S$('#sVoice').checked = prefs.data.voice;
+  $$('#sVoiceMode button').forEach(b => b.classList.toggle('on', b.dataset.v === (prefs.data.voiceMode || 'jarvis')));
   S$('#sAccount').textContent = session.user.username + (session.user.isAdmin ? ' · administrateur' : '');
   S$('#adminBox').hidden = !session.user.isAdmin;
   S$('#inviteOut').hidden = true;
@@ -376,6 +370,12 @@ function openSettings(){
 }
 S$('#sName').addEventListener('change', e => { prefs.data.name = e.target.value.trim() || 'Monsieur'; prefs.save(); J.say(J.greeting() + ' Bien noté.'); });
 S$('#sVoice').addEventListener('change', e => { prefs.data.voice = e.target.checked; prefs.save(); });
+S$('#sVoiceMode').addEventListener('click', e => {
+  const b = e.target.closest('button'); if (!b) return;
+  prefs.data.voiceMode = b.dataset.v; prefs.save();
+  $$('#sVoiceMode button').forEach(x => x.classList.toggle('on', x === b));
+  J.speak(b.dataset.v === 'jarvis' ? `À votre service, ${prefs.data.name}.` : `Voix de l'iPhone activée, ${prefs.data.name}.`);
+});
 S$('#closeSettings').addEventListener('click', closeSheet);
 S$('#logout').addEventListener('click', () => logout(false));
 
@@ -529,7 +529,7 @@ function loadQR(){
    Démarrage
    ============================================================ */
 async function enter(isNew){
-  prefs = J.store('core', {name:'Monsieur', voice:true});
+  prefs = J.store('core', {name:'Monsieur', voice:true, voiceMode:'jarvis'});
   J.modules.forEach(m => { if (!m.soon && m.init) m.init(); });
   J.go(null);
   if (isNew) J.say(`Bienvenue ${session.user.username}. Compte activé${session.user.isAdmin ? ' avec les droits administrateur' : ''}. Où souhaitez-vous aller ?`);
