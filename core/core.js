@@ -8,7 +8,7 @@
    ============================================================ */
 'use strict';
 (() => {
-const APP_VERSION = '7';
+const APP_VERSION = '8';
 const API = location.hostname === 'localhost' ? 'http://localhost:8787' : 'https://jarvis-api.frensh-developpeur.workers.dev';
 const APP_URL = 'https://frensh-developpeur.github.io/jarvis/';
 
@@ -362,6 +362,8 @@ function openSettings(){
   S$('#sName').value = prefs.data.name;
   S$('#sVoice').checked = prefs.data.voice;
   $$('#sVoiceMode button').forEach(b => b.classList.toggle('on', b.dataset.v === (prefs.data.voiceMode || 'jarvis')));
+  $$('#sVoiceName button').forEach(b => b.classList.toggle('on', b.dataset.v === (prefs.data.voiceName || 'daniel')));
+  S$('#sVoiceNameField').hidden = prefs.data.voiceMode === 'iphone';
   S$('#sAccount').textContent = session.user.username + (session.user.isAdmin ? ' · administrateur' : '');
   S$('#adminBox').hidden = !session.user.isAdmin;
   S$('#inviteOut').hidden = true;
@@ -374,7 +376,14 @@ S$('#sVoiceMode').addEventListener('click', e => {
   const b = e.target.closest('button'); if (!b) return;
   prefs.data.voiceMode = b.dataset.v; prefs.save();
   $$('#sVoiceMode button').forEach(x => x.classList.toggle('on', x === b));
+  S$('#sVoiceNameField').hidden = b.dataset.v === 'iphone';
   J.speak(b.dataset.v === 'jarvis' ? `À votre service, ${prefs.data.name}.` : `Voix de l'iPhone activée, ${prefs.data.name}.`);
+});
+S$('#sVoiceName').addEventListener('click', e => {
+  const b = e.target.closest('button'); if (!b) return;
+  prefs.data.voiceName = b.dataset.v; prefs.save();
+  $$('#sVoiceName button').forEach(x => x.classList.toggle('on', x === b));
+  J.speak(`Bonjour ${prefs.data.name}. Je suis Jarvis, à votre service.`);
 });
 S$('#closeSettings').addEventListener('click', closeSheet);
 S$('#logout').addEventListener('click', () => logout(false));
@@ -529,7 +538,7 @@ function loadQR(){
    Démarrage
    ============================================================ */
 async function enter(isNew){
-  prefs = J.store('core', {name:'Monsieur', voice:true, voiceMode:'jarvis'});
+  prefs = J.store('core', {name:'Monsieur', voice:true, voiceMode:'jarvis', voiceName:'daniel'});
   J.modules.forEach(m => { if (!m.soon && m.init) m.init(); });
   J.go(null);
   if (isNew) J.say(`Bienvenue ${session.user.username}. Compte activé${session.user.isAdmin ? ' avec les droits administrateur' : ''}. Où souhaitez-vous aller ?`);

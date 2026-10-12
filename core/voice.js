@@ -1,8 +1,8 @@
 /* ============================================================
    J.A.R.V.I.S. — moteur de voix
    1. le serveur génère la phrase (Workers AI, voix française)
-   2. on baisse le ton sans changer le débit (WSOLA + rééchantillonnage) :
-      la voix devient plus grave et plus masculine
+   2. voix de repli uniquement : on baisse le ton sans changer le débit
+      (WSOLA + rééchantillonnage) pour la rendre plus grave
    3. chaîne d'effets « assistant IA » : chaleur, présence, léger dédoublement,
       timbre métallique discret, petite réverbération
    4. le réacteur réagit au volume pendant que Jarvis parle
@@ -109,7 +109,7 @@ function buildChain(ac){
   const out = ac.createGain(); out.gain.value = 1.35;
   const analyser = ac.createAnalyser(); analyser.fftSize = 1024;
   mix.connect(comp); comp.connect(out); out.connect(analyser); analyser.connect(ac.destination);
-  return {input, analyser};
+  return {input, analyser, combOut, dblOut, verbOut, presence, warm};
 }
 
 /* WSOLA : change la durée sans changer la hauteur.
@@ -139,21 +139,42 @@ function stretch(x, alpha, sr){
   return y;
 }
 
-const cache = new Map();   // texte -> AudioBuffer traité
-async function render(text){
-  if (cache.has(text)) return cache.get(text);
+/* Intensité des effets selon la voix :
+   - ElevenLabs : voix déjà masculine et naturelle → juste une touche « IA »
+   - Cloudflare (repli) : voix féminine → ton baissé + effets plus marqués */
+const FX = {
+  eleven: {comb:.05, dbl:.1, verb:.08, presence:2.5, warm:1.5, rate:1},
+  melo:   {comb:.16, dbl:.22, verb:.14, presence:4,   warm:3,   rate:PITCH},
+};
+function setFx(engine){
+  const f = FX[engine] || FX.eleven, t = ctx.currentTime;
+  chain.combOut.gain.setValueAtTime(f.comb, t); chain.dblOut.gain.setValueAtTime(f.dbl, t);
+  chain.verbOut.gain.setValueAtTime(f.verb, t); chain.presence.gain.setValueAtTime(f.presence, t);
+  chain.warm.gain.setValueAtTime(f.warm, t);
+  return f;
+}
+
+const cache = new Map();   // texte -> {buf, engine}
+async function render(text, voice){
+  const key = voice + '|' + text;
+  if (cache.has(key)) return cache.get(key);
   const res = await fetch(J.API + '/api/tts', {
     method:'POST', headers:{'Content-Type':'application/json', Authorization:'Bearer ' + J.token()},
-    body:JSON.stringify({text}),
+    body:JSON.stringify({text, voice}),
   });
   if (!res.ok) throw new Error('tts ' + res.status);
+  const engine = res.headers.get('X-Voice-Engine') || 'melo';
   const raw = await ctx.decodeAudioData(await res.arrayBuffer());
-  const y = stretch(raw.getChannelData(0), PITCH, raw.sampleRate);
-  const buf = ctx.createBuffer(1, y.length, raw.sampleRate);
-  buf.getChannelData(0).set(y);
+  let buf = raw;
+  if (engine === 'melo') {
+    const y = stretch(raw.getChannelData(0), PITCH, raw.sampleRate);
+    buf = ctx.createBuffer(1, y.length, raw.sampleRate);
+    buf.getChannelData(0).set(y);
+  }
+  const out = {buf, engine};
   if (cache.size > 30) cache.delete(cache.keys().next().value);
-  cache.set(text, buf);
-  return buf;
+  cache.set(key, out);
+  return out;
 }
 
 /* le réacteur de la vue active pulse avec la voix */
@@ -201,10 +222,11 @@ J.speak = async (text) => {
   const my = ++seq;
   J.$$('.view.active .reactor').forEach(el => el.classList.add('thinking'));
   try {
-    const buf = await render(spoken);
+    const {buf, engine} = await render(spoken, p.voiceName || 'daniel');
     if (my !== seq) return;        // une autre phrase a été demandée entre-temps
+    const fx = setFx(engine);
     const src = ctx.createBufferSource();
-    src.buffer = buf; src.playbackRate.value = PITCH;
+    src.buffer = buf; src.playbackRate.value = fx.rate;
     src.connect(chain.input);
     src.onended = () => { if (current === src) { current = null; meter(false); } };
     current = src; src.start(); meter(true);

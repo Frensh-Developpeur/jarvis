@@ -10,6 +10,13 @@ const MAX_DOC_BYTES = 1_000_000;
 const MODULE_RE = /^[a-z][a-z0-9_-]{0,31}$/;
 const USERNAME_RE = /^[a-zA-Z0-9_.-]{3,24}$/;
 
+/* Voix ElevenLabs proposées (voix par défaut de la bibliothèque, utilisables avec le compte gratuit) */
+const VOICES = {
+  daniel: 'onwK4e9ZLuTAKqWW03F9',   // britannique, posé, autoritaire
+  george: 'JBFqnCBsd6RMkjVDRZzb',   // britannique, chaleureux, mature
+};
+const EL_MODEL = 'eleven_multilingual_v2';
+
 const now = () => Math.floor(Date.now() / 1000);
 
 /* ---------- utilitaires HTTP ---------- */
@@ -241,24 +248,48 @@ const routes = {
     return { ok: true, updatedAt };
   },
 
-  /* Synthèse vocale : renvoie un fichier WAV (mis en cache pour ne pas consommer le quota deux fois) */
+  /* Synthèse vocale : ElevenLabs si une clé est configurée, sinon voix Cloudflare.
+     Chaque phrase générée est gardée en base pour ne jamais consommer le quota deux fois. */
   'POST /api/tts': async (req, env, params, ctx) => {
     const u = await auth(req, env);
-    const { text } = await body(req);
+    const { text, voice } = await body(req);
     const clean = String(text || '').trim().slice(0, 600);
     if (!clean) fail(400, 'Texte vide');
-    const cacheKey = new Request('https://tts.jarvis/' + await sha256('melotts-fr:' + clean));
-    const cache = caches.default;
-    const hit = await cache.match(cacheKey);
-    if (hit) return hit;
+    const voiceId = VOICES[voice] || VOICES.daniel;
+    const useEleven = !!env.ELEVENLABS_API_KEY;
+    const hash = await sha256((useEleven ? 'el:' + voiceId + ':' + EL_MODEL : 'melo') + ':' + clean);
+    const send = (audio, engine, mime) => new Response(audio, { headers: { 'Content-Type': mime, 'X-Voice-Engine': engine, 'Access-Control-Expose-Headers': 'X-Voice-Engine' } });
+
+    const hit = await env.DB.prepare('SELECT engine, mime, audio FROM tts_cache WHERE hash = ?').bind(hash).first();
+    if (hit) return send(new Uint8Array(hit.audio), hit.engine, hit.mime);
+
     const key = 'tts:' + u.id;
     await throttle(env, key, 120, 3600);
     await recordFailure(env, key, 3600);           // compte chaque génération (120 par heure max)
-    const out = await env.AI.run('@cf/myshell-ai/melotts', { prompt: clean, lang: 'fr' });
-    const bin = Uint8Array.from(atob(out.audio), c => c.charCodeAt(0));
-    const res = new Response(bin, { headers: { 'Content-Type': 'audio/wav', 'Cache-Control': 'public, max-age=2592000' } });
-    ctx.waitUntil(cache.put(cacheKey, res.clone()));
-    return res;
+
+    let audio = null, engine = 'melo', mime = 'audio/wav';
+    if (useEleven) {
+      const r = await fetch(`https://api.elevenlabs.io/v1/text-to-speech/${voiceId}?output_format=mp3_44100_128`, {
+        method: 'POST',
+        headers: { 'xi-api-key': env.ELEVENLABS_API_KEY, 'Content-Type': 'application/json', Accept: 'audio/mpeg' },
+        body: JSON.stringify({
+          text: clean, model_id: EL_MODEL, language_code: 'fr',
+          voice_settings: { stability: 0.55, similarity_boost: 0.8, style: 0.15, use_speaker_boost: true, speed: 0.95 },
+        }),
+      });
+      if (r.ok) { audio = new Uint8Array(await r.arrayBuffer()); engine = 'eleven'; mime = 'audio/mpeg'; }
+      else console.log('ElevenLabs', r.status, (await r.text()).slice(0, 300));   // quota épuisé, clé invalide… → repli
+    }
+    if (!audio) {
+      const out = await env.AI.run('@cf/myshell-ai/melotts', { prompt: clean, lang: 'fr' });
+      audio = Uint8Array.from(atob(out.audio), c => c.charCodeAt(0));
+    }
+    // on ne garde le repli Cloudflare que si ElevenLabs n'est pas configuré (sinon on retentera ElevenLabs)
+    if (engine === 'eleven' || !useEleven) {
+      ctx.waitUntil(env.DB.prepare('INSERT OR REPLACE INTO tts_cache (hash, engine, mime, audio, created_at) VALUES (?, ?, ?, ?, ?)')
+        .bind(hash, engine, mime, audio, now()).run());
+    }
+    return send(audio, engine, mime);
   },
 
   /* ---------- administration ---------- */

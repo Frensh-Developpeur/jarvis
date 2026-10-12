@@ -49,3 +49,12 @@ CREATE TABLE IF NOT EXISTS attempts (
   count        INTEGER NOT NULL,
   window_start INTEGER NOT NULL
 );
+
+-- Cache des phrases déjà générées (évite de consommer le quota de synthèse deux fois)
+CREATE TABLE IF NOT EXISTS tts_cache (
+  hash       TEXT PRIMARY KEY,
+  engine     TEXT NOT NULL,
+  mime       TEXT NOT NULL,
+  audio      BLOB NOT NULL,
+  created_at INTEGER NOT NULL
+);
