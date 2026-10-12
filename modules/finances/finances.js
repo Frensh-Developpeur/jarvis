@@ -158,7 +158,7 @@ function render(){
     `<div class="cat"><div class="t"><span>${esc(c)}</span><span>${eur(r2(v))} · ${T.out ? Math.round(v / T.out * 100) : 0}%</span></div><div class="bar"><i style="width:${v / max * 100}%"></i></div></div>`).join('');
   return T;
 }
-const goMonth = n => { cur = shift(cur, n); J.say(status(render())); };
+const goMonth = n => { J.haptic(); cur = shift(cur, n); J.say(status(render())); };
 
 /* ---------- éditeur ---------- */
 let editing = null, eType = 'out';
@@ -214,7 +214,7 @@ function saveEditor(){
     }
     J.toast('Modifications enregistrées');
   }
-  save(); J.closeSheet(); render();
+  J.haptic(); save(); J.closeSheet(); render();
 }
 function del(mode){
   const D = S();
@@ -268,7 +268,7 @@ J.module({
     root.addEventListener('click', e => {
       const row = e.target.closest('.row'); if (!row) return;
       const t = S().tx.find(x => x.id === row.dataset.id); if (!t) return;
-      if (e.target.closest('[data-act="toggle"]')) { t.done = !t.done; save(); render(); if (navigator.vibrate) navigator.vibrate(10); }
+      if (e.target.closest('[data-act="toggle"]')) { t.done = !t.done; save(); render(); J.haptic(); }
       else openEditor(t);
     });
     /* glisser à gauche/droite = changer de mois */

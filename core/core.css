@@ -15,6 +15,24 @@
 }
 *{box-sizing:border-box;-webkit-tap-highlight-color:transparent}
 html,body{margin:0;background:var(--bg);color:var(--text);font-family:var(--ui);font-size:17px;overscroll-behavior:none}
+
+/* ---------- comportement « app native » ---------- */
+html{-webkit-text-size-adjust:100%;text-size-adjust:100%;-webkit-font-smoothing:antialiased;scrollbar-width:none}
+::-webkit-scrollbar{display:none;width:0;height:0}
+*{scrollbar-width:none}
+body{
+  -webkit-user-select:none;user-select:none;          /* pas de sélection de texte */
+  -webkit-touch-callout:none;                          /* pas de menu au clic long */
+  touch-action:manipulation;                           /* pas de zoom au double-tap */
+}
+img,svg,a{-webkit-user-drag:none}
+input,textarea,[contenteditable]{-webkit-user-select:text;user-select:text;-webkit-touch-callout:default}
+/* retour visuel au toucher, comme les boutons iOS */
+button,.btn,.tile,.row{transition:transform .12s ease,filter .12s ease,background-color .12s ease}
+button:active,.btn:active{transform:scale(.96);filter:brightness(1.25)}
+.fab:active{transform:translateX(-50%) scale(.92)}
+.row:active{transform:none}
+.sheet.dragging{transition:none}
 body{
   min-height:100dvh;
   background:

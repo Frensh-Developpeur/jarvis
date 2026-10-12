@@ -8,7 +8,7 @@
    ============================================================ */
 'use strict';
 (() => {
-const APP_VERSION = '4';
+const APP_VERSION = '5';
 const API = location.hostname === 'localhost' ? 'http://localhost:8787' : 'https://jarvis-api.frensh-developpeur.workers.dev';
 const APP_URL = 'https://frensh-developpeur.github.io/jarvis/';
 
@@ -189,10 +189,46 @@ J.toast = (t) => { const el = $('#toast'); el.textContent = t; el.classList.add(
    ============================================================ */
 let openSheetEl = null;
 const veil = $('#veil');
-function openSheet(el){ openSheetEl = el; veil.classList.add('show'); el.classList.add('show'); }
+function openSheet(el){ J.haptic && J.haptic(); openSheetEl = el; veil.classList.add('show'); el.classList.add('show'); }
 function closeSheet(){ if (!openSheetEl) return; openSheetEl.classList.remove('show'); veil.classList.remove('show'); openSheetEl = null; document.activeElement && document.activeElement.blur(); }
 J.openSheet = openSheet; J.closeSheet = closeSheet; J.sheetOpen = () => !!openSheetEl;
 veil.addEventListener('click', closeSheet);
+
+/* glisser une feuille vers le bas pour la fermer (comme sur iOS) */
+let drag = null;
+document.addEventListener('touchstart', e => {
+  const sh = e.target.closest('.sheet.show');
+  if (!sh || sh.scrollTop > 0 || e.target.closest('input,select,textarea')) return;
+  drag = {sh, y:e.touches[0].clientY, dy:0, t:Date.now()};
+}, {passive:true});
+document.addEventListener('touchmove', e => {
+  if (!drag) return;
+  drag.dy = Math.max(0, e.touches[0].clientY - drag.y);
+  if (drag.dy > 6) { drag.sh.classList.add('dragging'); drag.sh.style.transform = `translateY(${drag.dy}px)`; }
+}, {passive:true});
+document.addEventListener('touchend', () => {
+  if (!drag) return;
+  const {sh, dy, t} = drag; drag = null;
+  sh.classList.remove('dragging'); sh.style.transform = '';
+  if (dy > 110 || (dy > 40 && dy / (Date.now() - t) > .6)) { J.haptic(); closeSheet(); }
+});
+
+/* ============================================================
+   Réflexes natifs
+   ============================================================ */
+/* Vibration légère. iOS n'a pas navigator.vibrate : depuis iOS 18, activer un interrupteur
+   natif (<input switch>) déclenche le retour haptique du système. */
+const hapticEl = (() => {
+  const l = document.createElement('label'), i = document.createElement('input');
+  i.type = 'checkbox'; i.setAttribute('switch', ''); l.appendChild(i);
+  l.style.cssText = 'position:fixed;left:-99px;top:0;opacity:0;pointer-events:none';
+  l.setAttribute('aria-hidden', 'true'); document.body.appendChild(l);
+  return l;
+})();
+J.haptic = () => { if (navigator.vibrate) navigator.vibrate(8); else hapticEl.click(); };
+document.addEventListener('contextmenu', e => { if (!e.target.closest('input,textarea')) e.preventDefault(); });
+document.addEventListener('gesturestart', e => e.preventDefault());   // pas de zoom à deux doigts
+document.addEventListener('dblclick', e => e.preventDefault(), {passive:false});
 
 /* ============================================================
    Réacteur (SVG réutilisable)
@@ -269,7 +305,7 @@ J.go = (id) => {
   showView(view);
   mod.mount($('.mod-body', view), $('.mod-fixed', view));
 };
-$('#modview').addEventListener('click', e => { if (e.target.closest('[data-back]')) J.go(null); });
+$('#modview').addEventListener('click', e => { if (e.target.closest('[data-back]')) { J.haptic(); J.go(null); } });
 
 /* glisser depuis le bord gauche = retour au hub */
 let edge = null;
@@ -280,7 +316,7 @@ document.addEventListener('touchstart', e => {
 document.addEventListener('touchend', e => {
   if (!edge) return;
   const t = e.changedTouches[0];
-  if (t.clientX - edge.x > 70 && Math.abs(t.clientY - edge.y) < 60) J.go(null);
+  if (t.clientX - edge.x > 70 && Math.abs(t.clientY - edge.y) < 60) { J.haptic(); J.go(null); }
   edge = null;
 }, {passive:true});
 J.fromEdge = () => !!edge;
@@ -311,6 +347,7 @@ function renderHub(){
 $('#tiles').addEventListener('click', e => {
   const b = e.target.closest('[data-mod]'); if (!b) return;
   const m = J.modules.find(x => x.id === b.dataset.mod);
+  J.haptic();
   if (m.soon) { J.say(`Le module ${m.name} est en cours de développement, ${prefs.data.name}. ${m.tagline ? m.tagline + '.' : ''}`); return; }
   J.go(m.id);
 });
