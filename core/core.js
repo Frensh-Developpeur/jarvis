@@ -8,7 +8,7 @@
    ============================================================ */
 'use strict';
 (() => {
-const APP_VERSION = '5';
+const APP_VERSION = '6';
 const API = location.hostname === 'localhost' ? 'http://localhost:8787' : 'https://jarvis-api.frensh-developpeur.workers.dev';
 const APP_URL = 'https://frensh-developpeur.github.io/jarvis/';
 
@@ -227,7 +227,8 @@ const hapticEl = (() => {
 })();
 J.haptic = () => { if (navigator.vibrate) navigator.vibrate(8); else hapticEl.click(); };
 document.addEventListener('contextmenu', e => { if (!e.target.closest('input,textarea')) e.preventDefault(); });
-document.addEventListener('gesturestart', e => e.preventDefault());   // pas de zoom à deux doigts
+document.addEventListener('gesturestart', e => e.preventDefault());
+try { screen.orientation.lock('portrait').catch(() => {}); } catch(e) {}   // Android ; ignoré par iOS (écran « tournez le téléphone » à la place)   // pas de zoom à deux doigts
 document.addEventListener('dblclick', e => e.preventDefault(), {passive:false});
 
 /* ============================================================

@@ -206,3 +206,16 @@ a.btn{text-align:center;text-decoration:none}
 .arow code{font-family:var(--hud);color:var(--cyan);letter-spacing:.12em}
 .invite-code{font-family:var(--hud);font-size:30px;font-weight:700;letter-spacing:.25em;text-align:center;color:var(--cyan);
   text-shadow:0 0 14px rgba(63,224,255,.7);padding:14px;border:1px solid var(--line);border-radius:12px;margin-top:6px;background:rgba(63,224,255,.05)}
+
+/* ---------- portrait uniquement ----------
+   iOS ne permet pas de bloquer la rotation d'une web app : en paysage on masque l'app
+   et on affiche un écran qui demande de tourner le téléphone. */
+.rotate{display:none}
+@media (orientation:landscape) and (max-height:540px){
+  .rotate{position:fixed;inset:0;z-index:100;display:flex;flex-direction:column;align-items:center;justify-content:center;gap:18px;background:var(--bg)}
+  .rotate svg{width:74px;height:74px;color:var(--cyan);filter:drop-shadow(0 0 10px rgba(63,224,255,.7));animation:tilt 2.4s ease-in-out infinite}
+  .rotate p{margin:0;font-family:var(--hud);font-size:11px;letter-spacing:.3em;color:var(--cyan);text-shadow:0 0 10px var(--cyan)}
+  .rotate small{font-size:13px;color:var(--muted)}
+  .wrap,.sheet,.fab,.veil,.notch{visibility:hidden}
+}
+@keyframes tilt{0%,30%{transform:rotate(-90deg)}60%,100%{transform:rotate(0)}}
