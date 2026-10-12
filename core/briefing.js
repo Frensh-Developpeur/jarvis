@@ -192,21 +192,15 @@ J.renderBriefing = () => {
 
   const ag = agenda(), rm = reminders(), synced = appleDoc().syncedAt;
   if (!synced) {
-    html.push(card({cls:'wide setup', icon:I.link, title:'CONNECTER L\'IPHONE', act:'guide',
-      body:'<p class="bs">Santé, Calendrier et Rappels : configurez le raccourci pour que je puisse préparer votre journée.</p><span class="cta">CONFIGURER ▸</span>'}));
-  } else {
-    html.push(card({cls:'wide', icon:I.cal, title:'AGENDA', right:ag ? ag.items.length + ' évén.' : '', body:
-      !ag ? `<p class="bs">Pas encore synchronisé aujourd'hui.</p>`
-      : !ag.items.length ? '<p class="bs">Aucun événement aujourd\'hui. Journée libre.</p>'
-      : '<ul class="blist">' + ag.items.map(e => {
-          const past = e.mins !== null && e.mins < ag.nowM - 5, isNext = e === ag.next;
-          return `<li class="${past ? 'past' : ''} ${isNext ? 'next' : ''}"><span class="bt2">${e.time || '—'}</span><span>${esc(e.title)}</span>${isNext ? `<em>${e.mins > ag.nowM ? inMins(e.mins - ag.nowM) : 'maintenant'}</em>` : ''}</li>`;
-        }).join('') + '</ul>'}));
-    html.push(card({cls:'wide', icon:I.check, title:'RAPPELS', right:rm ? rm.items.length : '', body:
-      !rm ? `<p class="bs">Pas encore synchronisé aujourd'hui.</p>`
-      : !rm.items.length ? '<p class="bs">Rien à faire aujourd\'hui. Profitez-en.</p>'
-      : '<ul class="blist">' + rm.items.map(t => `<li><span class="dot"></span><span>${esc(t)}</span></li>`).join('') + '</ul>'}));
+    html.push(card({cls:'wide setup', icon:I.link, title:'CONNECTER APPLE SANTÉ', act:'guide',
+      body:'<p class="bs">Vos pas et votre énergie active dans le briefing : configurez le raccourci iPhone (5 min).</p><span class="cta">CONFIGURER ▸</span>'}));
   }
+  /* agenda et rappels : affichés seulement si le raccourci les envoie (facultatif) */
+  if (ag && ag.items.length) html.push(card({cls:'wide', icon:I.cal, title:'AGENDA', right:ag.items.length + ' évén.', body:'<ul class="blist">' + ag.items.map(e => {
+      const past = e.mins !== null && e.mins < ag.nowM - 5, isNext = e === ag.next;
+      return `<li class="${past ? 'past' : ''} ${isNext ? 'next' : ''}"><span class="bt2">${e.time || '—'}</span><span>${esc(e.title)}</span>${isNext ? `<em>${e.mins > ag.nowM ? inMins(e.mins - ag.nowM) : 'maintenant'}</em>` : ''}</li>`;
+    }).join('') + '</ul>'}));
+  if (rm && rm.items.length) html.push(card({cls:'wide', icon:I.check, title:'RAPPELS', right:rm.items.length, body:'<ul class="blist">' + rm.items.map(t => `<li><span class="dot"></span><span>${esc(t)}</span></li>`).join('') + '</ul>'}));
 
   moduleCards().forEach(c => html.push(card(c)));
   html.push(card({cls:'wide quip', icon:I.spark, title:'NOTE DE JARVIS', body:`<p class="bs">« ${esc(quip())} »</p>`}));

@@ -145,7 +145,7 @@
 
   <p class="note" id="sUsage"></p>
   <div class="field" style="margin-top:12px"><label>VILLE POUR LA MÉTÉO (VIDE = MA POSITION)</label><input id="sCity" maxlength="60" autocomplete="off" placeholder="Ex : Lyon"></div>
-  <button class="btn" id="openGuide">CONNECTER L'IPHONE (SANTÉ, AGENDA, RAPPELS)</button>
+  <button class="btn" id="openGuide">CONNECTER APPLE SANTÉ (PAS, CALORIES)</button>
 
   <div class="toggle" style="margin-top:14px"><span>Compte<small id="sAccount"></small></span><button class="mini red" id="logout">DÉCONNEXION</button></div>
   <p class="note">Vos données sont enregistrées sur votre compte et synchronisées entre vos appareils.</p>
@@ -167,8 +167,8 @@
 <!-- ============ GUIDE RACCOURCI IPHONE ============ -->
 <div class="sheet guide" id="guide" role="dialog" aria-label="Connecter l'iPhone">
   <div class="grab"></div>
-  <h2>CONNEXION IPHONE</h2>
-  <p class="note">Apple ne laisse pas les web apps lire Santé, Calendrier et Rappels. L'app <b>Raccourcis</b> le peut : elle m'enverra ces informations plusieurs fois par jour. Configuration unique, environ 10 minutes.</p>
+  <h2>CONNEXION APPLE SANTÉ</h2>
+  <p class="note">Apple ne laisse pas les web apps lire l'app Santé. L'app <b>Raccourcis</b> le peut : elle m'enverra vos <b>pas</b> et votre <b>énergie active</b> plusieurs fois par jour. Configuration unique, environ 5 minutes.</p>
 
   <h3>1 · VOTRE LIEN PERSONNEL</h3>
   <button class="btn primary" id="gGen">GÉNÉRER MON LIEN</button>
@@ -195,29 +195,7 @@
       <li><b>Définir la variable</b> → nom <b>Energie</b>.</li>
     </ol></div></div>
 
-  <div class="gstep"><span class="gn">C</span><div><b>Le sommeil</b> <span class="opt">FACULTATIF</span>
-    <ol>
-      <li><b>Rechercher des échantillons de santé</b> → Type <i>Analyse du sommeil</i> → filtre <i>Date de début</i> <i>dans les derniers</i> <i>1 jours</i> → 2<sup>e</sup> filtre <i>Valeur</i> <i>n'est pas</i> <i>Au lit</i> (sinon le temps au lit est compté en double).</li>
-      <li><b>Calculer des statistiques</b> → <i>Somme</i>.</li>
-      <li><b>Définir la variable</b> → nom <b>Sommeil</b>.</li>
-    </ol></div></div>
-
-  <div class="gstep"><span class="gn">D</span><div><b>L'agenda</b>
-    <ol>
-      <li><b>Rechercher des événements de calendrier</b> → filtre <i>Date de début est aujourd'hui</i> → <i>Trier par</i> : <i>Date de début</i>, <i>Ordre</i> : <i>Plus ancien en premier</i>.</li>
-      <li><b>Répéter avec chaque élément</b>.</li>
-      <li>Glissez une action <b>Texte</b> <u>entre</u> « Répéter » et « Fin de la répétition ». Dans le champ, touchez <i>Élément répété</i> (au-dessus du clavier) → il s'insère → touchez-le → <i>Date de début</i>, puis <i>Format de date</i> : <i>Aucun</i>, <i>Format d'heure</i> : <i>Court</i>. Tapez un espace, puis insérez à nouveau <i>Élément répété</i> → touchez-le → <i>Titre</i>.<br><span class="muted">Le champ doit ressembler à : <code>[Date de début] [Titre]</code></span></li>
-      <li>Après « Fin de la répétition » : <b>Combiner du texte</b> → vérifiez qu'il combine <i>Résultats de la répétition</i> → touchez <i>Espaces</i> → choisissez <i>Nouvelles lignes</i>.</li>
-      <li><b>Définir la variable</b> → nom <b>Agenda</b>.</li>
-    </ol></div></div>
-
-  <div class="gstep"><span class="gn">E</span><div><b>Les rappels</b>
-    <ol>
-      <li><b>Rechercher des rappels</b> → <i>Ajouter un filtre</i> → <i>Est terminé</i> <i>n'est pas</i> activé, puis un 2<sup>e</sup> filtre <i>Date d'échéance</i> <i>est aujourd'hui</i>.</li>
-      <li><b>Définir la variable</b> → nom <b>Rappels</b>.</li>
-    </ol></div></div>
-
-  <div class="gstep key"><span class="gn">F</span><div><b>L'envoi à Jarvis</b> — l'étape importante
+  <div class="gstep key"><span class="gn">C</span><div><b>L'envoi à Jarvis</b> — l'étape importante
     <ol>
       <li>Ajoutez <b>Obtenir le contenu de l'URL</b>.</li>
       <li>Touchez le champ <i>URL</i> (texte bleu) → <b>collez votre lien</b> (étape 1).</li>
@@ -230,9 +208,6 @@
           <tr><th>Clé</th><th>Type</th><th>Valeur (variable)</th></tr>
           <tr><td><code>steps</code></td><td>Texte</td><td><b>Pas</b></td></tr>
           <tr><td><code>energy</code></td><td>Texte</td><td><b>Energie</b></td></tr>
-          <tr><td><code>sleep</code></td><td>Texte</td><td><b>Sommeil</b> <span class="muted">(si C)</span></td></tr>
-          <tr><td><code>agenda</code></td><td>Texte</td><td><b>Agenda</b></td></tr>
-          <tr><td><code>reminders</code></td><td>Texte</td><td><b>Rappels</b></td></tr>
         </table>
       </li>
     </ol>
@@ -243,16 +218,13 @@
       <div class="mr"><span>Corps de la requête</span><b>JSON</b></div>
       <div class="mr f"><span>steps</span><i>Pas</i></div>
       <div class="mr f"><span>energy</span><i>Energie</i></div>
-      <div class="mr f"><span>sleep</span><i>Sommeil</i></div>
-      <div class="mr f"><span>agenda</span><i>Agenda</i></div>
-      <div class="mr f"><span>reminders</span><i>Rappels</i></div>
       <div class="mcap">Voilà à quoi doit ressembler l'action une fois remplie</div>
     </div>
     <p class="note"><b>Pièges fréquents :</b> une clé avec une majuscule ou un espace (<code>Steps</code>, <code>steps </code>) · la méthode restée sur <i>GET</i> · le corps en <i>Formulaire</i> au lieu de <i>JSON</i> · la valeur tapée à la main au lieu d'être choisie dans les variables (elle doit apparaître dans une bulle bleue).</p>
     </div></div>
 
   <h3>3 · TESTER</h3>
-  <p class="note">Touchez <b>▶</b> en bas du raccourci. La première fois, iOS demande l'accès à Santé, Calendrier et Rappels : <b>autorisez tout</b> (pour Santé, activez <i>Nombre de pas</i>, <i>Énergie active</i> et <i>Sommeil</i>). Le raccourci doit se terminer sans erreur. Revenez ici :</p>
+  <p class="note">Touchez <b>▶</b> en bas du raccourci. La première fois, iOS demande l'accès à Santé : <b>autorisez</b> <i>Nombre de pas</i> et <i>Énergie active</i>. Le raccourci doit se terminer sans erreur. Revenez ici :</p>
   <button class="btn" id="gCheck">VÉRIFIER LA RÉCEPTION</button>
   <div class="gcheck" id="gCheckOut" hidden></div>
 

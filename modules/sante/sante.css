@@ -19,3 +19,7 @@
 .sante .goals label{font-size:13px;color:var(--muted)}
 .sante .goals input{display:block;width:100%;margin-top:6px;background:rgba(63,224,255,.05);border:1px solid var(--line);border-radius:10px;padding:10px;font-size:17px;font-family:var(--hud);color:var(--cyan);outline:none}
 .sante .sync-row{display:block;margin-top:12px}
+.sante .two-rings{gap:14px}
+.sante .two-rings .ring .rc b{font-size:24px}
+.sante .bars.pink .bar-t i{background:linear-gradient(0deg,#b8325f,#ff5f8f);box-shadow:0 0 8px rgba(255,95,143,.5)}
+.sante .note.center{text-align:center;margin:6px 0 0}
