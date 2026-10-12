@@ -15,167 +15,8 @@
 <link rel="preconnect" href="https://fonts.googleapis.com">
 <link rel="preconnect" href="https://fonts.gstatic.com" crossorigin>
 <link href="https://fonts.googleapis.com/css2?family=Orbitron:wght@500;700;900&family=Rajdhani:wght@500;600;700&display=swap" rel="stylesheet">
-<style>
-:root{
-  --bg:#02060c; --bg2:#061423;
-  --cyan:#3fe0ff; --cyan2:#1aa7d1; --cyan-dim:rgba(63,224,255,.18); --line:rgba(63,224,255,.22);
-  --text:#d4f3ff; --muted:#6c97ab;
-  --red:#ff4d3d; --gold:#ffb347; --green:#4dffc3;
-  --panel:rgba(10,40,60,.35);
-  --hud:"Orbitron","Avenir Next","Helvetica Neue",system-ui,sans-serif;
-  --ui:"Rajdhani","Avenir Next Condensed","Helvetica Neue",system-ui,sans-serif;
-  color-scheme:dark;
-}
-*{box-sizing:border-box;-webkit-tap-highlight-color:transparent}
-html,body{margin:0;background:var(--bg);color:var(--text);font-family:var(--ui);font-size:17px;overscroll-behavior:none}
-body{
-  min-height:100dvh;
-  background:
-    radial-gradient(120% 60% at 50% 0%, rgba(26,167,209,.18), transparent 60%),
-    linear-gradient(rgba(63,224,255,.035) 1px, transparent 1px) 0 0/100% 28px,
-    linear-gradient(90deg, rgba(63,224,255,.035) 1px, transparent 1px) 0 0/28px 100%,
-    var(--bg);
-  background-attachment:fixed;
-}
-body::after{content:"";position:fixed;inset:0;pointer-events:none;
-  background:repeating-linear-gradient(0deg, rgba(0,0,0,.18) 0 1px, transparent 1px 3px);opacity:.35}
-button,input,select{font:inherit;color:inherit}
-button{cursor:pointer}
-.wrap{max-width:540px;margin:0 auto;padding:calc(env(safe-area-inset-top, 0px) + 14px) max(16px, env(safe-area-inset-right, 0px)) calc(env(safe-area-inset-bottom, 0px) + 110px) max(16px, env(safe-area-inset-left, 0px))}
-/* masque sous l'encoche / Dynamic Island : le contenu ne passe plus sous l'heure en scrollant */
-.notch{position:fixed;top:0;left:0;right:0;height:env(safe-area-inset-top, 0px);z-index:8;pointer-events:none;
-  background:linear-gradient(180deg,var(--bg) 70%,rgba(2,6,12,.85));box-shadow:0 1px 0 rgba(63,224,255,.18),0 6px 14px rgba(2,6,12,.9)}
-
-/* header */
-.top{display:flex;align-items:center;justify-content:space-between}
-.brand{font-family:var(--hud);font-weight:900;letter-spacing:.35em;font-size:15px;color:var(--cyan);text-shadow:0 0 10px rgba(63,224,255,.7)}
-.brand small{display:block;font-family:var(--ui);font-weight:600;letter-spacing:.2em;font-size:10px;color:var(--muted);text-shadow:none;margin-top:2px}
-.icon-btn{width:40px;height:40px;border-radius:50%;border:1px solid var(--line);background:var(--panel);display:grid;place-items:center;color:var(--cyan)}
-.icon-btn svg{width:20px;height:20px}
-
-.msg{margin:14px 0 6px;min-height:46px;font-size:15px;line-height:1.35;color:var(--text);border-left:2px solid var(--cyan);padding:4px 0 4px 10px;background:linear-gradient(90deg,rgba(63,224,255,.08),transparent)}
-.msg .cursor{display:inline-block;width:7px;height:14px;background:var(--cyan);margin-left:2px;vertical-align:-2px;animation:blink 1s steps(1) infinite}
-@keyframes blink{50%{opacity:0}}
-
-.month{display:flex;align-items:center;justify-content:space-between;margin:10px 0 0}
-.month button{background:none;border:1px solid var(--line);color:var(--cyan);width:38px;height:38px;border-radius:8px;font-size:20px}
-.month .lbl{font-family:var(--hud);letter-spacing:.18em;text-transform:uppercase;font-size:14px;font-weight:700;text-align:center}
-.month .lbl small{display:block;font-family:var(--ui);font-size:11px;letter-spacing:.15em;color:var(--muted);font-weight:600;margin-top:2px}
-
-/* reactor */
-.reactor{position:relative;width:min(78vw,300px);aspect-ratio:1;margin:12px auto 4px;cursor:pointer}
-.reactor svg{position:absolute;inset:0;width:100%;height:100%;overflow:visible}
-.spin{transform-origin:120px 120px;animation:spin 28s linear infinite}
-.spin.rev{animation-duration:18s;animation-direction:reverse}
-.spin.fast{animation-duration:9s}
-@keyframes spin{to{transform:rotate(360deg)}}
-.core{position:absolute;inset:0;display:flex;flex-direction:column;align-items:center;justify-content:center;text-align:center;pointer-events:none}
-.core .k{font-family:var(--hud);font-size:10px;letter-spacing:.3em;color:var(--muted)}
-.core .v{font-family:var(--hud);font-weight:700;font-size:clamp(22px,7.4vw,30px);color:var(--cyan);text-shadow:0 0 14px rgba(63,224,255,.75);margin:6px 0 4px;white-space:nowrap}
-.core .v.neg{color:var(--red);text-shadow:0 0 14px rgba(255,77,61,.7)}
-.core .s{font-size:13px;color:var(--muted);letter-spacing:.05em}
-.core .s b{color:var(--text);font-weight:600}
-.pulse{animation:pulse 3.2s ease-in-out infinite}
-@keyframes pulse{50%{opacity:.55}}
-
-/* stats */
-.stats{display:grid;grid-template-columns:repeat(3,minmax(0,1fr));gap:8px;margin-top:8px}
-.stat{border:1px solid var(--line);background:var(--panel);border-radius:10px;padding:10px 8px;position:relative;overflow:hidden}
-.stat::before{content:"";position:absolute;left:0;top:0;width:14px;height:2px;background:currentColor}
-.stat .k{font-family:var(--hud);font-size:9px;letter-spacing:.2em;color:var(--muted)}
-.stat .v{font-family:var(--hud);font-weight:700;font-size:14px;margin-top:6px;white-space:nowrap;overflow:hidden;text-overflow:ellipsis}
-.stat.in{color:var(--green)} .stat.out{color:var(--red)} .stat.left{color:var(--cyan)}
-.stat .s{font-size:12px;color:var(--muted);margin-top:2px}
-
-/* panels */
-.panel{margin-top:16px;border:1px solid var(--line);border-radius:12px;background:var(--panel);position:relative}
-.panel::before,.panel::after{content:"";position:absolute;width:10px;height:10px;border-color:var(--cyan);border-style:solid;opacity:.8}
-.panel::before{top:-1px;left:-1px;border-width:2px 0 0 2px;border-top-left-radius:12px}
-.panel::after{bottom:-1px;right:-1px;border-width:0 2px 2px 0;border-bottom-right-radius:12px}
-.ph{display:flex;justify-content:space-between;align-items:center;padding:12px 14px 8px;font-family:var(--hud);font-size:11px;letter-spacing:.22em;color:var(--cyan)}
-.ph span:last-child{color:var(--muted);font-family:var(--ui);letter-spacing:.05em;font-size:13px}
-
-.filters{display:flex;gap:6px;margin-top:16px}
-.filters button{flex:1;padding:8px 0;border-radius:8px;border:1px solid var(--line);background:transparent;color:var(--muted);font-family:var(--hud);font-size:10px;letter-spacing:.18em}
-.filters button.on{color:var(--bg);background:var(--cyan);border-color:var(--cyan);box-shadow:0 0 14px rgba(63,224,255,.5)}
-
-.row{display:flex;align-items:center;gap:12px;padding:11px 14px;border-top:1px solid rgba(63,224,255,.08)}
-.row:active{background:rgba(63,224,255,.06)}
-.chk{flex:none;width:26px;height:26px;border-radius:50%;border:1.5px dashed var(--muted);background:transparent;display:grid;place-items:center;padding:0}
-.chk.on{border:1.5px solid var(--cyan);background:rgba(63,224,255,.15);box-shadow:0 0 10px rgba(63,224,255,.45)}
-.chk.on::after{content:"";width:10px;height:10px;border-radius:50%;background:var(--cyan)}
-.info{flex:1;min-width:0}
-.info .l{font-weight:600;font-size:16px;white-space:nowrap;overflow:hidden;text-overflow:ellipsis}
-.info .m{font-size:13px;color:var(--muted);margin-top:1px}
-.tag{display:inline-block;font-size:10px;font-family:var(--hud);letter-spacing:.12em;padding:1px 5px;border-radius:4px;border:1px solid var(--line);color:var(--cyan);margin-left:6px;vertical-align:2px}
-.tag.plan{color:var(--gold);border-color:rgba(255,179,71,.35)}
-.amt{font-family:var(--hud);font-weight:700;font-size:14px;white-space:nowrap}
-.amt.in{color:var(--green)} .amt.out{color:var(--text)}
-.row.planned .amt{opacity:.65}
-.empty{padding:18px 14px 20px;color:var(--muted);font-size:14px;text-align:center}
-
-.cat{padding:8px 14px}
-.cat .t{display:flex;justify-content:space-between;font-size:14px;margin-bottom:5px}
-.cat .t span:last-child{font-family:var(--hud);font-size:12px;color:var(--muted)}
-.bar{height:5px;background:rgba(63,224,255,.08);border-radius:3px;overflow:hidden}
-.bar i{display:block;height:100%;background:linear-gradient(90deg,var(--cyan2),var(--cyan));box-shadow:0 0 8px var(--cyan)}
-.cat:last-child{padding-bottom:14px}
-
-/* fab */
-.fab{position:fixed;left:50%;transform:translateX(-50%);bottom:calc(env(safe-area-inset-bottom) + 22px);width:66px;height:66px;border-radius:50%;
-  border:2px solid var(--cyan);background:radial-gradient(circle,#0b3a52 0%,#03121d 70%);color:var(--cyan);font-size:34px;line-height:1;
-  box-shadow:0 0 22px rgba(63,224,255,.55), inset 0 0 18px rgba(63,224,255,.35);z-index:5}
-.fab::before{content:"";position:absolute;inset:-8px;border-radius:50%;border:1px dashed rgba(63,224,255,.45);animation:spin 14s linear infinite}
-
-/* sheets */
-.veil{position:fixed;inset:0;background:rgba(0,6,12,.72);backdrop-filter:blur(4px);-webkit-backdrop-filter:blur(4px);z-index:10;opacity:0;pointer-events:none;transition:opacity .2s}
-.veil.show{opacity:1;pointer-events:auto}
-.sheet{position:fixed;left:0;right:0;bottom:0;z-index:11;max-width:540px;margin:0 auto;max-height:calc(100dvh - env(safe-area-inset-top, 0px) - 12px);overflow:auto;
-  background:linear-gradient(180deg,#071b2b,#030b13);border:1px solid var(--line);border-bottom:none;border-radius:18px 18px 0 0;
-  padding:10px max(18px, env(safe-area-inset-right, 0px)) calc(env(safe-area-inset-bottom, 0px) + 18px) max(18px, env(safe-area-inset-left, 0px));transform:translateY(105%);transition:transform .28s cubic-bezier(.2,.8,.2,1);
-  box-shadow:0 -10px 40px rgba(63,224,255,.12)}
-.sheet.show{transform:none}
-.grab{width:42px;height:4px;border-radius:2px;background:var(--line);margin:0 auto 12px}
-.sheet h2{font-family:var(--hud);font-size:13px;letter-spacing:.28em;color:var(--cyan);margin:0 0 14px;font-weight:700}
-.seg{display:grid;grid-template-columns:1fr 1fr;border:1px solid var(--line);border-radius:10px;overflow:hidden;margin-bottom:14px}
-.seg button{padding:11px 0;border:none;background:transparent;color:var(--muted);font-family:var(--hud);font-size:11px;letter-spacing:.2em}
-.seg button.on[data-v="out"]{background:rgba(255,77,61,.16);color:var(--red)}
-.seg button.on[data-v="in"]{background:rgba(77,255,195,.12);color:var(--green)}
-.field{margin-bottom:12px}
-.field label{display:block;font-family:var(--hud);font-size:9px;letter-spacing:.22em;color:var(--muted);margin-bottom:6px}
-.field input,.field select{width:100%;background:rgba(63,224,255,.05);border:1px solid var(--line);border-radius:10px;padding:12px;font-size:17px;outline:none;-webkit-appearance:none;appearance:none}
-.field input:focus,.field select:focus{border-color:var(--cyan);box-shadow:0 0 0 3px rgba(63,224,255,.12)}
-.field input.big{font-family:var(--hud);font-size:28px;font-weight:700;color:var(--cyan);text-align:center;padding:14px}
-.two{display:grid;grid-template-columns:1.4fr 1fr;gap:10px}
-.toggle{display:flex;align-items:center;justify-content:space-between;padding:12px 0;border-top:1px solid rgba(63,224,255,.08)}
-.toggle span{font-size:16px}
-.toggle span small{display:block;font-size:12px;color:var(--muted)}
-.sw{position:relative;width:50px;height:30px;flex:none}
-.sw input{opacity:0;position:absolute;inset:0;margin:0;z-index:1}
-.sw i{position:absolute;inset:0;border-radius:15px;border:1px solid var(--line);background:rgba(63,224,255,.05);transition:.2s}
-.sw i::after{content:"";position:absolute;top:3px;left:3px;width:22px;height:22px;border-radius:50%;background:var(--muted);transition:.2s}
-.sw input:checked+i{background:rgba(63,224,255,.2);border-color:var(--cyan)}
-.sw input:checked+i::after{left:23px;background:var(--cyan);box-shadow:0 0 10px var(--cyan)}
-.btn{display:block;width:100%;padding:14px;border-radius:12px;border:1px solid var(--cyan);background:rgba(63,224,255,.14);color:var(--cyan);
-  font-family:var(--hud);font-size:12px;letter-spacing:.25em;font-weight:700;margin-top:10px}
-.btn.primary{background:var(--cyan);color:var(--bg);box-shadow:0 0 18px rgba(63,224,255,.45)}
-.btn.danger{border-color:rgba(255,77,61,.5);color:var(--red);background:rgba(255,77,61,.08)}
-.btn.ghost{border-color:var(--line);color:var(--muted);background:transparent}
-.note{font-size:13px;color:var(--muted);line-height:1.4;margin:6px 0 4px}
-
-/* boot */
-.boot{position:fixed;inset:0;padding:env(safe-area-inset-top, 0px) 0 env(safe-area-inset-bottom, 0px);z-index:50;background:var(--bg);display:flex;flex-direction:column;align-items:center;justify-content:center;transition:opacity .5s}
-.boot.done{opacity:0;pointer-events:none}
-.boot svg{width:140px;height:140px}
-.boot p{font-family:var(--hud);letter-spacing:.4em;font-size:12px;color:var(--cyan);margin-top:22px;text-shadow:0 0 10px var(--cyan)}
-.boot small{font-size:11px;letter-spacing:.2em;color:var(--muted);margin-top:6px;font-family:var(--hud)}
-
-.toast{position:fixed;left:50%;top:calc(env(safe-area-inset-top, 0px) + 14px);transform:translate(-50%,-200px);opacity:0;visibility:hidden;z-index:60;background:#062033;border:1px solid var(--cyan);
-  color:var(--cyan);padding:10px 16px;border-radius:10px;font-size:14px;transition:transform .25s,opacity .25s,visibility .25s;box-shadow:0 0 18px rgba(63,224,255,.35);max-width:90vw}
-.toast.show{transform:translate(-50%,0);opacity:1;visibility:visible}
-
-@media (prefers-reduced-motion:reduce){.spin,.fab::before,.pulse{animation:none}}
-</style>
+<link rel="stylesheet" href="core/core.css">
+<link rel="stylesheet" href="modules/finances/finances.css">
 </head>
 <body>
 
@@ -191,500 +32,134 @@ button{cursor:pointer}
 </div>
 
 <div class="notch" aria-hidden="true"></div>
-<div class="wrap">
-  <header class="top">
-    <div class="brand">J.A.R.V.I.S.<small>MODULE FINANCES</small></div>
-    <button class="icon-btn" id="openSettings" aria-label="Réglages">
-      <svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.8"><circle cx="12" cy="12" r="3"/><path d="M19.4 15a1.7 1.7 0 0 0 .3 1.8l.1.1a2 2 0 1 1-2.8 2.8l-.1-.1a1.7 1.7 0 0 0-1.8-.3 1.7 1.7 0 0 0-1 1.5V21a2 2 0 1 1-4 0v-.1a1.7 1.7 0 0 0-1.1-1.5 1.7 1.7 0 0 0-1.8.3l-.1.1a2 2 0 1 1-2.8-2.8l.1-.1a1.7 1.7 0 0 0 .3-1.8 1.7 1.7 0 0 0-1.5-1H3a2 2 0 1 1 0-4h.1a1.7 1.7 0 0 0 1.5-1.1 1.7 1.7 0 0 0-.3-1.8l-.1-.1a2 2 0 1 1 2.8-2.8l.1.1a1.7 1.7 0 0 0 1.8.3H9a1.7 1.7 0 0 0 1-1.5V3a2 2 0 1 1 4 0v.1a1.7 1.7 0 0 0 1 1.5 1.7 1.7 0 0 0 1.8-.3l.1-.1a2 2 0 1 1 2.8 2.8l-.1.1a1.7 1.7 0 0 0-.3 1.8V9a1.7 1.7 0 0 0 1.5 1H21a2 2 0 1 1 0 4h-.1a1.7 1.7 0 0 0-1.5 1z"/></svg>
-    </button>
-  </header>
 
-  <div class="msg" id="msg"></div>
-
-  <div class="month">
-    <button id="prev" aria-label="Mois précédent">‹</button>
-    <div class="lbl" id="monthLbl"></div>
-    <button id="next" aria-label="Mois suivant">›</button>
-  </div>
-
-  <div class="reactor" id="reactor" title="Touchez pour un rapport vocal">
-    <svg viewBox="0 0 240 240" aria-hidden="true">
-      <defs>
-        <radialGradient id="glow" cx="50%" cy="50%" r="50%">
-          <stop offset="0%" stop-color="#3fe0ff" stop-opacity=".28"/>
-          <stop offset="70%" stop-color="#3fe0ff" stop-opacity=".04"/>
-          <stop offset="100%" stop-color="#3fe0ff" stop-opacity="0"/>
-        </radialGradient>
-        <filter id="blur"><feGaussianBlur stdDeviation="2.2"/></filter>
-      </defs>
-      <circle cx="120" cy="120" r="118" fill="url(#glow)"/>
-      <g class="spin"><circle cx="120" cy="120" r="114" fill="none" stroke="#3fe0ff" stroke-opacity=".35" stroke-width="1" stroke-dasharray="1.5 5"/></g>
-      <g class="spin rev">
-        <circle cx="120" cy="120" r="104" fill="none" stroke="#3fe0ff" stroke-opacity=".55" stroke-width="3" stroke-dasharray="60 12 8 12"/>
-      </g>
-      <circle cx="120" cy="120" r="92" fill="none" stroke="#3fe0ff" stroke-opacity=".12" stroke-width="8"/>
-      <circle id="arcGlow" cx="120" cy="120" r="92" fill="none" stroke="#3fe0ff" stroke-width="8" stroke-linecap="round" transform="rotate(-90 120 120)" filter="url(#blur)" opacity=".8"/>
-      <circle id="arc" cx="120" cy="120" r="92" fill="none" stroke="#3fe0ff" stroke-width="5" stroke-linecap="round" transform="rotate(-90 120 120)"/>
-      <g class="spin fast"><circle cx="120" cy="120" r="80" fill="none" stroke="#3fe0ff" stroke-opacity=".4" stroke-width="1" stroke-dasharray="20 6 2 6"/></g>
-      <circle cx="120" cy="120" r="74" fill="#02101a" fill-opacity=".85" stroke="#3fe0ff" stroke-opacity=".25"/>
-    </svg>
-    <div class="core">
-      <div class="k">RESTE PRÉVU</div>
-      <div class="v" id="left">0 €</div>
-      <div class="s">Réel : <b id="real">0 €</b></div>
-      <div class="s" id="ratio" style="margin-top:4px;font-size:11px;letter-spacing:.2em;font-family:var(--hud)"></div>
+<!-- ============ CONNEXION ============ -->
+<section class="view" id="auth">
+  <div class="wrap">
+    <header class="top"><div class="brand">J.A.R.V.I.S.<small>CONTRÔLE D'ACCÈS</small></div></header>
+    <div class="reactor auth-reactor">
+      <svg viewBox="0 0 240 240" aria-hidden="true">
+        <g class="spin"><circle cx="120" cy="120" r="110" fill="none" stroke="#3fe0ff" stroke-opacity=".35" stroke-dasharray="1.5 5"/></g>
+        <g class="spin rev"><circle cx="120" cy="120" r="92" fill="none" stroke="#3fe0ff" stroke-opacity=".6" stroke-width="4" stroke-dasharray="44 10"/></g>
+        <circle cx="120" cy="120" r="60" fill="#3fe0ff" fill-opacity=".12" stroke="#3fe0ff" stroke-width="2" class="pulse"/>
+      </svg>
+      <div class="core"><svg viewBox="0 0 24 24" width="40" height="40" fill="none" stroke="#3fe0ff" stroke-width="1.6"><rect x="5" y="11" width="14" height="10" rx="2"/><path d="M8 11V7a4 4 0 0 1 8 0v4"/></svg></div>
     </div>
+    <div class="msg"></div>
+    <p class="auth-err" role="alert"></p>
+
+    <form data-step="login" id="loginForm" autocomplete="on">
+      <div class="field"><label>IDENTIFIANT</label><input id="lUser" name="username" autocomplete="username" autocapitalize="off" autocorrect="off" spellcheck="false" required></div>
+      <div class="field"><label>CODE DE L'AUTHENTICATOR</label><input id="lCode" class="big otp" name="otp" inputmode="numeric" pattern="\d{6}" maxlength="6" autocomplete="one-time-code" placeholder="000000" required></div>
+      <button class="btn primary" type="submit">S'IDENTIFIER</button>
+      <button class="btn ghost" type="button" id="toRegister">J'AI UN CODE D'INVITATION</button>
+    </form>
+
+    <form data-step="register" id="regForm" hidden>
+      <h2 class="auth-h" id="regTitle">NOUVEL UTILISATEUR</h2>
+      <div class="field" id="rInviteField"><label>CODE D'INVITATION</label><input id="rInvite" autocapitalize="characters" autocorrect="off" spellcheck="false" maxlength="12"></div>
+      <div class="field"><label>CHOISISSEZ UN IDENTIFIANT</label><input id="rUser" autocomplete="username" autocapitalize="off" autocorrect="off" spellcheck="false" minlength="3" maxlength="24" required></div>
+      <button class="btn primary" type="submit">CONTINUER</button>
+      <button class="btn ghost" type="button" data-tologin>J'AI DÉJÀ UN COMPTE</button>
+    </form>
+
+    <form data-step="enroll" id="enrollForm" hidden>
+      <h2 class="auth-h">LIAISON DE L'AUTHENTICATOR</h2>
+      <p class="note"><b>1.</b> Ajoutez Jarvis à votre authenticator (Mots de passe d'Apple, Google Authenticator…) :</p>
+      <a class="btn" id="otpLink" href="#">AJOUTER À MON AUTHENTICATOR</a>
+      <p class="note" style="margin-top:12px">Depuis un autre appareil, scannez ce QR code :</p>
+      <div class="qr" id="qr"></div>
+      <p class="note">Ou entrez la clé à la main :</p>
+      <button type="button" class="secret" id="copySecret"><code id="otpSecret"></code><small>TOUCHER POUR COPIER</small></button>
+      <p class="note" style="margin-top:14px"><b>2.</b> Entrez le code à 6 chiffres affiché :</p>
+      <div class="field"><input id="eCode" class="big otp" inputmode="numeric" pattern="\d{6}" maxlength="6" autocomplete="one-time-code" placeholder="000000" required></div>
+      <button class="btn primary" type="submit">ACTIVER LE COMPTE</button>
+      <button class="btn ghost" type="button" data-tologin>ANNULER</button>
+    </form>
   </div>
+</section>
 
-  <div class="stats">
-    <div class="stat in"><div class="k">REVENUS</div><div class="v" id="sIn">0 €</div><div class="s" id="sInD"></div></div>
-    <div class="stat out"><div class="k">DÉPENSES</div><div class="v" id="sOut">0 €</div><div class="s" id="sOutD"></div></div>
-    <div class="stat left"><div class="k">À VENIR</div><div class="v" id="sPend">0</div><div class="s">opérations</div></div>
+<!-- ============ HUB ============ -->
+<section class="view" id="hub">
+  <div class="wrap">
+    <header class="top">
+      <div class="brand">J.A.R.V.I.S.<small id="hubUser"></small></div>
+      <button class="icon-btn" id="openSettings" aria-label="Réglages">
+        <svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.8"><circle cx="12" cy="12" r="3"/><path d="M19.4 15a1.7 1.7 0 0 0 .3 1.8l.1.1a2 2 0 1 1-2.8 2.8l-.1-.1a1.7 1.7 0 0 0-1.8-.3 1.7 1.7 0 0 0-1 1.5V21a2 2 0 1 1-4 0v-.1a1.7 1.7 0 0 0-1.1-1.5 1.7 1.7 0 0 0-1.8.3l-.1.1a2 2 0 1 1-2.8-2.8l.1-.1a1.7 1.7 0 0 0 .3-1.8 1.7 1.7 0 0 0-1.5-1H3a2 2 0 1 1 0-4h.1a1.7 1.7 0 0 0 1.5-1.1 1.7 1.7 0 0 0-.3-1.8l-.1-.1a2 2 0 1 1 2.8-2.8l.1.1a1.7 1.7 0 0 0 1.8.3H9a1.7 1.7 0 0 0 1-1.5V3a2 2 0 1 1 4 0v.1a1.7 1.7 0 0 0 1 1.5 1.7 1.7 0 0 0 1.8-.3l.1-.1a2 2 0 1 1 2.8 2.8l-.1.1a1.7 1.7 0 0 0-.3 1.8V9a1.7 1.7 0 0 0 1.5 1H21a2 2 0 1 1 0 4h-.1a1.7 1.7 0 0 0-1.5 1z"/></svg>
+      </button>
+    </header>
+
+    <div class="reactor hub-reactor" id="hubReactor" title="Touchez pour un briefing vocal">
+      <svg viewBox="0 0 240 240" aria-hidden="true">
+        <defs><radialGradient id="hglow" cx="50%" cy="50%" r="50%"><stop offset="0%" stop-color="#3fe0ff" stop-opacity=".3"/><stop offset="100%" stop-color="#3fe0ff" stop-opacity="0"/></radialGradient></defs>
+        <circle cx="120" cy="120" r="118" fill="url(#hglow)"/>
+        <g class="spin"><circle cx="120" cy="120" r="114" fill="none" stroke="#3fe0ff" stroke-opacity=".35" stroke-dasharray="1.5 5"/></g>
+        <g class="spin rev"><circle cx="120" cy="120" r="104" fill="none" stroke="#3fe0ff" stroke-opacity=".55" stroke-width="3" stroke-dasharray="60 12 8 12"/></g>
+        <circle cx="120" cy="120" r="92" fill="none" stroke="#3fe0ff" stroke-opacity=".12" stroke-width="6"/>
+        <circle class="arc" cx="120" cy="120" r="92" fill="none" stroke="#3fe0ff" stroke-width="3" stroke-linecap="round" transform="rotate(-90 120 120)" stroke-dasharray="0 999"/>
+        <g class="spin fast"><circle cx="120" cy="120" r="80" fill="none" stroke="#3fe0ff" stroke-opacity=".4" stroke-dasharray="20 6 2 6"/></g>
+        <circle cx="120" cy="120" r="74" fill="#02101a" fill-opacity=".85" stroke="#3fe0ff" stroke-opacity=".25"/>
+      </svg>
+      <div class="core">
+        <div class="t" id="hubTime">--:--</div>
+        <div class="d" id="hubDate"></div>
+        <div class="h">BRIEFING ▸</div>
+      </div>
+    </div>
+    <div class="sys"><span>SYSTÈMES <b>OK</b></span><span id="syncState">SYNC <b>OK</b></span></div>
+
+    <div class="msg"></div>
+
+    <section class="panel">
+      <div class="ph"><span>MODULES</span><span>Où allons-nous ?</span></div>
+      <div class="tiles" id="tiles"></div>
+    </section>
   </div>
+</section>
 
-  <div class="filters" id="filters">
-    <button data-f="all" class="on">TOUT</button>
-    <button data-f="plan">PRÉVU</button>
-    <button data-f="done">EFFECTUÉ</button>
-  </div>
-
-  <section class="panel">
-    <div class="ph"><span>REVENUS</span><span id="tIn"></span></div>
-    <div id="listIn"></div>
-  </section>
-
-  <section class="panel">
-    <div class="ph"><span>DÉPENSES</span><span id="tOut"></span></div>
-    <div id="listOut"></div>
-  </section>
-
-  <section class="panel" id="catPanel">
-    <div class="ph"><span>ANALYSE PAR CATÉGORIE</span><span></span></div>
-    <div id="cats"></div>
-  </section>
-</div>
-
-<button class="fab" id="add" aria-label="Ajouter une opération">+</button>
+<!-- ============ MODULE OUVERT (rempli par core.js) ============ -->
+<section class="view" id="modview"></section>
 
 <div class="veil" id="veil"></div>
 
-<!-- editor -->
-<div class="sheet" id="edit" role="dialog" aria-label="Opération">
-  <div class="grab"></div>
-  <h2 id="editTitle">NOUVELLE OPÉRATION</h2>
-  <div class="seg" id="typeSeg">
-    <button data-v="out" class="on">DÉPENSE</button>
-    <button data-v="in">REVENU</button>
-  </div>
-  <div class="field"><label>MONTANT (€)</label><input id="fAmt" class="big" inputmode="decimal" placeholder="0,00" autocomplete="off"></div>
-  <div class="field"><label>LIBELLÉ</label><input id="fLbl" placeholder="Ex : Loyer, Salaire…" autocomplete="off" maxlength="60"></div>
-  <div class="two">
-    <div class="field"><label>CATÉGORIE</label><select id="fCat"></select></div>
-    <div class="field"><label>JOUR</label><input id="fDay" type="number" inputmode="numeric" min="1" max="31"></div>
-  </div>
-  <div class="toggle"><span>Déjà effectué<small>Passé sur le compte</small></span><label class="sw"><input type="checkbox" id="fDone"><i></i></label></div>
-  <div class="toggle"><span>Tous les mois<small>Revient automatiquement chaque mois</small></span><label class="sw"><input type="checkbox" id="fRec"><i></i></label></div>
-  <div class="toggle" id="futureRow" hidden><span>Modifier aussi les mois suivants<small>Sinon, seulement ce mois-ci</small></span><label class="sw"><input type="checkbox" id="fFuture"><i></i></label></div>
-  <button class="btn primary" id="save">ENREGISTRER</button>
-  <button class="btn danger" id="del" hidden>SUPPRIMER</button>
-  <div id="delAsk" hidden>
-    <p class="note">C'est une opération mensuelle. Que dois-je supprimer, <span class="who"></span> ?</p>
-    <button class="btn danger" id="delOne">CE MOIS SEULEMENT</button>
-    <button class="btn danger" id="delAll">CE MOIS ET LES SUIVANTS</button>
-    <button class="btn ghost" id="delCancel">ANNULER</button>
-  </div>
-</div>
-
-<!-- settings -->
+<!-- ============ RÉGLAGES ============ -->
 <div class="sheet" id="settings" role="dialog" aria-label="Réglages">
   <div class="grab"></div>
   <h2>RÉGLAGES SYSTÈME</h2>
   <div class="field"><label>COMMENT DOIS-JE VOUS APPELER ?</label><input id="sName" maxlength="30" autocomplete="off"></div>
-  <div class="toggle"><span>Voix de Jarvis<small>Touchez le réacteur pour un rapport vocal</small></span><label class="sw"><input type="checkbox" id="sVoice"><i></i></label></div>
-  <p class="note" style="margin-top:14px">Vos données restent uniquement sur cet iPhone. iOS peut les effacer si l'app n'est pas ouverte pendant longtemps : exportez une sauvegarde de temps en temps (dans Fichiers ou iCloud Drive).</p>
-  <p class="note" id="lastBackup"></p>
-  <button class="btn" id="exp">EXPORTER UNE SAUVEGARDE</button>
+  <div class="toggle"><span>Voix de Jarvis<small>Touchez un réacteur pour un rapport vocal</small></span><label class="sw"><input type="checkbox" id="sVoice"><i></i></label></div>
+
+  <div class="toggle"><span>Compte<small id="sAccount"></small></span><button class="mini red" id="logout">DÉCONNEXION</button></div>
+  <p class="note">Vos données sont enregistrées sur votre compte et synchronisées entre vos appareils.</p>
+
+  <div id="adminBox" hidden>
+    <h2 style="margin-top:22px">ADMINISTRATION</h2>
+    <button class="btn" id="newInvite">CRÉER UNE INVITATION</button>
+    <div id="inviteOut" hidden></div>
+    <div id="adminList" style="margin-top:12px"></div>
+  </div>
+
+  <h2 style="margin-top:22px">SAUVEGARDE MANUELLE</h2>
+  <button class="btn" id="exp">EXPORTER MES DONNÉES</button>
   <button class="btn" id="impBtn">IMPORTER UNE SAUVEGARDE</button>
   <input type="file" id="imp" accept="application/json,.json" hidden>
-  <button class="btn danger" id="wipe">EFFACER TOUTES LES DONNÉES</button>
   <button class="btn ghost" id="closeSettings">FERMER</button>
 </div>
 
 <div class="toast" id="toast"></div>
 
+<script src="core/core.js"></script>
+<!-- Modules actifs : un fichier par module -->
+<script src="modules/finances/finances.js"></script>
 <script>
-'use strict';
-const KEY = 'jarvis.finances.v1';
-const CATS = {
-  out: ['Logement','Courses','Transport','Abonnements','Factures','Restaurants','Loisirs','Shopping','Santé','Épargne','Crédit','Autre'],
-  in:  ['Salaire','Prime','Remboursement','Aide / CAF','Vente','Cadeau','Autre']
-};
-const $ = s => document.querySelector(s);
-const eur = n => n.toLocaleString('fr-FR', {style:'currency', currency:'EUR'});
-const esc = s => String(s).replace(/[&<>"']/g, c => ({'&':'&amp;','<':'&lt;','>':'&gt;','"':'&quot;',"'":'&#39;'}[c]));
-const uid = () => Date.now().toString(36) + Math.random().toString(36).slice(2, 7);
-const r2 = n => Math.round(n * 100) / 100;
-
-/* ---------- storage ---------- */
-function blank(){ return {v:1, tx:[], rec:[], settings:{name:'Monsieur', voice:true}, lastBackup:null}; }
-function load(){
-  try {
-    const d = JSON.parse(localStorage.getItem(KEY));
-    if (d && Array.isArray(d.tx)) return Object.assign(blank(), d, {settings:Object.assign(blank().settings, d.settings)});
-  } catch(e) {}
-  return blank();
-}
-function save(){
-  try { localStorage.setItem(KEY, JSON.stringify(S)); }
-  catch(e) { toast('Erreur de sauvegarde locale'); }
-}
-let S = load();
-if (navigator.storage && navigator.storage.persist) navigator.storage.persist().catch(()=>{});
-
-/* ---------- months ---------- */
-const mk = d => d.getFullYear() + '-' + String(d.getMonth()+1).padStart(2,'0');
-const ym = k => k.split('-').map(Number);
-const shift = (k, n) => { const [y,m] = ym(k); return mk(new Date(y, m-1+n, 1)); };
-const dim = k => { const [y,m] = ym(k); return new Date(y, m, 0).getDate(); };
-const mLabel = k => { const [y,m] = ym(k); return new Date(y, m-1, 1).toLocaleDateString('fr-FR', {month:'long', year:'numeric'}); };
-const today = mk(new Date());
-let cur = today;
-let filter = 'all';
-
-/* recurring items create a real transaction the first time a month is viewed */
-function materialize(k){
-  let changed = false;
-  for (const r of S.rec) {
-    if (r.from > k || (r.until && r.until < k) || r.skips.includes(k)) continue;
-    if (S.tx.some(t => t.recId === r.id && t.month === k)) continue;
-    S.tx.push({id:uid(), month:k, type:r.type, label:r.label, amount:r.amount, day:Math.min(r.day, dim(k)), cat:r.cat, done:false, recId:r.id});
-    changed = true;
-  }
-  if (changed) save();
-}
-
-/* ---------- jarvis voice / text ---------- */
-let typeTimer;
-function say(text){
-  const el = $('#msg');
-  clearInterval(typeTimer);
-  let i = 0;
-  el.innerHTML = '<span class="cursor"></span>';
-  typeTimer = setInterval(() => {
-    i += 2;
-    el.innerHTML = esc(text.slice(0, i)) + '<span class="cursor"></span>';
-    if (i >= text.length) clearInterval(typeTimer);
-  }, 22);
-}
-function speak(text){
-  if (!S.settings.voice || !('speechSynthesis' in window)) return;
-  speechSynthesis.cancel();
-  const u = new SpeechSynthesisUtterance(text);
-  u.lang = 'fr-FR'; u.rate = 1.02; u.pitch = 0.9;
-  const v = speechSynthesis.getVoices().filter(v => v.lang.startsWith('fr'));
-  const pick = v.find(v => /Thomas|Daniel|Nicolas|male/i.test(v.name)) || v[0];
-  if (pick) u.voice = pick;
-  speechSynthesis.speak(u);
-}
-function greeting(){
-  const h = new Date().getHours();
-  return (h < 5 || h >= 18 ? 'Bonsoir' : 'Bonjour') + ' ' + S.settings.name + '.';
-}
-function totals(k){
-  const list = S.tx.filter(t => t.month === k);
-  const sum = (f) => r2(list.filter(f).reduce((a,t) => a + t.amount, 0));
-  return {
-    list,
-    inc: sum(t => t.type === 'in'), out: sum(t => t.type === 'out'),
-    incD: sum(t => t.type === 'in' && t.done), outD: sum(t => t.type === 'out' && t.done),
-    pending: list.filter(t => !t.done).length
-  };
-}
-function status(T){
-  if (!T.list.length) return 'Aucune donnée pour ce mois. Ajoutez votre salaire et vos dépenses prévues pour commencer.';
-  const left = r2(T.inc - T.out);
-  if (T.inc === 0) return 'Je ne détecte aucun revenu ce mois-ci. ' + eur(T.out) + ' de dépenses enregistrées.';
-  if (left < 0) return 'Alerte : les dépenses prévues dépassent les revenus de ' + eur(-left) + '. Je recommande des ajustements.';
-  const ratio = T.out / T.inc;
-  if (ratio > .9) return 'Marge critique : il ne restera que ' + eur(left) + '. Prudence recommandée.';
-  if (ratio > .75) return 'Situation sous contrôle, mais la marge est réduite. Reste prévu : ' + eur(left) + '.';
-  return 'Tous les systèmes sont nominaux. Marge confortable de ' + eur(left) + ' en fin de mois.';
-}
-
-/* ---------- render ---------- */
-const CIRC = 2 * Math.PI * 92;
-function rowHTML(t){
-  const plan = !t.done ? '<span class="tag plan">PRÉVU</span>' : '';
-  const rec = t.recId ? '<span class="tag">↻</span>' : '';
-  return `<div class="row ${t.done ? '' : 'planned'}" data-id="${t.id}">
-    <button class="chk ${t.done ? 'on' : ''}" data-act="toggle" aria-label="Marquer effectué"></button>
-    <div class="info"><div class="l">${esc(t.label)}${rec}${plan}</div><div class="m">${esc(t.cat)} · le ${t.day}</div></div>
-    <div class="amt ${t.type}">${t.type === 'in' ? '+' : '−'}${eur(t.amount)}</div></div>`;
-}
-function render(){
-  materialize(cur);
-  const T = totals(cur);
-  const left = r2(T.inc - T.out), real = r2(T.incD - T.outD);
-
-  $('#monthLbl').innerHTML = esc(mLabel(cur)) + '<small>' + (cur === today ? 'MOIS EN COURS' : cur < today ? 'ARCHIVE' : 'PRÉVISION') + '</small>';
-  const lv = $('#left'); lv.textContent = eur(left); lv.classList.toggle('neg', left < 0);
-  $('#real').textContent = eur(real);
-
-  const ratio = T.inc > 0 ? T.out / T.inc : (T.out > 0 ? 1 : 0);
-  const col = ratio >= 1 ? '#ff4d3d' : ratio > .8 ? '#ffb347' : '#3fe0ff';
-  for (const id of ['#arc', '#arcGlow']) {
-    const a = $(id);
-    a.setAttribute('stroke', col);
-    a.setAttribute('stroke-dasharray', `${Math.max(0.001, Math.min(ratio, 1)) * CIRC} ${CIRC}`);
-  }
-  $('#ratio').textContent = T.inc > 0 ? Math.round(ratio * 100) + '% ENGAGÉ' : '';
-
-  $('#sIn').textContent = eur(T.inc);   $('#sInD').textContent = 'reçu ' + eur(T.incD);
-  $('#sOut').textContent = eur(T.out);  $('#sOutD').textContent = 'payé ' + eur(T.outD);
-  $('#sPend').textContent = T.pending;
-
-  const show = T.list
-    .filter(t => filter === 'all' || (filter === 'done' ? t.done : !t.done))
-    .sort((a,b) => a.day - b.day || b.amount - a.amount);
-  const ins = show.filter(t => t.type === 'in'), outs = show.filter(t => t.type === 'out');
-  $('#listIn').innerHTML  = ins.length  ? ins.map(rowHTML).join('')  : '<div class="empty">Aucun revenu' + (filter === 'all' ? ' — touchez + pour ajouter votre salaire' : '') + '</div>';
-  $('#listOut').innerHTML = outs.length ? outs.map(rowHTML).join('') : '<div class="empty">Aucune dépense' + (filter === 'all' ? ' — touchez + pour en ajouter' : '') + '</div>';
-  $('#tIn').textContent = eur(r2(ins.reduce((a,t) => a + t.amount, 0)));
-  $('#tOut').textContent = eur(r2(outs.reduce((a,t) => a + t.amount, 0)));
-
-  const byCat = {};
-  T.list.filter(t => t.type === 'out').forEach(t => byCat[t.cat] = (byCat[t.cat] || 0) + t.amount);
-  const cats = Object.entries(byCat).sort((a,b) => b[1] - a[1]);
-  const max = cats.length ? cats[0][1] : 1;
-  $('#catPanel').hidden = !cats.length;
-  $('#cats').innerHTML = cats.map(([c,v]) =>
-    `<div class="cat"><div class="t"><span>${esc(c)}</span><span>${eur(r2(v))} · ${T.out ? Math.round(v / T.out * 100) : 0}%</span></div><div class="bar"><i style="width:${v / max * 100}%"></i></div></div>`
-  ).join('');
-  return T;
-}
-
-/* ---------- sheets ---------- */
-const veil = $('#veil');
-let openSheet = null;
-function show(el){ openSheet = el; veil.classList.add('show'); el.classList.add('show'); }
-function hide(){ if (!openSheet) return; openSheet.classList.remove('show'); veil.classList.remove('show'); openSheet = null; document.activeElement && document.activeElement.blur(); }
-veil.addEventListener('click', hide);
-
-let editing = null, fType = 'out';
-function setType(v){
-  fType = v;
-  document.querySelectorAll('#typeSeg button').forEach(b => b.classList.toggle('on', b.dataset.v === v));
-  const sel = $('#fCat'), keep = sel.value;
-  sel.innerHTML = CATS[v].map(c => `<option>${esc(c)}</option>`).join('');
-  if (CATS[v].includes(keep)) sel.value = keep;
-}
-$('#typeSeg').addEventListener('click', e => { const b = e.target.closest('button'); if (b) setType(b.dataset.v); });
-
-function openEditor(t){
-  editing = t || null;
-  $('#editTitle').textContent = t ? 'MODIFIER L\'OPÉRATION' : 'NOUVELLE OPÉRATION';
-  setType(t ? t.type : 'out');
-  $('#fAmt').value = t ? String(t.amount).replace('.', ',') : '';
-  $('#fLbl').value = t ? t.label : '';
-  $('#fCat').value = t ? t.cat : CATS.out[0];
-  const d = new Date();
-  $('#fDay').value = t ? t.day : (cur === today ? d.getDate() : 1);
-  $('#fDone').checked = t ? t.done : false;
-  $('#fRec').checked = t ? !!t.recId : false;
-  $('#futureRow').hidden = !(t && t.recId);
-  $('#fFuture').checked = false;
-  $('#del').hidden = !t;
-  $('#delAsk').hidden = true;
-  $('#save').hidden = false;
-  show($('#edit'));
-  if (!t) setTimeout(() => $('#fAmt').focus(), 300);
-}
-$('#add').addEventListener('click', () => openEditor());
-
-$('#save').addEventListener('click', () => {
-  const amount = r2(parseFloat($('#fAmt').value.replace(/\s/g, '').replace(',', '.')));
-  if (!(amount > 0)) { toast('Montant invalide'); $('#fAmt').focus(); return; }
-  const label = $('#fLbl').value.trim() || $('#fCat').value;
-  const day = Math.min(Math.max(parseInt($('#fDay').value) || 1, 1), dim(cur));
-  const data = {type:fType, label, amount, day, cat:$('#fCat').value};
-  const done = $('#fDone').checked, wantRec = $('#fRec').checked;
-
-  if (!editing) {
-    const t = Object.assign({id:uid(), month:cur, done}, data);
-    if (wantRec) { const r = Object.assign({id:uid(), from:cur, skips:[]}, data); S.rec.push(r); t.recId = r.id; }
-    S.tx.push(t);
-    toast(fType === 'in' ? 'Revenu enregistré' : 'Dépense enregistrée');
-  } else {
-    const t = editing;
-    Object.assign(t, data, {done});
-    const r = t.recId && S.rec.find(x => x.id === t.recId);
-    if (r && !wantRec) {
-      r.until = shift(cur, -1);
-      S.tx = S.tx.filter(x => !(x.recId === r.id && x.month > cur && !x.done));
-      delete t.recId;
-    } else if (r && $('#fFuture').checked) {
-      Object.assign(r, data);
-      S.tx.filter(x => x.recId === r.id && x.month > cur && !x.done)
-          .forEach(x => Object.assign(x, data, {day:Math.min(data.day, dim(x.month))}));
-    } else if (!r && wantRec) {
-      const nr = Object.assign({id:uid(), from:cur, skips:[]}, data); S.rec.push(nr); t.recId = nr.id;
-    }
-    toast('Modifications enregistrées');
-  }
-  save(); hide(); render();
-});
-
-$('#del').addEventListener('click', () => {
-  if (editing.recId) {
-    $('#delAsk').hidden = false; $('#del').hidden = true; $('#save').hidden = true;
-    $('#delAsk .who').textContent = S.settings.name;
-  } else {
-    S.tx = S.tx.filter(x => x !== editing); save(); hide(); render(); toast('Opération supprimée');
-  }
-});
-$('#delCancel').addEventListener('click', () => { $('#delAsk').hidden = true; $('#del').hidden = false; $('#save').hidden = false; });
-$('#delOne').addEventListener('click', () => {
-  const r = S.rec.find(x => x.id === editing.recId);
-  if (r && !r.skips.includes(cur)) r.skips.push(cur);
-  S.tx = S.tx.filter(x => x !== editing); save(); hide(); render(); toast('Supprimé pour ce mois');
-});
-$('#delAll').addEventListener('click', () => {
-  const id = editing.recId, r = S.rec.find(x => x.id === id);
-  if (r) r.until = shift(cur, -1);
-  S.tx = S.tx.filter(x => x !== editing && !(x.recId === id && x.month > cur && !x.done));
-  save(); hide(); render(); toast('Récurrence arrêtée');
-});
-
-/* list interactions */
-document.addEventListener('click', e => {
-  const row = e.target.closest('.row'); if (!row) return;
-  const t = S.tx.find(x => x.id === row.dataset.id); if (!t) return;
-  if (e.target.closest('[data-act="toggle"]')) {
-    t.done = !t.done; save(); render();
-    if (navigator.vibrate) navigator.vibrate(10);
-  } else openEditor(t);
-});
-$('#filters').addEventListener('click', e => {
-  const b = e.target.closest('button'); if (!b) return;
-  filter = b.dataset.f;
-  document.querySelectorAll('#filters button').forEach(x => x.classList.toggle('on', x === b));
-  render();
-});
-$('#prev').addEventListener('click', () => { cur = shift(cur, -1); say(status(render())); });
-$('#next').addEventListener('click', () => { cur = shift(cur, 1); say(status(render())); });
-
-/* swipe between months */
-let sx = null, sy = null;
-document.addEventListener('touchstart', e => { if (openSheet) return; sx = e.touches[0].clientX; sy = e.touches[0].clientY; }, {passive:true});
-document.addEventListener('touchend', e => {
-  if (sx === null) return;
-  const dx = e.changedTouches[0].clientX - sx, dy = e.changedTouches[0].clientY - sy;
-  sx = null;
-  if (Math.abs(dx) > 80 && Math.abs(dy) < 50) { cur = shift(cur, dx < 0 ? 1 : -1); say(status(render())); }
-}, {passive:true});
-
-$('#reactor').addEventListener('click', () => {
-  const T = totals(cur), left = r2(T.inc - T.out);
-  const txt = `${greeting()} Pour ${mLabel(cur)}, vous avez ${eur(T.inc)} de revenus et ${eur(T.out)} de dépenses. ` +
-    (left >= 0 ? `Il vous restera ${eur(left)}.` : `Vous serez à découvert de ${eur(-left)}.`) +
-    (T.pending ? ` ${T.pending} opération${T.pending > 1 ? 's' : ''} encore à venir.` : '');
-  say(txt); speak(txt);
-});
-
-/* ---------- settings ---------- */
-function backupNote(){
-  $('#lastBackup').textContent = S.lastBackup
-    ? 'Dernière sauvegarde : ' + new Date(S.lastBackup).toLocaleDateString('fr-FR', {day:'numeric', month:'long', year:'numeric'})
-    : 'Aucune sauvegarde exportée pour le moment.';
-}
-$('#openSettings').addEventListener('click', () => {
-  $('#sName').value = S.settings.name; $('#sVoice').checked = S.settings.voice;
-  $('#wipe').textContent = 'EFFACER TOUTES LES DONNÉES'; wipeArmed = false;
-  backupNote(); show($('#settings'));
-});
-$('#closeSettings').addEventListener('click', hide);
-$('#sName').addEventListener('change', e => { S.settings.name = e.target.value.trim() || 'Monsieur'; save(); say(greeting() + ' Bien noté.'); });
-$('#sVoice').addEventListener('change', e => { S.settings.voice = e.target.checked; save(); });
-
-$('#exp').addEventListener('click', async () => {
-  S.lastBackup = new Date().toISOString(); save();
-  const name = 'jarvis-sauvegarde-' + S.lastBackup.slice(0, 10) + '.json';
-  const file = new File([JSON.stringify(S, null, 2)], name, {type:'application/json'});
-  try {
-    if (navigator.canShare && navigator.canShare({files:[file]})) {
-      await navigator.share({files:[file], title:'Sauvegarde Jarvis'});
-    } else {
-      const a = document.createElement('a'); a.href = URL.createObjectURL(file); a.download = name; a.click();
-      setTimeout(() => URL.revokeObjectURL(a.href), 4000);
-    }
-    toast('Sauvegarde exportée'); backupNote();
-  } catch(e) { if (e.name !== 'AbortError') toast('Export impossible'); }
-});
-$('#impBtn').addEventListener('click', () => $('#imp').click());
-$('#imp').addEventListener('change', async e => {
-  const f = e.target.files[0]; e.target.value = '';
-  if (!f) return;
-  try {
-    const d = JSON.parse(await f.text());
-    if (!d || !Array.isArray(d.tx) || !Array.isArray(d.rec)) throw 0;
-    S = Object.assign(blank(), d, {settings:Object.assign(blank().settings, d.settings)});
-    save(); hide(); render(); toast('Sauvegarde restaurée'); say(greeting() + ' Données restaurées avec succès.');
-  } catch(err) { toast('Fichier de sauvegarde invalide'); }
-});
-let wipeArmed = false;
-$('#wipe').addEventListener('click', () => {
-  if (!wipeArmed) { wipeArmed = true; $('#wipe').textContent = 'TOUCHEZ ENCORE POUR CONFIRMER'; return; }
-  const name = S.settings.name;
-  S = blank(); S.settings.name = name; save(); hide(); render(); toast('Données effacées');
-});
-
-/* ---------- misc ---------- */
-let toastT;
-function toast(t){ const el = $('#toast'); el.textContent = t; el.classList.add('show'); clearTimeout(toastT); toastT = setTimeout(() => el.classList.remove('show'), 2000); }
-
-/* ---------- boot ---------- */
-const T0 = render();
-const steps = ['INITIALISATION…', 'CHARGEMENT DES DONNÉES…', 'SYSTÈMES EN LIGNE'];
-steps.forEach((s, i) => setTimeout(() => $('#bootTxt').textContent = s, i * 380));
-setTimeout(() => {
-  $('#boot').classList.add('done');
-  const backupOld = S.tx.length && (!S.lastBackup || Date.now() - new Date(S.lastBackup) > 30 * 864e5);
-  say(greeting() + ' ' + status(T0) + (backupOld ? ' Pensez à exporter une sauvegarde.' : ''));
-}, 1250);
-
-/* ---------- mises à jour automatiques ---------- */
-const APP_VERSION = '3';
-let swReg = null;
-async function checkUpdate(){
-  if (!location.protocol.startsWith('http')) return;
-  if (swReg) swReg.update().catch(() => {});
-  try {
-    const r = await fetch('version.json?t=' + Date.now(), {cache:'no-store'});
-    const {v} = await r.json();
-    if (v && v !== APP_VERSION) applyUpdate();
-  } catch(e) {} // hors ligne : on garde la version actuelle
-}
-let updatePending = false;
-function applyUpdate(){
-  if (openSheet) { updatePending = true; return; } // on n'interrompt pas une saisie
-  // max une tentative toutes les 30 s : évite une boucle si GitHub sert encore l'ancienne version
-  const last = +sessionStorage.getItem('jarvis.reloadAt') || 0;
-  if (Date.now() - last < 30000) return;
-  sessionStorage.setItem('jarvis.reloadAt', Date.now());
-  location.reload();
-}
-if ('serviceWorker' in navigator && location.protocol.startsWith('http')) {
-  navigator.serviceWorker.register('sw.js', {updateViaCache:'none'}).then(r => { swReg = r; }).catch(() => {});
-}
-document.addEventListener('visibilitychange', () => { if (document.visibilityState === 'visible') checkUpdate(); });
-window.addEventListener('pageshow', e => { if (e.persisted) checkUpdate(); });
-veil.addEventListener('transitionend', () => { if (updatePending && !openSheet) { updatePending = false; applyUpdate(); } });
-try {
-  const prev = localStorage.getItem('jarvis.version');
-  if (prev && prev !== APP_VERSION) setTimeout(() => toast('Jarvis mis à jour'), 1400);
-  localStorage.setItem('jarvis.version', APP_VERSION);
-} catch(e) {}
-checkUpdate();
+/* Modules à venir : affichés dans le hub, grisés */
+J.soon({id:'nutrition', code:'02', name:'Nutrition', tagline:'Compteur de calories et suivi des repas', accent:'#4dffc3',
+  icon:'<svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.8"><path d="M12 21c-4 0-7-3.5-7-8 0-3 2-5 4.5-5 1.2 0 1.8.5 2.5.5s1.3-.5 2.5-.5C17 8 19 10 19 13c0 4.5-3 8-7 8z"/><path d="M12 8c0-2 1-4 3-5"/></svg>'});
+J.soon({id:'sport', code:'03', name:'Entraînement', tagline:'Séances, poids et progression', accent:'#ffb347',
+  icon:'<svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.8"><path d="M6 7v10M18 7v10M3 10v4M21 10v4M6 12h12"/></svg>'});
+J.soon({id:'taches', code:'04', name:'Tâches', tagline:'To-do, rappels et objectifs', accent:'#b98cff',
+  icon:'<svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.8"><path d="M9 11l3 3 8-8"/><path d="M20 12v7a2 2 0 0 1-2 2H6a2 2 0 0 1-2-2V5a2 2 0 0 1 2-2h9"/></svg>'});
+J.start();
 </script>
 </body>
 </html>

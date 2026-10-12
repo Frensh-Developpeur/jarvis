@@ -1,0 +1,16 @@
+name = "jarvis-api"
+main = "src/index.js"
+compatibility_date = "2026-09-01"
+workers_dev = true
+
+[vars]
+# Origines autorisées à appeler l'API (l'app sur GitHub Pages + test local)
+ALLOWED_ORIGINS = "https://frensh-developpeur.github.io,http://localhost:8000"
+
+[[d1_databases]]
+binding = "DB"
+database_name = "jarvis-db"
+database_id = "67b6240f-ae2a-48d1-b157-f196d83fa776"
+
+[triggers]
+crons = ["17 4 * * *"]
