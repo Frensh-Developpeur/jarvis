@@ -16,6 +16,9 @@ const VOICES = {
   george: 'JBFqnCBsd6RMkjVDRZzb',   // britannique, chaleureux, mature
 };
 const EL_MODEL = 'eleven_multilingual_v2';
+/* Diction « Jarvis » : posée, régulière, pince-sans-rire (stabilité haute, peu d'emphase, débit un peu lent).
+   Changer ces réglages → changer aussi le préfixe 'el2' du cache pour régénérer les phrases. */
+const VOICE_SETTINGS = { stability: 0.68, similarity_boost: 0.85, style: 0.05, use_speaker_boost: true, speed: 0.93 };
 
 const now = () => Math.floor(Date.now() / 1000);
 
@@ -255,9 +258,9 @@ const routes = {
     const { text, voice } = await body(req);
     const clean = String(text || '').trim().slice(0, 600);
     if (!clean) fail(400, 'Texte vide');
-    const voiceId = VOICES[voice] || VOICES.daniel;
+    const voiceId = VOICES[voice] || VOICES.george;
     const useEleven = !!env.ELEVENLABS_API_KEY;
-    const hash = await sha256((useEleven ? 'el:' + voiceId + ':' + EL_MODEL : 'melo') + ':' + clean);
+    const hash = await sha256((useEleven ? 'el2:' + voiceId + ':' + EL_MODEL : 'melo') + ':' + clean);
     const send = (audio, engine, mime) => new Response(audio, { headers: { 'Content-Type': mime, 'X-Voice-Engine': engine, 'Access-Control-Expose-Headers': 'X-Voice-Engine' } });
 
     const hit = await env.DB.prepare('SELECT engine, mime, audio FROM tts_cache WHERE hash = ?').bind(hash).first();
@@ -274,7 +277,7 @@ const routes = {
         headers: { 'xi-api-key': env.ELEVENLABS_API_KEY, 'Content-Type': 'application/json', Accept: 'audio/mpeg' },
         body: JSON.stringify({
           text: clean, model_id: EL_MODEL, language_code: 'fr',
-          voice_settings: { stability: 0.55, similarity_boost: 0.8, style: 0.15, use_speaker_boost: true, speed: 0.95 },
+          voice_settings: VOICE_SETTINGS,
         }),
       });
       if (r.ok) { audio = new Uint8Array(await r.arrayBuffer()); engine = 'eleven'; mime = 'audio/mpeg'; }

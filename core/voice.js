@@ -72,44 +72,69 @@ function impulse(ac, seconds, decay){
   }
   return buf;
 }
+/* Chaîne « Jarvis du film » : voix propre, légèrement filtrée comme dans un casque,
+   brillance numérique, miroitement synthétique discret, stéréo large et petite pièce. */
 function buildChain(ac){
-  const input = ac.createGain();
-  const hp = Object.assign(ac.createBiquadFilter(), {type:'highpass'}); hp.frequency.value = 85;
-  const warm = Object.assign(ac.createBiquadFilter(), {type:'lowshelf'}); warm.frequency.value = 220; warm.gain.value = 3;
-  const mud = Object.assign(ac.createBiquadFilter(), {type:'peaking'}); mud.frequency.value = 450; mud.Q.value = 1.2; mud.gain.value = -2;
-  const presence = Object.assign(ac.createBiquadFilter(), {type:'peaking'}); presence.frequency.value = 3200; presence.Q.value = .9; presence.gain.value = 4;
-  const lp = Object.assign(ac.createBiquadFilter(), {type:'lowpass'}); lp.frequency.value = 9500;
-  input.connect(hp); hp.connect(warm); warm.connect(mud); mud.connect(presence); presence.connect(lp);
+  const bq = (type, f, g = 0, q = 0.707) => { const n = ac.createBiquadFilter(); n.type = type; n.frequency.value = f; n.gain.value = g; n.Q.value = q; return n; };
+  const gain = v => { const g = ac.createGain(); g.gain.value = v; return g; };
+  const input = gain(1);
 
-  const mix = ac.createGain();
-  const dry = ac.createGain(); dry.gain.value = .9; lp.connect(dry); dry.connect(mix);
+  // égalisation
+  const hp = bq('highpass', 130);
+  const warm = bq('lowshelf', 220, 1.5);
+  const mud = bq('peaking', 420, -2.5, 1.2);
+  const presence = bq('peaking', 3000, 3, .9);
+  const air = bq('highshelf', 7000, 3.5);
+  const lp = bq('lowpass', 11500);
+  input.connect(hp); hp.connect(warm); warm.connect(mud); mud.connect(presence); presence.connect(air); air.connect(lp);
+
+  // légère saturation numérique en parallèle (le « grain » électronique)
+  const shaper = ac.createWaveShaper();
+  const curve = new Float32Array(1024);
+  for (let i = 0; i < 1024; i++) { const x = i / 511.5 - 1; curve[i] = Math.tanh(x * 3) / Math.tanh(3); }
+  shaper.curve = curve; shaper.oversample = '4x';
+  const satBand = bq('bandpass', 2500, 0, .7);
+  const satOut = gain(.08);
+  lp.connect(satBand); satBand.connect(shaper); shaper.connect(satOut);
 
   // timbre métallique : filtre en peigne très court
-  const comb = ac.createDelay(.05); comb.delayTime.value = .0065;
-  const fb = ac.createGain(); fb.gain.value = .32;
-  const combOut = ac.createGain(); combOut.gain.value = .16;
-  lp.connect(comb); comb.connect(fb); fb.connect(comb); comb.connect(combOut); combOut.connect(mix);
+  const comb = ac.createDelay(.05); comb.delayTime.value = .0045;
+  const fb = gain(.3), combOut = gain(.06);
+  lp.connect(comb); comb.connect(fb); fb.connect(comb); comb.connect(combOut);
 
-  // dédoublement « IA » : copie légèrement retardée et modulée
-  const dbl = ac.createDelay(.1); dbl.delayTime.value = .016;
-  const lfo = ac.createOscillator(); lfo.frequency.value = .35;
-  const depth = ac.createGain(); depth.gain.value = .0018;
+  // miroitement synthétique : copie très proche, lentement modulée (effet flanger doux)
+  const dbl = ac.createDelay(.05); dbl.delayTime.value = .0035;
+  const lfo = ac.createOscillator(); lfo.frequency.value = .22;
+  const depth = gain(.0012);
   lfo.connect(depth); depth.connect(dbl.delayTime); lfo.start();
-  const dblOut = ac.createGain(); dblOut.gain.value = .22;
-  lp.connect(dbl); dbl.connect(dblOut); dblOut.connect(mix);
+  const dblOut = gain(.14);
+  lp.connect(dbl); dbl.connect(dblOut);
 
-  // petite pièce
-  const verb = ac.createConvolver(); verb.buffer = impulse(ac, 1.1, 3.2);
-  const verbHp = Object.assign(ac.createBiquadFilter(), {type:'highpass'}); verbHp.frequency.value = 300;
-  const verbOut = ac.createGain(); verbOut.gain.value = .14;
-  lp.connect(verbHp); verbHp.connect(verb); verb.connect(verbOut); verbOut.connect(mix);
+  // somme mono puis image stéréo : un côté légèrement retardé (effet Haas)
+  const mono = gain(1);
+  lp.connect(mono); satOut.connect(mono); combOut.connect(mono); dblOut.connect(mono);
+  const merger = ac.createChannelMerger(2);
+  const left = gain(1), right = gain(1);
+  const haas = ac.createDelay(.05); haas.delayTime.value = .011;
+  const widthOut = gain(.28);
+  mono.connect(left); mono.connect(right);
+  mono.connect(haas); haas.connect(widthOut); widthOut.connect(right);
+  left.connect(merger, 0, 0); right.connect(merger, 0, 1);
 
+  // petite pièce (le labo)
+  const verb = ac.createConvolver(); verb.buffer = impulse(ac, .9, 3.5);
+  const verbHp = bq('highpass', 350);
+  const verbOut = gain(.1);
+  mono.connect(verbHp); verbHp.connect(verb); verb.connect(verbOut);
+
+  const bus = gain(1);
+  merger.connect(bus); verbOut.connect(bus);
   const comp = ac.createDynamicsCompressor();
   comp.threshold.value = -20; comp.ratio.value = 3.5; comp.attack.value = .004; comp.release.value = .18;
-  const out = ac.createGain(); out.gain.value = 1.35;
+  const out = gain(1.3);
   const analyser = ac.createAnalyser(); analyser.fftSize = 1024;
-  mix.connect(comp); comp.connect(out); out.connect(analyser); analyser.connect(ac.destination);
-  return {input, analyser, combOut, dblOut, verbOut, presence, warm};
+  bus.connect(comp); comp.connect(out); out.connect(analyser); analyser.connect(ac.destination);
+  return {input, analyser, combOut, dblOut, verbOut, presence, warm, air, satOut, widthOut, hp};
 }
 
 /* WSOLA : change la durée sans changer la hauteur.
@@ -143,14 +168,16 @@ function stretch(x, alpha, sr){
    - ElevenLabs : voix déjà masculine et naturelle → juste une touche « IA »
    - Cloudflare (repli) : voix féminine → ton baissé + effets plus marqués */
 const FX = {
-  eleven: {comb:.05, dbl:.1, verb:.08, presence:2.5, warm:1.5, rate:1},
-  melo:   {comb:.16, dbl:.22, verb:.14, presence:4,   warm:3,   rate:PITCH},
+  eleven: {comb:.06, dbl:.14, verb:.1,  presence:3, warm:1.5, air:3.5, sat:.08, width:.28, hp:130, rate:1},
+  melo:   {comb:.16, dbl:.22, verb:.14, presence:4, warm:3,   air:2,   sat:.05, width:.2,  hp:90,  rate:PITCH},
 };
 function setFx(engine){
-  const f = FX[engine] || FX.eleven, t = ctx.currentTime;
-  chain.combOut.gain.setValueAtTime(f.comb, t); chain.dblOut.gain.setValueAtTime(f.dbl, t);
-  chain.verbOut.gain.setValueAtTime(f.verb, t); chain.presence.gain.setValueAtTime(f.presence, t);
-  chain.warm.gain.setValueAtTime(f.warm, t);
+  const f = FX[engine] || FX.eleven, t = ctx.currentTime, c = chain;
+  c.combOut.gain.setValueAtTime(f.comb, t); c.dblOut.gain.setValueAtTime(f.dbl, t);
+  c.verbOut.gain.setValueAtTime(f.verb, t); c.presence.gain.setValueAtTime(f.presence, t);
+  c.warm.gain.setValueAtTime(f.warm, t);    c.air.gain.setValueAtTime(f.air, t);
+  c.satOut.gain.setValueAtTime(f.sat, t);   c.widthOut.gain.setValueAtTime(f.width, t);
+  c.hp.frequency.setValueAtTime(f.hp, t);
   return f;
 }
 
@@ -222,7 +249,7 @@ J.speak = async (text) => {
   const my = ++seq;
   J.$$('.view.active .reactor').forEach(el => el.classList.add('thinking'));
   try {
-    const {buf, engine} = await render(spoken, p.voiceName || 'daniel');
+    const {buf, engine} = await render(spoken, p.voiceName || 'george');
     if (my !== seq) return;        // une autre phrase a été demandée entre-temps
     const fx = setFx(engine);
     const src = ctx.createBufferSource();

@@ -8,7 +8,7 @@
    ============================================================ */
 'use strict';
 (() => {
-const APP_VERSION = '8';
+const APP_VERSION = '9';
 const API = location.hostname === 'localhost' ? 'http://localhost:8787' : 'https://jarvis-api.frensh-developpeur.workers.dev';
 const APP_URL = 'https://frensh-developpeur.github.io/jarvis/';
 
@@ -362,7 +362,7 @@ function openSettings(){
   S$('#sName').value = prefs.data.name;
   S$('#sVoice').checked = prefs.data.voice;
   $$('#sVoiceMode button').forEach(b => b.classList.toggle('on', b.dataset.v === (prefs.data.voiceMode || 'jarvis')));
-  $$('#sVoiceName button').forEach(b => b.classList.toggle('on', b.dataset.v === (prefs.data.voiceName || 'daniel')));
+  $$('#sVoiceName button').forEach(b => b.classList.toggle('on', b.dataset.v === (prefs.data.voiceName || 'george')));
   S$('#sVoiceNameField').hidden = prefs.data.voiceMode === 'iphone';
   S$('#sAccount').textContent = session.user.username + (session.user.isAdmin ? ' · administrateur' : '');
   S$('#adminBox').hidden = !session.user.isAdmin;
@@ -538,7 +538,7 @@ function loadQR(){
    Démarrage
    ============================================================ */
 async function enter(isNew){
-  prefs = J.store('core', {name:'Monsieur', voice:true, voiceMode:'jarvis', voiceName:'daniel'});
+  prefs = J.store('core', {name:'Monsieur', voice:true, voiceMode:'jarvis', voiceName:'george'});
   J.modules.forEach(m => { if (!m.soon && m.init) m.init(); });
   J.go(null);
   if (isNew) J.say(`Bienvenue ${session.user.username}. Compte activé${session.user.isAdmin ? ' avec les droits administrateur' : ''}. Où souhaitez-vous aller ?`);
