@@ -1,5 +1,5 @@
 // Change la version à chaque mise à jour de l'app pour forcer le rafraîchissement
-const CACHE = 'jarvis-v1';
+const CACHE = 'jarvis-v2';
 const ASSETS = ['./', './index.html', './manifest.json', './icon-192.png', './icon-512.png', './apple-touch-icon.png'];
 
 self.addEventListener('install', e => {

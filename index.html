@@ -41,7 +41,10 @@ body::after{content:"";position:fixed;inset:0;pointer-events:none;
   background:repeating-linear-gradient(0deg, rgba(0,0,0,.18) 0 1px, transparent 1px 3px);opacity:.35}
 button,input,select{font:inherit;color:inherit}
 button{cursor:pointer}
-.wrap{max-width:540px;margin:0 auto;padding:calc(env(safe-area-inset-top) + 14px) 16px calc(env(safe-area-inset-bottom) + 110px)}
+.wrap{max-width:540px;margin:0 auto;padding:calc(env(safe-area-inset-top, 0px) + 14px) max(16px, env(safe-area-inset-right, 0px)) calc(env(safe-area-inset-bottom, 0px) + 110px) max(16px, env(safe-area-inset-left, 0px))}
+/* masque sous l'encoche / Dynamic Island : le contenu ne passe plus sous l'heure en scrollant */
+.notch{position:fixed;top:0;left:0;right:0;height:env(safe-area-inset-top, 0px);z-index:8;pointer-events:none;
+  background:linear-gradient(180deg,var(--bg) 70%,rgba(2,6,12,.85));box-shadow:0 1px 0 rgba(63,224,255,.18),0 6px 14px rgba(2,6,12,.9)}
 
 /* header */
 .top{display:flex;align-items:center;justify-content:space-between}
@@ -127,9 +130,9 @@ button{cursor:pointer}
 /* sheets */
 .veil{position:fixed;inset:0;background:rgba(0,6,12,.72);backdrop-filter:blur(4px);-webkit-backdrop-filter:blur(4px);z-index:10;opacity:0;pointer-events:none;transition:opacity .2s}
 .veil.show{opacity:1;pointer-events:auto}
-.sheet{position:fixed;left:0;right:0;bottom:0;z-index:11;max-width:540px;margin:0 auto;max-height:92dvh;overflow:auto;
+.sheet{position:fixed;left:0;right:0;bottom:0;z-index:11;max-width:540px;margin:0 auto;max-height:calc(100dvh - env(safe-area-inset-top, 0px) - 12px);overflow:auto;
   background:linear-gradient(180deg,#071b2b,#030b13);border:1px solid var(--line);border-bottom:none;border-radius:18px 18px 0 0;
-  padding:10px 18px calc(env(safe-area-inset-bottom) + 18px);transform:translateY(105%);transition:transform .28s cubic-bezier(.2,.8,.2,1);
+  padding:10px max(18px, env(safe-area-inset-right, 0px)) calc(env(safe-area-inset-bottom, 0px) + 18px) max(18px, env(safe-area-inset-left, 0px));transform:translateY(105%);transition:transform .28s cubic-bezier(.2,.8,.2,1);
   box-shadow:0 -10px 40px rgba(63,224,255,.12)}
 .sheet.show{transform:none}
 .grab{width:42px;height:4px;border-radius:2px;background:var(--line);margin:0 auto 12px}
@@ -161,15 +164,15 @@ button{cursor:pointer}
 .note{font-size:13px;color:var(--muted);line-height:1.4;margin:6px 0 4px}
 
 /* boot */
-.boot{position:fixed;inset:0;z-index:50;background:var(--bg);display:flex;flex-direction:column;align-items:center;justify-content:center;transition:opacity .5s}
+.boot{position:fixed;inset:0;padding:env(safe-area-inset-top, 0px) 0 env(safe-area-inset-bottom, 0px);z-index:50;background:var(--bg);display:flex;flex-direction:column;align-items:center;justify-content:center;transition:opacity .5s}
 .boot.done{opacity:0;pointer-events:none}
 .boot svg{width:140px;height:140px}
 .boot p{font-family:var(--hud);letter-spacing:.4em;font-size:12px;color:var(--cyan);margin-top:22px;text-shadow:0 0 10px var(--cyan)}
 .boot small{font-size:11px;letter-spacing:.2em;color:var(--muted);margin-top:6px;font-family:var(--hud)}
 
-.toast{position:fixed;left:50%;top:calc(env(safe-area-inset-top) + 14px);transform:translate(-50%,-150%);z-index:60;background:#062033;border:1px solid var(--cyan);
-  color:var(--cyan);padding:10px 16px;border-radius:10px;font-size:14px;transition:transform .25s;box-shadow:0 0 18px rgba(63,224,255,.35);max-width:90vw}
-.toast.show{transform:translate(-50%,0)}
+.toast{position:fixed;left:50%;top:calc(env(safe-area-inset-top, 0px) + 14px);transform:translate(-50%,-200px);opacity:0;visibility:hidden;z-index:60;background:#062033;border:1px solid var(--cyan);
+  color:var(--cyan);padding:10px 16px;border-radius:10px;font-size:14px;transition:transform .25s,opacity .25s,visibility .25s;box-shadow:0 0 18px rgba(63,224,255,.35);max-width:90vw}
+.toast.show{transform:translate(-50%,0);opacity:1;visibility:visible}
 
 @media (prefers-reduced-motion:reduce){.spin,.fab::before,.pulse{animation:none}}
 </style>
@@ -187,6 +190,7 @@ button{cursor:pointer}
   <small id="bootTxt">INITIALISATION…</small>
 </div>
 
+<div class="notch" aria-hidden="true"></div>
 <div class="wrap">
   <header class="top">
     <div class="brand">J.A.R.V.I.S.<small>MODULE FINANCES</small></div>
