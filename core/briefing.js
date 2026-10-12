@@ -177,45 +177,55 @@ function moduleCards(){
     .filter(Boolean).flat().sort((a, b) => (a.order || 50) - (b.order || 50));
 }
 
+/* tuiles « chiffres du jour » : météo + stat() de chaque module */
+function quickTile({label, value, sub = '', ratio = null, act = '', icon = '', accent = '#3fe0ff', cls = ''}){
+  return `<button class="qt ${cls}" data-act="${act}" style="--acc:${accent}">
+    <span class="ql">${icon}${esc(label)}</span><span class="qv">${value}</span>${sub ? `<span class="qs">${sub}</span>` : ''}
+    ${ratio !== null ? `<span class="qb"><i style="width:${Math.max(0, Math.min(1, ratio)) * 100}%"></i></span>` : ''}</button>`;
+}
 J.renderBriefing = () => {
   const el = $('#briefing'); if (!el || !J.user()) return;
   $('#briefDate').textContent = new Date().toLocaleDateString('fr-FR', {weekday:'long', day:'numeric', month:'long'});
-  const html = [];
-  const w = weatherInfo();
-  if (w) {
-    html.push(card({cls:'wide weather', icon:I[w.icon], title:'MÉTÉO' + (w.place ? ' · ' + w.place.toUpperCase() : ''), right:J.ago(w.at), act:'weather', body:`
-      <div class="wx"><div class="wt">${w.temp}°</div><div class="wd"><b>${esc(w.label)}</b><br>Ressenti ${w.feels}° · ${w.min}° / ${w.max}°<br>Pluie ${w.rain}% · Coucher ${hm(w.sunset)}</div></div>
-      ${w.tips.length ? `<div class="tip">${esc(w.tips[0].charAt(0).toUpperCase() + w.tips[0].slice(1))}${w.tips[1] ? ' · ' + esc(w.tips[1]) : ''}</div>` : ''}`}));
-  } else {
-    html.push(card({cls:'wide setup', icon:I.partly, title:'MÉTÉO', act:'weather', body:'<p class="bs">Touchez pour activer la météo locale.</p>'}));
-  }
 
+  const tiles = [];
+  const w = weatherInfo();
+  tiles.push(w ? quickTile({label:'MÉTÉO' + (w.place ? ' · ' + w.place.toUpperCase() : ''), value:`${w.temp}°<small> ${w.min}°/${w.max}°</small>`, sub:w.tips[0] ? w.tips[0].charAt(0).toUpperCase() + w.tips[0].slice(1) : w.label, act:'weather', icon:I[w.icon]})
+               : quickTile({label:'MÉTÉO', value:'<small>Activer</small>', sub:'Touchez pour la météo locale', act:'weather', icon:I.partly, cls:'setup'}));
+  J.modules.filter(m => !m.soon && m.stat).sort((a, b) => (a.order || 50) - (b.order || 50)).forEach(m => {
+    try { const t = m.stat(); if (t) tiles.push(quickTile(Object.assign({icon:m.icon, accent:m.accent, act:'mod:' + m.id}, t))); } catch(e) {}
+  });
+  $('#quick').innerHTML = tiles.join('');
+
+  const html = [];
   const ag = agenda(), rm = reminders(), synced = appleDoc().syncedAt;
-  if (!synced) {
-    html.push(card({cls:'wide setup', icon:I.link, title:'CONNECTER APPLE SANTÉ', act:'guide',
-      body:'<p class="bs">Vos pas et votre énergie active dans le briefing : configurez le raccourci iPhone (5 min).</p><span class="cta">CONFIGURER ▸</span>'}));
-  }
-  /* agenda et rappels : affichés seulement si le raccourci les envoie (facultatif) */
-  if (ag && ag.items.length) html.push(card({cls:'wide', icon:I.cal, title:'AGENDA', right:ag.items.length + ' évén.', body:'<ul class="blist">' + ag.items.map(e => {
+  if (!synced) html.push(card({cls:'setup', icon:I.link, title:'CONNECTER APPLE SANTÉ', act:'guide',
+    body:'<p class="bs">Vos pas et calories actives dans Jarvis : 5 minutes de configuration.</p>'}));
+  if (ag && ag.items.length) html.push(card({icon:I.cal, title:'AGENDA', right:ag.items.length + ' évén.', body:'<ul class="blist">' + ag.items.map(e => {
       const past = e.mins !== null && e.mins < ag.nowM - 5, isNext = e === ag.next;
       return `<li class="${past ? 'past' : ''} ${isNext ? 'next' : ''}"><span class="bt2">${e.time || '—'}</span><span>${esc(e.title)}</span>${isNext ? `<em>${e.mins > ag.nowM ? inMins(e.mins - ag.nowM) : 'maintenant'}</em>` : ''}</li>`;
     }).join('') + '</ul>'}));
-  if (rm && rm.items.length) html.push(card({cls:'wide', icon:I.check, title:'RAPPELS', right:rm.items.length, body:'<ul class="blist">' + rm.items.map(t => `<li><span class="dot"></span><span>${esc(t)}</span></li>`).join('') + '</ul>'}));
-
+  if (rm && rm.items.length) html.push(card({icon:I.check, title:'RAPPELS', right:rm.items.length, body:'<ul class="blist">' + rm.items.map(t => `<li><span class="dot"></span><span>${esc(t)}</span></li>`).join('') + '</ul>'}));
   moduleCards().forEach(c => html.push(card(c)));
-  html.push(card({cls:'wide quip', icon:I.spark, title:'NOTE DE JARVIS', body:`<p class="bs">« ${esc(quip())} »</p>`}));
-  if (synced) html.push(`<button class="sync-row" data-act="runsync">↻ Synchroniser l'iPhone · dernière synchro ${J.ago(synced)}</button>`);
   el.innerHTML = html.join('');
+  el.hidden = !html.length;
+
+  $('#quip').textContent = '« ' + quip() + ' »';
+  const sl = $('#syncLink');
+  sl.hidden = !synced;
+  if (synced) sl.textContent = `↻ Synchroniser Apple Santé · ${J.ago(synced)}`;
 };
 
-$('#briefing').addEventListener('click', e => {
+function onAct(e){
   const c = e.target.closest('[data-act]'); if (!c) return;
   J.haptic();
-  if (c.dataset.act === 'weather') loadWeather(true);
-  if (c.dataset.act === 'guide') J.openGuide();
-  if (c.dataset.act === 'runsync') { location.href = 'shortcuts://run-shortcut?name=' + encodeURIComponent('Jarvis'); }
-  if (c.dataset.act.startsWith('mod:')) J.go(c.dataset.act.slice(4));
-});
+  const a = c.dataset.act;
+  if (a === 'weather') loadWeather(true);
+  if (a === 'guide') J.openGuide();
+  if (a.startsWith('mod:')) J.go(a.slice(4));
+}
+$('#briefing').addEventListener('click', onAct);
+$('#quick').addEventListener('click', onAct);
+$('#syncLink').addEventListener('click', () => { J.haptic(); location.href = 'shortcuts://run-shortcut?name=' + encodeURIComponent('Jarvis'); });
 
 /* ============================================================
    Briefing vocal (concis : chaque caractère consomme le quota de voix)

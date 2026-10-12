@@ -161,3 +161,14 @@
 .mini-mac div{height:5px;border-radius:3px;background:rgba(63,224,255,.08);overflow:hidden}
 .mini-mac i{display:block;height:100%;background:var(--mc);border-radius:3px;box-shadow:0 0 6px var(--mc)}
 .mini-mac b{font-family:var(--hud);font-size:10px;color:var(--muted);font-weight:500}
+
+/* version épurée */
+.nut .reactor{width:min(60vw,225px);margin-top:6px}
+.nut .mac{border-radius:14px;border-color:rgba(63,224,255,.08);background:rgba(9,28,42,.5)}
+.nut .meal{border-radius:16px}
+.nut .mh{padding:12px 10px 10px 14px}
+.nut .mn{color:var(--text);letter-spacing:.16em}
+.nut .row{background:#06141e}
+.nut .kpi{border-radius:14px;border-color:rgba(63,224,255,.08)}
+.nut .utabs button.on{color:var(--green)}
+.nut .utabs button.on::after{background:var(--green);box-shadow:0 0 8px var(--green)}

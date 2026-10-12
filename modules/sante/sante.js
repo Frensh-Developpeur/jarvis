@@ -89,16 +89,10 @@ J.module({
     if (!J.appleDoc().syncedAt) return 'À connecter';
     return t && t.steps ? `<b>${fmt(t.steps)}</b> pas${t.energy ? `<br>${fmt(t.energy)} kcal actives` : ''}` : 'Pas encore de données';
   },
-  briefing(){
+  stat(){
     if (!J.appleDoc().syncedAt) return null;
-    const t = today() || {}, steps = t.steps || 0, kcal = t.energy || 0, r = steps / G().stepGoal;
-    const h = new Date().getHours();
-    const tip = r >= 1 ? 'Objectif de pas atteint.' : h >= 17 && r < .6 ? `Encore ${fmt(G().stepGoal - steps)} pas : une marche ce soir ?` : '';
-    return {order:10, cls:'wide', icon:J.modules.find(m => m.id === 'sante').icon, title:'ACTIVITÉ', act:'mod:sante', right:'›', body:`
-      <div class="act">${ring(r, 74, Math.round(r * 100) + '%', '')}
-        <div class="actd"><b>${fmt(steps)}</b> pas / ${fmt(G().stepGoal)}<br>
-        <b class="kc">${fmt(kcal)}</b> kcal actives / ${fmt(G().energyGoal)}
-        ${tip ? `<br><span class="muted">${tip}</span>` : ''}</div></div>`};
+    const t = today() || {}, steps = t.steps || 0;
+    return {label:'PAS', value:fmt(steps), sub:`objectif ${fmt(G().stepGoal)}${t.energy ? ' · ' + fmt(t.energy) + ' kcal' : ''}`, ratio:steps / G().stepGoal};
   },
   briefingSpeech(){
     const t = today();

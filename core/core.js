@@ -8,7 +8,7 @@
    ============================================================ */
 'use strict';
 (() => {
-const APP_VERSION = '14';
+const APP_VERSION = '15';
 const API = location.hostname === 'localhost' ? 'http://localhost:8787' : 'https://jarvis-api.frensh-developpeur.workers.dev';
 const APP_URL = 'https://frensh-developpeur.github.io/jarvis/';
 
@@ -195,6 +195,26 @@ function closeSheet(){ if (!openSheetEl) return; openSheetEl.classList.remove('s
 J.openSheet = openSheet; J.closeSheet = closeSheet; J.sheetOpen = () => !!openSheetEl;
 veil.addEventListener('click', closeSheet);
 
+/* clavier iOS : les feuilles remontent au-dessus du clavier et le champ actif reste visible */
+const vv = window.visualViewport;
+function onViewport(){
+  if (!vv) return;
+  const kb = Math.max(0, Math.round(window.innerHeight - vv.height - vv.offsetTop));
+  document.documentElement.style.setProperty('--kb', kb + 'px');
+  document.documentElement.style.setProperty('--vvh', vv.height + 'px');
+  document.body.classList.toggle('kb-open', kb > 80);
+}
+if (vv) { vv.addEventListener('resize', onViewport); vv.addEventListener('scroll', onViewport); onViewport(); }
+document.addEventListener('focusin', e => {
+  const el = e.target;
+  if (!el.matches || !el.matches('input,textarea,select')) return;
+  setTimeout(() => {
+    const sh = el.closest('.sheet');
+    if (sh) { const r = el.getBoundingClientRect(), sr = sh.getBoundingClientRect(); if (r.bottom > sr.bottom - 20 || r.top < sr.top + 20) sh.scrollTop += r.top - sr.top - sr.height / 3; }
+    else el.scrollIntoView({block:'center', behavior:'smooth'});
+  }, 320);
+});
+
 /* glisser une feuille vers le bas pour la fermer (comme sur iOS) */
 let drag = null;
 document.addEventListener('touchstart', e => {
@@ -326,9 +346,12 @@ J.fromEdge = () => !!edge;
 /* ============================================================
    Hub
    ============================================================ */
+/* message du hub : court, il ne répète pas les tuiles — seulement ce qui mérite l'attention */
 function hubMessage(){
   const briefs = J.modules.filter(m => !m.soon && m.brief).map(m => { try { return m.brief(); } catch(e) { return ''; } }).filter(Boolean);
-  return J.greeting() + ' ' + (briefs.length ? briefs.join(' ') : 'Tous les systèmes sont opérationnels.') + ' Où souhaitez-vous aller ?';
+  const urgent = briefs.find(b => /attention|alerte|découvert|dépassé|en cours/i.test(b));
+  const h = new Date().getHours();
+  return J.greeting() + ' ' + (urgent || (h < 11 ? 'Voici votre journée.' : h < 18 ? 'Tout est sous contrôle.' : 'Voici le point de la journée.'));
 }
 function renderHub(){
   const d = new Date();

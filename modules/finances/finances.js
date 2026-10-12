@@ -159,15 +159,16 @@ const q = s => $(s, root);
 const fq = s => $(s, fixed);
 
 const TEMPLATE = `
-  <div class="ftabs seg" id="fTabs">
+  <div class="utabs" id="fTabs">
     <button data-tab="mois">MOIS</button><button data-tab="analyse">ANALYSE</button><button data-tab="budgets">BUDGETS</button><button data-tab="fixes">FIXES</button>
   </div>
-  <div class="month" id="fMonthBar">
+  <div class="mnav" id="fMonthBar">
     <button data-m="-1" aria-label="Mois précédent">‹</button>
     <div class="lbl" id="fMonth"></div>
     <button data-m="1" aria-label="Mois suivant">›</button>
   </div>
   <div id="fTab"></div>`;
+const ICON_SPK = '<svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.8" stroke-linecap="round"><path d="M11 5L6 9H3v6h3l5 4z"/><path d="M15.5 8.5a5 5 0 0 1 0 7M18.5 5.5a9 9 0 0 1 0 13"/></svg>';
 
 /* ---------- onglet MOIS ---------- */
 function rowHTML(t){
@@ -176,10 +177,10 @@ function rowHTML(t){
     <div class="sbg"><span class="l">${t.done ? '↺ PRÉVU' : '✓ POINTER'}</span><span class="r">SUPPRIMER</span></div>
     <div class="row ${t.done ? '' : 'planned'}">
       ${catIcon(t.type, t.cat)}
-      <div class="info"><div class="l">${esc(t.label)}${t.recId ? '<span class="tag">↻</span>' : ''}</div>
-        <div class="m">${esc(t.cat)}${t.note ? ' · ' + esc(t.note) : ''}</div></div>
-      <div class="amtc"><div class="amt ${t.type}">${t.type === 'in' ? '+' : '−'}${eur(t.amount)}</div>
-        <button class="pill ${t.done ? 'ok' : late ? 'late' : ''}" data-a="toggle">${t.done ? '✓ POINTÉ' : late ? 'EN RETARD' : 'PRÉVU'}</button></div>
+      <div class="info"><div class="l">${esc(t.label)}${t.recId ? '<span class="rc">↻</span>' : ''}</div>
+        <div class="m">${esc(t.cat)}${t.note ? ' · ' + esc(t.note) : ''}${late ? ' · <span class="lt">en retard</span>' : !t.done ? ' · <span class="pl">prévu</span>' : ''}</div></div>
+      <div class="amt ${t.type}">${t.type === 'in' ? '+' : '−'}${eur(t.amount)}</div>
+      <button class="ck ${t.done ? 'on' : ''}" data-a="toggle" aria-label="${t.done ? 'Marquer comme prévu' : 'Pointer'}"></button>
     </div></div>`;
 }
 function groupByDay(list){
@@ -190,7 +191,7 @@ function groupByDay(list){
     const isToday = k === thisMonth() && +d === todayD();
     const net = r2(items.reduce((a, t) => a + (t.type === 'in' ? t.amount : -t.amount), 0));
     const label = isToday ? "Aujourd'hui" : date.toLocaleDateString('fr-FR', {weekday:'long', day:'numeric'}) + (k !== cur ? ' ' + mShort(k) : '');
-    return `<div class="dgroup ${isToday ? 'today' : ''}"><div class="dh"><span>${label}</span><span class="${net >= 0 ? 'pos' : ''}">${net >= 0 ? '+' : '−'}${eur(Math.abs(net))}</span></div>${items.map(rowHTML).join('')}</div>`;
+    return `<div class="dgroup ${isToday ? 'today' : ''}"><div class="dh"><span>${label}</span><span class="${net >= 0 ? 'pos' : ''}">${net >= 0 ? '+' : '−'}${eur(Math.abs(net))}</span></div><div class="dcard">${items.map(rowHTML).join('')}</div></div>`;
   }).join('');
 }
 function renderMois(){
@@ -198,85 +199,55 @@ function renderMois(){
   const left = r2(T.inc - T.out), now = k === today ? balanceNow() : null, start = balanceStart(k), end = balanceEnd(k);
   const ratio = T.inc > 0 ? T.out / T.inc : (T.out > 0 ? 1 : 0), pd = perDay(k, T);
   const hasBal = S().anchor !== null;
-
-  const mainK = hasBal ? (k === today ? 'SOLDE ACTUEL' : k < today ? 'SOLDE FIN DE MOIS' : 'SOLDE PRÉVU') : 'RESTE PRÉVU';
+  const mainK = hasBal ? (k === today ? 'Solde actuel' : k < today ? 'Solde en fin de mois' : 'Solde prévu') : 'Reste prévu ce mois';
   const mainV = hasBal ? (k === today ? now : end) : left;
-  const sub = hasBal ? (k === today ? `Fin de mois : <b class="${end < 0 ? 'neg' : ''}">${eur(end)}</b>` : `Début : <b>${eur(start)}</b>`) : `Réel : <b>${eur(r2(T.incD - T.outD))}</b>`;
+  const sub = [];
+  if (hasBal && k === today) sub.push(`Fin de mois <b class="${end < 0 ? 'neg' : ''}">${eur(end)}</b>`);
+  if (hasBal && k !== today) sub.push(`Début de mois <b>${eur(start)}</b>`);
+  if (pd && T.list.length) sub.push(`≈ <b>${eur(pd.value)}</b> / jour`);
+  const barCol = ratio >= 1 ? 'var(--red)' : ratio > .85 ? 'var(--gold)' : 'var(--cyan)';
 
-  // alertes
-  const alerts = [];
-  if (k === today) {
-    const late = T.list.filter(t => !t.done && t.day < todayD());
-    if (late.length) alerts.push(`<div class="alert gold"><span>${late.length} opération${late.length > 1 ? 's' : ''} non pointée${late.length > 1 ? 's' : ''} (date passée)</span><button data-a="pointall">TOUT POINTER</button></div>`);
-  }
-  if (end !== null && end < 0) alerts.push(`<div class="alert red"><span>Découvert prévu en fin de mois : ${eur(-end)}</span></div>`);
-  budgetAlerts(k).forEach(a => alerts.push(`<div class="alert ${a.lvl}"><span>${esc(a.txt)}</span></div>`));
+  // une seule alerte : la plus importante
+  let alert = '';
+  const late = k === today ? T.list.filter(t => !t.done && t.day < todayD()) : [];
+  const bAl = budgetAlerts(k);
+  if (end !== null && end < 0) alert = `<div class="alert red"><span>Découvert prévu en fin de mois : ${eur(-end)}</span></div>`;
+  else if (late.length) alert = `<div class="alert gold"><span>${late.length} opération${late.length > 1 ? 's' : ''} à pointer</span><button data-a="pointall">TOUT POINTER</button></div>`;
+  else if (bAl.length) alert = `<div class="alert ${bAl[0].lvl}"><span>${esc(bAl[0].txt)}</span></div>`;
 
-  // frise des jours
-  const days = [];
-  for (let d = 1; d <= dim(k); d++) {
-    const ops = T.list.filter(t => t.day === d);
-    const date = dateOf(k, d);
-    days.push(`<button class="dd ${k === today && d === todayD() ? 'now' : ''} ${selDay === d ? 'sel' : ''} ${ops.length ? 'has' : ''}" data-d="${d}">
-      <small>${date.toLocaleDateString('fr-FR', {weekday:'short'}).slice(0, 3)}</small><b>${d}</b>
-      <i>${ops.some(t => t.type === 'in') ? '<span class="in"></span>' : ''}${ops.some(t => t.type === 'out') ? '<span class="out"></span>' : ''}</i></button>`);
-  }
-
-  // liste
   let list = query ? S().tx.filter(t => (t.label + ' ' + t.cat + ' ' + (t.note || '')).toLowerCase().includes(query.toLowerCase())) : T.list;
   if (!query) {
     if (filter !== 'all') list = list.filter(t => filter === 'done' ? t.done : !t.done);
-    if (selDay) list = list.filter(t => t.day === selDay);
     if (selCat) list = list.filter(t => t.cat === selCat);
   }
   list = [...list].sort((a, b) => query ? (b.month.localeCompare(a.month) || b.day - a.day) : (a.day - b.day || (a.type === 'in' ? -1 : 1) || b.amount - a.amount));
-  const cats = [...new Set(T.list.map(t => t.cat))];
 
   q('#fTab').innerHTML = `
-    <div class="reactor" id="fReactor" title="Touchez pour un rapport vocal">
-      ${J.reactorSVG('f')}
-      <div class="core">
-        <div class="k">${mainK}</div>
-        <div class="v ${mainV < 0 ? 'neg' : ''}">${eur(mainV)}</div>
-        <div class="s">${sub}</div>
-        <div class="r">${T.inc > 0 ? Math.round(ratio * 100) + '% DES REVENUS ENGAGÉS' : ''}</div>
-      </div>
+    <div class="hero">
+      <div class="htop"><span>${mainK}</span><button class="hspk" data-a="speak" aria-label="Rapport vocal">${ICON_SPK}</button></div>
+      <div class="hv ${mainV < 0 ? 'neg' : ''}" ${k === today ? 'data-a="balance"' : ''}>${eur(mainV)}</div>
+      ${sub.length ? `<div class="hs">${sub.join('<i>·</i>')}</div>` : ''}
+      ${!hasBal && k === today ? '<button class="hset" data-a="balance">Suivre le solde de mon compte ›</button>' : ''}
+      ${T.inc || T.out ? `<div class="hbar"><i style="width:${Math.min(100, ratio * 100)}%;background:${barCol}"></i></div>
+      <div class="hbl"><span>${T.inc ? Math.round(ratio * 100) + ' % des revenus dépensés' : 'Aucun revenu ce mois'}</span><span>${T.pending ? T.pending + ' à venir' : ''}</span></div>` : ''}
     </div>
-    <div class="under">
-      ${pd && T.list.length ? `<span class="perday">≈ <b>${eur(pd.value)}</b> / jour · ${pd.daysLeft} j restants</span>` : ''}
-      ${k === today ? `<button class="chip" data-a="balance">${hasBal ? 'Ajuster le solde' : 'Définir mon solde ›'}</button>` : ''}
+    <div class="duo">
+      <div><small>REVENUS</small><b class="pos">+${eur(T.inc)}</b><span>reçu ${eur(T.incD)}</span></div>
+      <div><small>DÉPENSES</small><b>−${eur(T.out)}</b><span>payé ${eur(T.outD)}</span></div>
     </div>
-    <div class="stats">
-      <div class="stat in"><div class="k">REVENUS</div><div class="v">${eur(T.inc)}</div><div class="s">reçu ${eur(T.incD)}</div></div>
-      <div class="stat out"><div class="k">DÉPENSES</div><div class="v">${eur(T.out)}</div><div class="s">payé ${eur(T.outD)}</div></div>
-      <div class="stat left"><div class="k">À VENIR</div><div class="v">${T.pending}</div><div class="s">opération${T.pending > 1 ? 's' : ''}</div></div>
-    </div>
-    ${alerts.join('')}
-    <div class="days hscroll" id="fDays">${days.join('')}</div>
-    <div class="toolbar">
-      <div class="filters">
-        <button data-f="all" class="${filter === 'all' ? 'on' : ''}">TOUT</button><button data-f="plan" class="${filter === 'plan' ? 'on' : ''}">PRÉVU</button><button data-f="done" class="${filter === 'done' ? 'on' : ''}">POINTÉ</button>
-      </div>
+    ${alert}
+    <div class="lhead">
+      <div class="seg sm" id="fFilt"><button data-f="all" class="${filter === 'all' ? 'on' : ''}">TOUT</button><button data-f="plan" class="${filter === 'plan' ? 'on' : ''}">PRÉVU</button><button data-f="done" class="${filter === 'done' ? 'on' : ''}">POINTÉ</button></div>
       <button class="icon-btn sm ${searchOpen ? 'on' : ''}" data-a="search" aria-label="Rechercher"><svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2"><circle cx="11" cy="11" r="7"/><path d="M20 20l-3.5-3.5"/></svg></button>
     </div>
-    <div class="searchbar" ${searchOpen ? '' : 'hidden'}><input id="fSearch" placeholder="Rechercher dans tous les mois…" value="${esc(query)}" autocomplete="off"></div>
-    ${cats.length > 1 && !query ? `<div class="chips hscroll">${cats.map(c => { const t = T.list.find(x => x.cat === c); const m = catMeta(t.type, c);
-      return `<button class="cchip ${selCat === c ? 'on' : ''}" data-cat="${esc(c)}" style="--cc:${m.c}">${m.i}${esc(c)}</button>`; }).join('')}</div>` : ''}
-    ${selDay || selCat ? `<button class="clear" data-a="clearsel">✕ ${selDay ? 'le ' + selDay : ''}${selDay && selCat ? ' · ' : ''}${selCat ? esc(selCat) : ''} — tout afficher</button>` : ''}
-    <section class="panel list">
+    <div class="searchbar" ${searchOpen ? '' : 'hidden'}><input id="fSearch" placeholder="Rechercher dans tous les mois…" value="${esc(query)}" autocomplete="off" autocorrect="off" spellcheck="false" enterkeyhint="search"></div>
+    ${selCat ? `<button class="clear" data-a="clearsel">${esc(selCat)} ✕</button>` : ''}
+    <div class="tlist">
       ${list.length ? groupByDay(list) : `<div class="empty">${query ? 'Aucun résultat.' : T.list.length ? 'Rien pour ce filtre.' : 'Aucune opération ce mois-ci.<br>Touchez <b>+</b> pour ajouter votre salaire et vos dépenses prévues.'}</div>`}
-    </section>
-    ${T.list.length ? '<p class="hint">Glissez une ligne → pour la pointer, ← pour la supprimer.</p>' : ''}`;
-  J.setArc(q('#fReactor'), ratio);
-  const strip = q('#fDays');
-  const target = strip.querySelector('.sel') || strip.querySelector('.now');
-  if (target) {
-    const sr = strip.getBoundingClientRect(), tr = target.getBoundingClientRect();
-    strip.style.scrollBehavior = 'auto';
-    strip.scrollLeft += (tr.left - sr.left) - sr.width / 2 + tr.width / 2;
-    strip.style.scrollBehavior = '';
-  }
+    </div>`;
+  if (!ls_tip() && T.list.length) { J.toast('Astuce : glissez une opération → pour la pointer, ← pour la supprimer'); ls_tip(true); }
 }
+function ls_tip(set){ try { if (set) localStorage.setItem('jarvis.tip.swipe', '1'); return !!localStorage.getItem('jarvis.tip.swipe'); } catch(e) { return true; } }
 
 /* ---------- onglet ANALYSE ---------- */
 function donut(parts, total){
@@ -701,7 +672,7 @@ function bind(){
     const tb = e.target.closest('[data-tab]');
     if (tb) { J.haptic(); tab = tb.dataset.tab; searchOpen = false; query = ''; render(); window.scrollTo(0, 0); return; }
     const m = e.target.closest('[data-m]'); if (m) return goMonth(+m.dataset.m);
-    if (e.target.closest('#fReactor')) { const t = J.greeting() + ' ' + spoken(cur); J.say(t); J.speak(t); return; }
+    if (e.target.closest('[data-a="speak"]')) { const t = J.greeting() + ' ' + spoken(cur); J.say(t); J.speak(t); return; }
     const a = e.target.closest('[data-a]');
     if (a) {
       const act = a.dataset.a;
@@ -871,17 +842,25 @@ J.module({
     return left >= 0 ? `Il vous reste ${eur(left)} prévus ce mois-ci.` : `Attention, budget dépassé de ${eur(-left)} ce mois-ci.`;
   },
   report(){ return spoken(thisMonth()); },
+  stat(){
+    const k = thisMonth(), T = totals(k), now = balanceNow(), end = balanceEnd(k), left = r2(T.inc - T.out);
+    const short = n => Math.round(n).toLocaleString('fr-FR') + ' €';
+    if (now !== null) return {label:'SOLDE', value:short(now), sub:`fin de mois ${short(end)}`, ratio:T.inc ? T.out / T.inc : null};
+    if (!T.list.length) return {label:'FINANCES', value:'<small>À configurer</small>', sub:'Ajoutez vos revenus'};
+    return {label:'RESTE CE MOIS', value:short(left), sub:`${T.pending} opération${T.pending > 1 ? 's' : ''} à venir`, ratio:T.inc ? T.out / T.inc : null};
+  },
   briefing(){
     const k = thisMonth(), T = totals(k), d = todayD();
     if (!T.list.length) return null;
     const due = T.list.filter(t => !t.done && t.day <= d).sort((a, b) => a.day - b.day);
     const soon = T.list.filter(t => !t.done && t.day > d && t.day <= d + 3).sort((a, b) => a.day - b.day);
     const now = balanceNow(), end = balanceEnd(k), left = r2(T.inc - T.out), alerts = budgetAlerts(k);
+    if (!due.length && !soon.length && !alerts.length && !(end !== null && end < 0)) return null;   // rien à signaler : pas de carte
     const line = (t, when) => `<li><span class="bt2">${when}</span><span>${esc(t.label)}</span><em class="${t.type}">${t.type === 'in' ? '+' : '−'}${eur(t.amount)}</em></li>`;
-    return {order:20, cls:'wide', icon:J.modules.find(m => m.id === 'finances').icon, title:'FINANCES', act:'mod:finances', right:'›', body:`
-      <p class="bs">${now !== null ? `Solde <b class="${now < 0 ? 'neg' : ''}">${eur(now)}</b> · fin de mois <b class="${end < 0 ? 'neg' : ''}">${eur(end)}</b>` : `Reste prévu ce mois : <b class="${left < 0 ? 'neg' : ''}">${eur(left)}</b>`}</p>
+    return {order:20, icon:J.modules.find(m => m.id === 'finances').icon, title:'FINANCES · À VENIR', act:'mod:finances', right:'›', body:`
+      ${end !== null && end < 0 ? `<p class="bs" style="color:var(--red)">⚠ Découvert prévu : ${eur(-end)}</p>` : ''}
       ${alerts.length ? `<p class="bs" style="color:var(--${alerts[0].lvl === 'red' ? 'red' : 'gold'})">⚠ ${esc(alerts[0].txt)}</p>` : ''}
-      ${due.length || soon.length ? '<ul class="blist">' + due.map(t => line(t, t.day === d ? 'AUJ.' : 'RETARD')).join('') + soon.map(t => line(t, 'LE ' + t.day)).join('') + '</ul>' : '<p class="bs muted">Aucune opération prévue dans les 3 prochains jours.</p>'}`};
+      ${due.length || soon.length ? '<ul class="blist">' + due.map(t => line(t, t.day === d ? 'AUJ.' : 'RETARD')).join('') + soon.map(t => line(t, 'LE ' + t.day)).join('') + '</ul>' : ''}`};
   },
   briefingSpeech(){
     const k = thisMonth(), T = totals(k), d = todayD();

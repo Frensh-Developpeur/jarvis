@@ -96,7 +96,7 @@ const q = s => $(s, root);
 const fq = s => $(s, fixed);
 
 const TEMPLATE = `
-  <div class="ftabs seg" id="nTabs"><button data-tab="jour">JOUR</button><button data-tab="hist">HISTORIQUE</button><button data-tab="obj">OBJECTIFS</button></div>
+  <div class="utabs" id="nTabs"><button data-tab="jour">JOUR</button><button data-tab="hist">HISTORIQUE</button><button data-tab="obj">OBJECTIFS</button></div>
   <div id="nTab"></div>`;
 
 function macroBar(key, v, goal){
@@ -117,7 +117,7 @@ function renderJour(){
   const left = goal - s.kcal, ratio = goal ? s.kcal / goal : 0;
   const yest = items(addDays(k, -1));
   q('#nTab').innerHTML = `
-    <div class="month">
+    <div class="mnav">
       <button data-day="-1" aria-label="Jour précédent">‹</button>
       <div class="lbl">${esc(dayLabel(k))}<small>${parseDk(k).toLocaleDateString('fr-FR', {day:'numeric', month:'short', year:'numeric'}).toUpperCase()}</small></div>
       <button data-day="1" aria-label="Jour suivant" ${k >= today() ? 'disabled' : ''}>›</button>
@@ -589,12 +589,10 @@ J.module({
     return left >= 0 ? `Il vous reste ${fmt(left)} kcal aujourd'hui.` : '';
   },
   report(){ return spoken(today()); },
-  briefing(){
-    const k = today(), list = items(k), s = sums(list), G = S().goals, goal = goalK(k), left = goal - s.kcal;
-    const bar = key => { const r = G[key] ? s[key] / G[key] : 0; return `<div class="mini-mac" style="--mc:${MAC[key].c}"><span>${MAC[key].short}</span><div><i style="width:${Math.min(100, r * 100)}%"></i></div><b>${fmt(s[key])}/${G[key]}</b></div>`; };
-    return {order:15, cls:'wide', icon:J.modules.find(m => m.id === 'nutrition').icon, title:'NUTRITION', act:'mod:nutrition', right:'›', body:
-      !list.length ? `<p class="bs">Rien de saisi aujourd'hui. Objectif : <b>${fmt(goal)} kcal</b>.</p>`
-      : `<p class="bs"><b>${fmt(s.kcal)}</b> / ${fmt(goal)} kcal · ${left >= 0 ? `reste <b>${fmt(left)}</b>` : `<b class="neg">+${fmt(-left)}</b>`}</p>${bar('p')}${bar('c')}${bar('f')}`};
+  stat(){
+    const k = today(), list = items(k), s = sums(list), goal = goalK(k), left = goal - s.kcal;
+    if (!list.length) return {label:'CALORIES', value:fmt(goal) + '<small> kcal</small>', sub:'rien de saisi aujourd\'hui', ratio:0};
+    return {label:'CALORIES', value:(left >= 0 ? fmt(left) : '+' + fmt(-left)) + `<small> ${left >= 0 ? 'restantes' : 'kcal'}</small>`, sub:`${fmt(s.kcal)} / ${fmt(goal)} · prot. ${fmt(s.p)} g`, ratio:s.kcal / goal};
   },
   briefingSpeech(){
     const list = items(today()); if (!list.length) return '';
