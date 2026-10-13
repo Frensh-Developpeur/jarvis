@@ -116,13 +116,15 @@
       <div class="core">
         <div class="t" id="hubTime">--:--</div>
         <div class="d" id="hubDate"></div>
-        <div class="h">BRIEFING ▸</div>
+        <div class="h" id="hubHint">TOUCHER POUR PARLER</div>
       </div>
     </div>
     <div class="sys"><span>SYSTÈMES <b>OK</b></span><span id="syncState">SYNC <b>OK</b></span></div>
 
     <div class="msg"></div>
-    <button class="askj" data-a="chat"><span class="aj-r"></span><span>Demander à Jarvis…</span><i>« J'ai dépensé 12 € au resto »</i></button>
+    <div class="hubacts" id="hubActs"></div>
+    <form class="askbar" id="hubAskF" autocomplete="off"><span class="aj-r"></span><input id="hubAsk" placeholder="Dites ou écrivez à Jarvis…" enterkeyhint="send" autocomplete="off"><button type="submit" id="hubAskGo" aria-label="Envoyer"><svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2.2" stroke-linecap="round" stroke-linejoin="round"><path d="M12 19V5M5 12l7-7 7 7"/></svg></button></form>
+    <button class="hubconv" data-a="chat" id="hubConv" hidden>Voir la conversation ›</button>
 
     <div class="slabel"><span>AUJOURD'HUI</span><span id="briefDate"></span></div>
     <div class="quick" id="quick"></div>

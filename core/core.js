@@ -8,7 +8,7 @@
    ============================================================ */
 'use strict';
 (() => {
-const APP_VERSION = '29';
+const APP_VERSION = '30';
 const API = location.hostname === 'localhost' ? 'http://localhost:8787' : 'https://jarvis-api.frensh-developpeur.workers.dev';
 const APP_URL = 'https://frensh-developpeur.github.io/jarvis/';
 
@@ -580,11 +580,8 @@ $('#tiles').addEventListener('click', e => {
   if (m.soon) { J.say(`Le module ${m.name} est en cours de développement, ${prefs.data.name}. ${m.tagline ? m.tagline + '.' : ''}`); return; }
   J.go(m.id);
 });
-$('#hubReactor').addEventListener('click', () => {
-  const txt = J.briefingSpeech();
-  J.say(txt); J.speak(txt);
-});
-setInterval(() => { if (!current && document.visibilityState === 'visible' && session) { const d = new Date(); $('#hubTime').textContent = d.toLocaleTimeString('fr-FR', {hour:'2-digit', minute:'2-digit'}); J.setArc($('#hubReactor'), d.getSeconds() / 60, '#3fe0ff'); } }, 1000);
+/* toucher le réacteur = parler à Jarvis, appui long = briefing (voir core/chat.js) */
+setInterval(() => { if (!current && document.visibilityState === 'visible' && session && !$('#hubReactor').classList.contains('listening')) { const d = new Date(); $('#hubTime').textContent = d.toLocaleTimeString('fr-FR', {hour:'2-digit', minute:'2-digit'}); J.setArc($('#hubReactor'), d.getSeconds() / 60, '#3fe0ff'); } }, 1000);
 
 /* ============================================================
    Réglages

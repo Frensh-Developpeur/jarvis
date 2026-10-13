@@ -792,6 +792,13 @@ function chatAddTx(type, a){
   const amount = r2(Math.abs(parseFloat(String(a.amount).replace(',', '.'))));
   if (!(amount > 0)) throw new Error('montant manquant');
   const cats = Object.keys(CAT[type]);
+  /* les mots du libellé priment sur la catégorie devinée par l'IA */
+  const KW = {Transport:/essence|carbur|gasoil|diesel|peage|parking|train|sncf|uber|taxi|bus|metro|navigo|velo|trottinette/, Restaurants:/resto|restaurant|mcdo|burger|kebab|pizza|sushi|cafe|bar |brasserie|livraison|deliveroo|uber ?eats/,
+    Courses:/carrefour|leclerc|lidl|auchan|intermarche|super ?u|monoprix|franprix|courses|supermarche|marche|boulangerie/, Abonnements:/netflix|spotify|disney|prime video|abonnement|deezer|youtube|icloud|canal/,
+    Santé:/pharmacie|medecin|docteur|dentiste|kine|ophtalmo|mutuelle|hopital/, Loisirs:/cinema|cine |concert|jeu|bowling|musee|sortie|spectacle/, Shopping:/amazon|vetement|zara|h&m|chaussure|fnac|decathlon/,
+    Factures:/edf|electricite|engie|gaz|eau |internet|box|free|orange|sfr|bouygues|telephone|forfait/, Logement:/loyer|charges|assurance habitation|syndic/};
+  const kwCat = type === 'out' ? Object.keys(KW).find(c => KW[c].test(nrm(' ' + (a.label || '') + ' '))) : null;
+  if (kwCat) a.category = kwCat;
   const cat = cats.find(c => nrm(c) === nrm(a.category)) || cats.find(c => nrm(a.category).includes(nrm(c)) || nrm(c).includes(nrm(a.category) || '#')) || (type === 'in' ? 'Autre' : 'Autre');
   const d = /^\d{4}-\d{2}-\d{2}$/.test(a.date || '') ? a.date : null;
   const month = d ? d.slice(0, 7) : thisMonth(), day = d ? +d.slice(8, 10) : todayD();

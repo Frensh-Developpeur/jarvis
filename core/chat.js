@@ -51,12 +51,15 @@ function render(){
 }
 
 /* ---------- envoi ---------- */
-async function send(text){
+async function send(text, opts = {}){
   text = String(text || '').trim();
   if (!text || busy) return;
-  const voice = viaVoice; viaVoice = false;
-  msgs.push({role:'user', content:text}); busy = true; render(); persist();
-  $('#chatIn').value = ''; autosize();
+  if (!msgs.length) load();
+  const voice = viaVoice || !!opts.voice, fromHub = opts.from === 'hub'; viaVoice = false;
+  msgs.push({role:'user', content:text}); busy = true; persist();
+  if (fromHub) { $('#hubReactor').classList.add('thinking'); J.say('…'); $('#hubActs').innerHTML = ''; }
+  else { render(); $('#chatIn').value = ''; autosize(); }
+  let briefing = false;
   let reply = '', acts = [];
   try {
     const now = new Date();
@@ -67,6 +70,7 @@ async function send(text){
     });
     reply = r.reply || '';
     for (const a of r.actions || []) {
+      if (a.type === 'briefing') { briefing = true; continue; }
       if (a.type === 'open') { if (J.modules.some(m => m.id === a.module)) acts.push({ok:true, text:'Ouvrir ' + J.modules.find(m => m.id === a.module).name, go:a.module}); continue; }
       const fn = J.actions && J.actions[a.type];
       if (!fn) continue;
@@ -79,9 +83,48 @@ async function send(text){
     reply = e.status === 429 ? 'Nous avons beaucoup discuté aujourd\'hui : le quota gratuit de l\'IA est atteint. Revenons-en demain.' : (e.message || 'Liaison interrompue avec le serveur.');
   }
   busy = false;
-  msgs.push({role:'assistant', content:reply, acts}); persist(); render();
-  if (voice) J.speak(reply);
+  if (briefing) { reply = J.briefingSpeech(); }
+  msgs.push({role:'assistant', content:reply, acts}); persist();
+  if (fromHub) {
+    $('#hubReactor').classList.remove('thinking');
+    J.say(reply);
+    $('#hubActs').innerHTML = acts.map(a => `<button class="ca ${a.ok ? '' : 'ko'}" ${a.go ? `data-go="${a.go}"` : ''}>${a.ok ? '✓' : '⚠'} ${esc(a.text)}${a.go ? ' ›' : ''}</button>`).join('');
+    $('#hubConv').hidden = false;
+    if (J.renderBriefing) J.renderBriefing();
+  } else render();
+  if (voice || briefing) J.speak(reply);
 }
+J.ask = send;
+
+/* ---------- accueil : barre de saisie et réacteur ---------- */
+$('#hubAskF').addEventListener('submit', e => { e.preventDefault(); const v = $('#hubAsk').value; $('#hubAsk').value = ''; $('#hubAsk').blur(); send(v, {from:'hub'}); });
+$('#hubActs').addEventListener('click', e => { const b = e.target.closest('[data-go]'); if (b) { J.haptic(); J.go(b.dataset.go); } });
+let hubRec = null;
+function hubListen(){
+  const SR = window.SpeechRecognition || window.webkitSpeechRecognition;
+  if (!SR) { $('#hubAsk').focus(); J.toast('Dictée : utilisez le micro du clavier'); return; }   // l'app installée peut ne pas avoir la reconnaissance vocale
+  if (hubRec) { hubRec.stop(); return; }
+  const r = $('#hubReactor'), time = $('#hubTime'), hint = $('#hubHint');
+  hubRec = new SR(); hubRec.lang = 'fr-FR'; hubRec.interimResults = true;
+  let heard = '';
+  r.classList.add('listening'); time.textContent = 'ÉCOUTE'; hint.textContent = 'TOUCHER POUR ARRÊTER'; J.haptic(); J.say('Je vous écoute…');
+  hubRec.onresult = e => { heard = [...e.results].map(x => x[0].transcript).join(' '); J.say('« ' + heard + ' »'); };
+  hubRec.onerror = e => { if (e.error === 'not-allowed' || e.error === 'service-not-allowed') { J.toast('Micro indisponible : utilisez le micro du clavier'); $('#hubAsk').focus(); } };
+  hubRec.onend = () => {
+    hubRec = null; r.classList.remove('listening'); hint.textContent = 'TOUCHER POUR PARLER';
+    time.textContent = new Date().toLocaleTimeString('fr-FR', {hour:'2-digit', minute:'2-digit'});
+    if (heard.trim()) send(heard, {from:'hub', voice:true}); else J.say('Je n\'ai rien entendu. Touchez le réacteur et parlez.');
+  };
+  try { hubRec.start(); } catch(e) { hubRec = null; r.classList.remove('listening'); $('#hubAsk').focus(); }
+}
+/* toucher = parler ; appui long (0,5 s) = briefing vocal */
+(() => {
+  const r = $('#hubReactor'); let t = 0, long = false;
+  r.addEventListener('pointerdown', () => { long = false; t = setTimeout(() => { long = true; J.haptic(); const txt = J.briefingSpeech(); J.say(txt); J.speak(txt); }, 500); });
+  ['pointerup', 'pointerleave', 'pointercancel'].forEach(ev => r.addEventListener(ev, () => clearTimeout(t)));
+  r.addEventListener('click', () => { if (long) return; hubListen(); });
+  r.addEventListener('contextmenu', e => e.preventDefault());
+})();
 
 /* ---------- dictée ---------- */
 let rec = null;
@@ -99,12 +142,14 @@ function autosize(){ const t = $('#chatIn'); t.style.height = 'auto'; t.style.he
 
 J.openChat = (prefill) => {
   load(); render();
+  $('#hubConv').hidden = true;
   J.openSheet($('#chat'));
   if (prefill) { $('#chatIn').value = prefill; autosize(); }
 };
 
 /* ---------- branchements ---------- */
 $('#chatSend').addEventListener('click', () => send($('#chatIn').value));
+if (!msgs.length) load();
 $('#chatIn').addEventListener('input', autosize);
 $('#chatIn').addEventListener('keydown', e => { if (e.key === 'Enter' && !e.shiftKey) { e.preventDefault(); send($('#chatIn').value); } });
 $('#chatSugg').addEventListener('click', e => { const b = e.target.closest('[data-s]'); if (b) { J.haptic(); send(b.dataset.s); } });

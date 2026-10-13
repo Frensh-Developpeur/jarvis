@@ -35,7 +35,8 @@ TYPES D'ACTIONS :
 {"type":"log_weight","kg":78.4}
 {"type":"log_habit","name":"nom de l'habitude","amount":1}
 {"type":"add_note","title":"...","text":"..."}
-{"type":"open","module":"finances|nutrition|muscu|taches|habitudes|sante|notes"}  (si l'utilisateur veut voir un écran)`;
+{"type":"open","module":"finances|nutrition|muscu|taches|habitudes|sante|notes"}  (si l'utilisateur veut voir un écran)
+{"type":"briefing"}  (s'il demande le briefing, le point de la journée ou « quoi de neuf »)`;
 /* Diction « Jarvis » : posée, régulière, pince-sans-rire (stabilité haute, peu d'emphase, débit un peu lent).
    Changer ces réglages → changer aussi le préfixe 'el2' du cache pour régénérer les phrases. */
 const EL_BUDGET = 9500;   // caractères par mois (offre gratuite : 10 000) — au-delà, voix Cloudflare
