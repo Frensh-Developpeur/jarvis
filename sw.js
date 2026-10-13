@@ -1,5 +1,5 @@
 // Change la version à chaque mise à jour (le script bump.sh le fait pour toi)
-const CACHE = 'jarvis-v26';
+const CACHE = 'jarvis-v27';
 const ASSETS = [
   './', './index.html', './manifest.json', './icon-192.png', './icon-512.png', './apple-touch-icon.png',
   './core/core.css', './core/core.js', './core/voice.js', './core/briefing.js',
@@ -9,6 +9,7 @@ const ASSETS = [
   './modules/muscu/muscu.css', './modules/muscu/muscu.js', './modules/muscu/wger.json',
   './modules/taches/taches.css', './modules/taches/taches.js',
   './modules/habitudes/habitudes.css', './modules/habitudes/habitudes.js',
+  './modules/notes/notes.css', './modules/notes/notes.js',
 ];
 
 self.addEventListener('install', e => {

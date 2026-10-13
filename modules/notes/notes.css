@@ -1,0 +1,67 @@
+/* ============================================================
+   Module Notes & journal
+   ============================================================ */
+.nb .utabs button.on{color:#ff5f8f}
+.nb .utabs button.on::after{background:#ff5f8f;box-shadow:0 0 8px #ff5f8f}
+.nb .fab{border-color:#ff5f8f;color:#ff5f8f;background:radial-gradient(circle,#3d1426 0%,#14060c 70%);box-shadow:0 0 22px rgba(255,95,143,.4),inset 0 0 18px rgba(255,95,143,.25)}
+.nb .fab::before{border-color:rgba(255,95,143,.45)}
+.nb .btn.primary{background:#ff5f8f;border-color:#ff5f8f;color:#1d0610;box-shadow:0 0 18px rgba(255,95,143,.3)}
+.nb .nsearch input{width:100%;margin-top:14px;background:rgba(63,224,255,.05);border:1px solid rgba(63,224,255,.12);border-radius:14px;padding:12px 14px;font-size:16px;outline:none;color:var(--text)}
+.nb .nsearch input:focus{border-color:#ff5f8f}
+.nb .ngrid{display:grid;grid-template-columns:repeat(2,minmax(0,1fr));gap:10px;align-items:start}
+.nb .ncard{position:relative;display:block;width:100%;margin:0;text-align:left;padding:12px 13px 10px;border-radius:16px;background:rgba(9,28,42,.55);border:1px solid rgba(63,224,255,.1);color:var(--text)}
+.nb .ncard.col{background:color-mix(in srgb,var(--nc) 10%,rgba(9,28,42,.6));border-color:color-mix(in srgb,var(--nc) 40%,transparent)}
+.nb .ncard b{display:block;font-size:15px;margin-bottom:5px;padding-right:16px}
+.nb .np{font-size:13.5px;color:#b8d4e0;line-height:1.4;word-break:break-word}
+.nb .np .chk{display:flex;gap:7px;align-items:flex-start}
+.nb .np .chk i{flex:none;width:12px;height:12px;border-radius:3px;border:1.5px solid var(--muted);margin-top:3px}
+.nb .np .chk.on{color:var(--muted);text-decoration:line-through}
+.nb .np .chk.on i{background:var(--muted)}
+.nb .ncard small{display:block;font-size:11px;color:var(--muted);margin-top:8px}
+.nb .pin{position:absolute;top:10px;right:10px;width:13px;height:13px;color:#ff5f8f}
+.nb .pin svg{width:100%;height:100%}
+.nb .muted{color:var(--muted)}
+/* éditeur de note */
+.nb .ne-bar{display:flex;align-items:center;justify-content:space-between;margin-bottom:10px}
+.nb .ncolors{display:flex;gap:8px}
+.nb .ncolors button{width:26px;height:26px;border-radius:50%;border:2px solid transparent;background:var(--cc);padding:0}
+.nb .ncolors button.on{border-color:#fff}
+.nb .pinb{width:36px;height:36px;border-radius:50%;border:1px solid rgba(63,224,255,.15);background:none;color:var(--muted);display:grid;place-items:center;padding:0}
+.nb .pinb svg{width:16px;height:16px}
+.nb .pinb.on{color:#ff5f8f;border-color:#ff5f8f}
+.nb .ne-title{width:100%;background:none;border:none;outline:none;font-size:21px;font-weight:700;color:var(--text);padding:4px 0 8px;font-family:var(--ui)}
+.nb .ne-body{width:100%;min-height:200px;background:rgba(63,224,255,.03);border:1px solid rgba(63,224,255,.08);border-radius:14px;outline:none;resize:none;padding:12px;font-size:16px;line-height:1.5;color:var(--text);font-family:var(--ui)}
+.nb .ne-tools{display:flex;justify-content:space-between;align-items:center;margin:8px 0 4px}
+.nb .ne-tools button{background:none;border:1px solid rgba(63,224,255,.15);border-radius:12px;color:var(--text);padding:6px 11px;font-size:13px}
+.nb .ne-tools span{font-size:12px;color:var(--muted)}
+/* journal */
+.nb .jtoday{display:flex;align-items:center;gap:14px;width:100%;margin-top:14px;padding:16px;border-radius:20px;text-align:left;color:var(--text);background:linear-gradient(150deg,rgba(255,95,143,.14),rgba(255,95,143,.02) 60%),rgba(9,28,42,.6);border:1px solid rgba(255,95,143,.25)}
+.nb .jtoday.done{border-color:rgba(77,255,195,.25);background:linear-gradient(150deg,rgba(77,255,195,.1),rgba(77,255,195,.02) 60%),rgba(9,28,42,.6)}
+.nb .jtoday div{flex:1;min-width:0}
+.nb .jtoday b{display:block;font-size:16px}
+.nb .jtoday small{display:block;font-size:13px;color:var(--muted);margin-top:3px}
+.nb .jtoday i{font-style:normal;color:var(--muted);font-size:20px}
+.nb .jm{font-size:32px;width:46px;text-align:center}
+.nb .jm.sm{font-size:24px;width:34px}
+.nb .kpis3{display:grid;grid-template-columns:repeat(3,1fr);gap:8px;margin-top:10px}
+.nb .kpis3 div{padding:11px 10px;border-radius:14px;background:rgba(9,28,42,.5);border:1px solid rgba(63,224,255,.08)}
+.nb .kpis3 small{display:block;font-family:var(--hud);font-size:8px;letter-spacing:.14em;color:var(--muted)}
+.nb .kpis3 b{display:block;font-family:var(--hud);font-size:15px;color:#ff5f8f;margin-top:6px;white-space:nowrap}
+.nb .mchart{display:block;width:100%;height:auto;padding:0 8px 10px}
+.nb .jlist{display:flex;flex-direction:column;gap:8px}
+.nb .jrow{display:flex;align-items:center;gap:12px;padding:11px 14px;border-radius:16px;background:rgba(9,28,42,.5);border:1px solid rgba(63,224,255,.08);color:var(--text);text-align:left}
+.nb .jrow div{flex:1;min-width:0}
+.nb .jrow b{display:block;font-size:14.5px}
+.nb .jrow small{display:block;font-size:12.5px;color:var(--muted);margin-top:2px;white-space:nowrap;overflow:hidden;text-overflow:ellipsis}
+.nb .moods{display:grid;grid-template-columns:repeat(5,1fr);gap:6px}
+.nb .moods button{display:flex;flex-direction:column;align-items:center;gap:4px;padding:10px 2px;border-radius:14px;border:1px solid rgba(63,224,255,.1);background:none;color:var(--muted)}
+.nb .moods span{font-size:26px;filter:grayscale(.6);transition:filter .15s,transform .15s}
+.nb .moods small{font-size:9.5px;text-align:center;line-height:1.1}
+.nb .moods button.on{border-color:var(--mc);background:color-mix(in srgb,var(--mc) 14%,transparent);color:var(--text)}
+.nb .moods button.on span{filter:none;transform:scale(1.12)}
+.nb .energy{display:grid;grid-template-columns:repeat(5,1fr);gap:6px}
+.nb .energy button{padding:8px 0;border-radius:12px;border:1px solid rgba(63,224,255,.1);background:none;font-size:16px;filter:grayscale(1);opacity:.5}
+.nb .energy button small{display:block;font-size:10px;color:var(--muted);font-family:var(--hud)}
+.nb .energy button.on{filter:none;opacity:1;border-color:#ffe066;background:rgba(255,224,102,.08)}
+.nb #nbJour .field input{margin-bottom:6px}
+.nb #nbJour textarea{min-height:60px;resize:none}
