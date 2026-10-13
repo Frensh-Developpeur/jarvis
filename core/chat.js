@@ -45,9 +45,9 @@ function bubble(m){
 function render(){
   const box = $('#chatMsgs');
   box.innerHTML = (msgs.length ? msgs.map(bubble).join('') : `<div class="cwelcome"><div class="cw-r"></div><b>${esc(J.greeting())}</b><p>Écrivez-moi ou dictez : une dépense, un repas, une tâche, une question sur votre journée… je m'en occupe.</p></div>`) +
-    (busy ? '<div class="cm j"><span class="cav"></span><div class="cb typing"><i></i><i></i><i></i></div></div>' : '');
+    (busy ? '<div class="cm j"><span class="cav"></span><div class="cb cb-typing"><i></i><i></i><i></i></div></div>' : '');
   $('#chatSugg').innerHTML = (msgs.length > 2 ? SUGG.slice(0, 3) : SUGG).map(s => `<button data-s="${esc(s)}">${esc(s)}</button>`).join('');
-  requestAnimationFrame(() => { box.scrollTop = box.scrollHeight; });
+  stick = true; requestAnimationFrame(() => { box.scrollTop = box.scrollHeight; });
 }
 
 /* ---------- envoi ---------- */
@@ -97,6 +97,16 @@ async function send(text, opts = {}){
   if (voice || briefing) J.speak(reply);
 }
 J.ask = send;
+
+/* la liste des messages reste collée en bas quand la feuille change de taille (clavier) ou qu'un message arrive,
+   sauf si l'utilisateur est remonté lire l'historique */
+const box = $('#chatMsgs'); let stick = true;
+box.addEventListener('scroll', () => { stick = box.scrollTop >= box.scrollHeight - box.clientHeight - 60; }, {passive:true});
+const toBottom = () => { if (stick) box.scrollTop = box.scrollHeight; };
+if ('ResizeObserver' in window) new ResizeObserver(toBottom).observe(box);
+// filet de sécurité : quand le clavier change la taille de la zone visible, on recolle en bas (après l'animation)
+if (window.visualViewport) visualViewport.addEventListener('resize', () => { if (J.sheetOpen()) { toBottom(); setTimeout(toBottom, 120); setTimeout(toBottom, 400); } });
+J._chatStick = () => stick;
 
 /* ---------- accueil : barre de saisie et réacteur ---------- */
 $('#hubAskF').addEventListener('submit', e => { e.preventDefault(); const v = $('#hubAsk').value; $('#hubAsk').value = ''; $('#hubAsk').blur(); send(v, {from:'hub'}); });

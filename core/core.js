@@ -8,7 +8,7 @@
    ============================================================ */
 'use strict';
 (() => {
-const APP_VERSION = '32';
+const APP_VERSION = '33';
 const API = location.hostname === 'localhost' ? 'http://localhost:8787' : 'https://jarvis-api.frensh-developpeur.workers.dev';
 const APP_URL = 'https://frensh-developpeur.github.io/jarvis/';
 
@@ -219,6 +219,11 @@ function unlockScroll(){
   });
 }
 veil.addEventListener('touchmove', e => e.preventDefault(), {passive:false});
+/* feuille ouverte : iOS fait défiler la page derrière pour « montrer » le champ touché ; on la remet aussitôt en place
+   (sinon la page reste décalée et la feuille se retrouve au mauvais endroit) */
+window.addEventListener('scroll', () => {
+  if (openSheetEl && Math.abs(window.scrollY - lockY) > 1) { window.scrollTo(0, lockY); onViewport(); }
+}, {passive:true});
 /* J.focusAfterOpen(input) : met le curseur dans le champ une fois la feuille arrivée (le clavier ne monte pas pendant l'animation) */
 J.focusAfterOpen = (input) => {
   const sh = input.closest('.sheet');
@@ -253,6 +258,7 @@ function onViewport(){
   vvRaf = requestAnimationFrame(() => {
     const typing = typeof isTextField === 'function' && isTextField(document.activeElement);
     const kb = typing ? Math.max(0, Math.round(window.innerHeight - vv.height - vv.offsetTop)) : 0;   // pas de clavier = pas de décalage
+    if (kb > 150) ls.set('jarvis.kbh', kb);   // hauteur du clavier retenue : la prochaine fois, la feuille bouge en même temps que lui
     const root = document.documentElement.style;
     root.setProperty('--kb', kb + 'px');
     root.setProperty('--vvh', Math.round(vv.height) + 'px');
@@ -283,14 +289,26 @@ new MutationObserver(muts => muts.forEach(m => m.addedNodes.forEach(n => { if (n
    et à la fermeture du clavier on remet l'écran d'aplomb (iOS laisse parfois la vue décalée) */
 const isTextField = el => el && el.matches && el.matches('input:not([type=checkbox]):not([type=radio]):not([type=file]):not([type=range]),textarea,select');
 let typingT = 0, focusY = null;
+/* iOS n'annonce la nouvelle hauteur visible qu'à la fin de l'animation du clavier : sans anticipation,
+   la feuille reste trop haute (champ caché) puis saute. On applique tout de suite la hauteur connue du clavier. */
+function predictKeyboard(open){
+  if (!openSheetEl) return;
+  const root = document.documentElement.style;
+  if (open) {
+    const kbh = ls.get('jarvis.kbh'); if (!kbh || parseFloat(getComputedStyle(document.documentElement).getPropertyValue('--kb')) > 50) return;
+    root.setProperty('--kb', kbh + 'px'); root.setProperty('--vvh', (window.innerHeight - kbh) + 'px');
+  } else { root.setProperty('--kb', '0px'); root.setProperty('--vvh', window.innerHeight + 'px'); }
+}
 document.addEventListener('focusin', e => {
   if (!isTextField(e.target)) return;
+  if (e.target.closest('.sheet')) predictKeyboard(true);
   clearTimeout(typingT); document.body.classList.add('typing');
   // champ dans la page (pas dans une feuille) : on retient où était la page avant qu'iOS la fasse remonter
   if (!e.target.closest('.sheet') && focusY === null) focusY = window.scrollY;
 });
 document.addEventListener('focusout', () => {
   clearTimeout(typingT);
+  setTimeout(() => { if (!isTextField(document.activeElement)) predictKeyboard(false); }, 30);
   typingT = setTimeout(() => {
     if (isTextField(document.activeElement)) return;
     document.body.classList.remove('typing');
@@ -392,12 +410,18 @@ let drag = null;
 document.addEventListener('touchstart', e => {
   const sh = e.target.closest('.sheet.show');
   if (!sh || sh.scrollTop > 0 || e.target.closest('input,select,textarea,.hscroll')) return;   // pas sur les barres qui défilent horizontalement
-  drag = {sh, y:e.touches[0].clientY, dy:0, t:Date.now()};
+  // feuilles « à poignée » (conversation) : on ne les tire que par l'en-tête, comme dans Messages
+  if (sh.dataset.drag === 'head' && !e.target.closest('.grab,[data-drag-handle]')) return;
+  // zone qui défile à l'intérieur (ex. messages) : on ne tire la feuille que si cette zone est tout en haut
+  for (let el = e.target; el && el !== sh; el = el.parentElement) {
+    if (el.scrollHeight > el.clientHeight + 2 && /auto|scroll/.test(getComputedStyle(el).overflowY)) { if (el.scrollTop > 0) return; break; }
+  }
+  drag = {sh, x:e.touches[0].clientX, y:e.touches[0].clientY, dy:0, t:Date.now()};
 }, {passive:true});
 document.addEventListener('touchmove', e => {
   if (!drag) return;
-  const dy = e.touches[0].clientY - drag.y;
-  if (dy < 0 && !drag.active) { drag = null; return; }      // l'utilisateur fait défiler le contenu vers le haut
+  const dy = e.touches[0].clientY - drag.y, dx = e.touches[0].clientX - drag.x;
+  if (!drag.active && (dy < 0 || Math.abs(dx) > Math.abs(dy))) { drag = null; return; }   // défilement vers le haut ou geste horizontal
   drag.dy = Math.max(0, dy);
   if (drag.dy > 6) { drag.active = true; e.preventDefault(); drag.sh.classList.add('dragging'); drag.sh.style.transform = `translateY(${drag.dy}px)`; }
 }, {passive:false});
