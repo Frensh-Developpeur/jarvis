@@ -8,7 +8,7 @@
    ============================================================ */
 'use strict';
 (() => {
-const APP_VERSION = '25';
+const APP_VERSION = '26';
 const API = location.hostname === 'localhost' ? 'http://localhost:8787' : 'https://jarvis-api.frensh-developpeur.workers.dev';
 const APP_URL = 'https://frensh-developpeur.github.io/jarvis/';
 
@@ -457,15 +457,31 @@ function showView(el){
   $$('.view').forEach(v => v.classList.remove('active'));
   el.classList.add('active');
 }
-function setTabbar(id){
-  $$('#tabbar [data-go]').forEach(b => b.classList.toggle('on', b.dataset.go === (id || '')));
-}
+const ICON_MORE = '<svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.8"><rect x="4" y="4" width="6.5" height="6.5" rx="2"/><rect x="13.5" y="4" width="6.5" height="6.5" rx="2"/><rect x="4" y="13.5" width="6.5" height="6.5" rx="2"/><rect x="13.5" y="13.5" width="6.5" height="6.5" rx="2"/></svg>';
+const favTabs = () => {
+  const mods = J.modules.filter(m => !m.soon), want = (prefs && prefs.data.tabs) || ['finances', 'nutrition', 'muscu', 'taches'];
+  return want.map(id => mods.find(m => m.id === id)).filter(Boolean).slice(0, 4);
+};
 function renderTabbar(){
-  const mods = J.modules.filter(m => !m.soon).sort((a, b) => a.code.localeCompare(b.code));
+  const favs = favTabs();
   $('#tabbar').innerHTML = `<button data-go="" style="--acc:#3fe0ff"><svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.8"><circle cx="12" cy="12" r="8.5"/><circle cx="12" cy="12" r="3.5"/><path d="M12 3.5v3M12 17.5v3M3.5 12h3M17.5 12h3"/></svg><span>Accueil</span></button>` +
-    mods.map(m => `<button data-go="${m.id}" style="--acc:${m.accent}">${m.icon}<span>${esc(m.short || m.name)}</span></button>`).join('');
+    favs.map(m => `<button data-go="${m.id}" style="--acc:${m.accent}">${m.icon}<span>${esc(m.short || m.name)}</span></button>`).join('') +
+    `<button data-go="@more" style="--acc:#cfe8f3">${ICON_MORE}<span>Plus</span></button>`;
   setTabbar(current ? current.id : '');
 }
+function setTabbar(id){
+  const favIds = favTabs().map(m => m.id);
+  $$('#tabbar [data-go]').forEach(b => b.classList.toggle('on', b.dataset.go === (id || '') || (b.dataset.go === '@more' && id && !favIds.includes(id))));
+}
+/* onglet « Plus » : tous les modules */
+function openMore(){
+  const mods = J.modules.filter(m => !m.soon).sort((a, b) => a.code.localeCompare(b.code));
+  $('#moreGrid').innerHTML = mods.map(m => { let sub = ''; try { sub = m.stat ? (m.stat() || {}).label ? '' : '' : ''; } catch(e) {}
+    return `<button data-mgo="${m.id}" style="--acc:${m.accent}"><span class="mi">${m.icon}</span><b>${esc(m.name)}</b><small>${esc(m.tagline || '')}</small></button>`; }).join('');
+  openSheet($('#moreSheet'));
+}
+$('#moreGrid').addEventListener('click', e => { const b = e.target.closest('[data-mgo]'); if (!b) return; J.haptic(); closeSheet(); setTimeout(() => J.go(b.dataset.mgo), 120); });
+
 /* Navigation : chaque module garde son écran (état, onglet, défilement) d'une visite à l'autre */
 J.go = (id) => {
   closeSheet();
@@ -511,7 +527,7 @@ function resetViews(){
   $('#modviews').innerHTML = '';
   current = null;
 }
-$('#tabbar').addEventListener('click', e => { const b = e.target.closest('[data-go]'); if (!b) return; J.haptic(); J.go(b.dataset.go || null); });
+$('#tabbar').addEventListener('click', e => { const b = e.target.closest('[data-go]'); if (!b) return; J.haptic(); if (b.dataset.go === '@more') return openMore(); J.go(b.dataset.go || null); });
 
 /* glisser depuis le bord gauche = retour au hub */
 let edge = null;
@@ -582,6 +598,7 @@ function openSettings(){
   $$('#sVoiceName button').forEach(b => b.classList.toggle('on', b.dataset.v === (prefs.data.voiceName || 'george')));
   S$('#sVoiceNameField').hidden = prefs.data.voiceMode === 'iphone';
   S$('#sCity').value = prefs.data.city || '';
+  renderTabPrefs();
   S$('#sUsage').textContent = '';
   J.api('GET', '/api/tts/usage').then(u => {
     if (u.premium) S$('#sUsage').textContent = `Voix premium : ${u.chars.toLocaleString('fr-FR')} / ${u.budget.toLocaleString('fr-FR')} caractères ce mois-ci (partagés par tous les comptes). Au-delà, voix de secours jusqu'au mois suivant.`;
@@ -609,6 +626,17 @@ S$('#sVoiceName').addEventListener('click', e => {
 });
 S$('#sCity').addEventListener('change', e => { prefs.data.city = e.target.value.trim(); prefs.save(); ls.del('jarvis.weather'); J.refreshWeather && J.refreshWeather(); });
 S$('#openGuide').addEventListener('click', () => J.openGuide());
+function renderTabPrefs(){
+  const sel = favTabs().map(m => m.id);
+  S$('#sTabs').innerHTML = J.modules.filter(m => !m.soon).map(m => `<button data-tab="${m.id}" class="${sel.includes(m.id) ? 'on' : ''}" style="--acc:${m.accent}">${esc(m.short || m.name)}</button>`).join('');
+}
+S$('#sTabs').addEventListener('click', e => {
+  const b = e.target.closest('[data-tab]'); if (!b) return;
+  let sel = favTabs().map(m => m.id); const id = b.dataset.tab;
+  if (sel.includes(id)) sel = sel.filter(x => x !== id);
+  else { if (sel.length >= 4) { J.toast('4 onglets maximum : retirez-en un d\'abord'); return; } sel.push(id); }
+  prefs.data.tabs = sel; prefs.save(); renderTabPrefs(); renderTabbar(); J.haptic();
+});
 S$('#closeSettings').addEventListener('click', closeSheet);
 
 /* ---------- guide : raccourci iPhone (Santé, Calendrier, Rappels) ---------- */

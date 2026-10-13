@@ -21,6 +21,7 @@
 <link rel="stylesheet" href="modules/nutrition/nutrition.css">
 <link rel="stylesheet" href="modules/muscu/muscu.css">
 <link rel="stylesheet" href="modules/taches/taches.css">
+<link rel="stylesheet" href="modules/habitudes/habitudes.css">
 </head>
 <body>
 
@@ -146,6 +147,7 @@
   <div class="field"><label>TYPE DE VOIX</label><div class="seg" id="sVoiceMode" style="margin:0"><button data-v="jarvis">JARVIS (IA)</button><button data-v="iphone">IPHONE</button></div></div>
   <div class="field" id="sVoiceNameField"><label>VOIX DE JARVIS (TOUCHER POUR ÉCOUTER)</label><div class="seg" id="sVoiceName" style="margin:0"><button data-v="george">GEORGE</button><button data-v="daniel">DANIEL</button></div></div>
 
+  <div class="field" style="margin-top:12px"><label>ONGLETS DE LA BARRE (4 MAXIMUM)</label><div class="tabprefs" id="sTabs"></div></div>
   <p class="note" id="sUsage"></p>
   <div class="field" style="margin-top:12px"><label>VILLE POUR LA MÉTÉO (VIDE = MA POSITION)</label><input id="sCity" maxlength="60" autocomplete="off" placeholder="Ex : Lyon"></div>
   <button class="btn" id="openGuide">CONNECTER APPLE SANTÉ (PAS, CALORIES)</button>
@@ -252,6 +254,13 @@
   <button class="btn ghost" id="gClose">FERMER</button>
 </div>
 
+<!-- ============ TOUS LES MODULES (onglet Plus) ============ -->
+<div class="sheet" id="moreSheet" role="dialog" aria-label="Tous les modules">
+  <div class="grab"></div>
+  <h2>TOUS LES MODULES</h2>
+  <div class="moregrid" id="moreGrid"></div>
+</div>
+
 <div class="toast" id="toast"></div>
 
 <script src="core/core.js"></script>
@@ -263,6 +272,7 @@
 <script src="modules/nutrition/nutrition.js"></script>
 <script src="modules/muscu/muscu.js"></script>
 <script src="modules/taches/taches.js"></script>
+<script src="modules/habitudes/habitudes.js"></script>
 <script>
 /* Modules à venir : affichés dans le hub, grisés */
 J.start();

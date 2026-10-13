@@ -1,0 +1,76 @@
+/* ============================================================
+   Module Habitudes
+   ============================================================ */
+.hab .utabs button.on{color:#ffe066}
+.hab .utabs button.on::after{background:#ffe066;box-shadow:0 0 8px #ffe066}
+.hab .fab{border-color:#ffe066;color:#ffe066;background:radial-gradient(circle,#3a3410 0%,#121004 70%);box-shadow:0 0 22px rgba(255,224,102,.4),inset 0 0 18px rgba(255,224,102,.25)}
+.hab .fab::before{border-color:rgba(255,224,102,.45)}
+.hab .btn.primary{background:#ffe066;border-color:#ffe066;color:#1a1600;box-shadow:0 0 18px rgba(255,224,102,.3)}
+.hab .hhero{display:flex;align-items:center;gap:16px;margin-top:14px;padding:14px 16px;border-radius:20px;background:linear-gradient(150deg,rgba(255,224,102,.12),rgba(255,224,102,.02) 60%),rgba(9,28,42,.6);border:1px solid rgba(255,224,102,.22)}
+.hab .hhero>div:last-child b{display:block;font-family:var(--hud);font-size:16px}
+.hab .hhero>div:last-child small{display:block;font-size:12.5px;color:var(--muted);margin-top:3px}
+.hab .hbig{position:relative;width:64px;height:64px;flex:none}
+.hab .hbig svg,.hab .hring svg{width:100%;height:100%;display:block}
+.hab .hi{position:absolute;inset:0;display:flex;align-items:center;justify-content:center;font-size:20px}
+.hab .hi b{font-family:var(--hud);font-size:16px;color:var(--text)}
+.hab .hi small{font-family:var(--hud);font-size:10px;color:var(--muted)}
+.hab .hlist{display:flex;flex-direction:column;gap:10px;margin-top:14px}
+.hab .hcard{display:flex;align-items:center;gap:12px;padding:12px 12px 12px 12px;border-radius:18px;background:rgba(9,28,42,.5);border:1px solid rgba(63,224,255,.08);transition:background .2s,border-color .2s}
+.hab .hcard.done{border-color:color-mix(in srgb,var(--hc) 40%,transparent);background:color-mix(in srgb,var(--hc) 7%,rgba(9,28,42,.5))}
+.hab .hcard.rest{opacity:.5}
+.hab .hring{position:relative;flex:none;width:58px;height:58px;border:none;background:none;padding:0}
+.hab .hring .hi{font-size:22px}
+.hab .hcard.done .hring .hi{color:var(--hc);font-size:24px;font-weight:700}
+.hab .hring:active{transform:scale(.9)}
+.hab .hinfo{flex:1;min-width:0}
+.hab .hn{font-size:16px;font-weight:700;white-space:nowrap;overflow:hidden;text-overflow:ellipsis}
+.hab .hm{font-size:12.5px;color:var(--muted);margin-top:2px}
+.hab .fl{color:#ffb347}
+.hab .wdots{display:flex;gap:4px;margin-top:7px}
+.hab .wdots span{width:18px;height:18px;border-radius:6px;display:grid;place-items:center;font-size:8.5px;font-family:var(--hud);color:var(--muted);background:rgba(63,224,255,.05)}
+.hab .wdots span.on{background:var(--hc);color:#061018}
+.hab .wdots span.miss{background:rgba(255,77,61,.12);color:#ff8a7e}
+.hab .wdots span.now{outline:1px solid var(--hc)}
+.hab .wdots span.off{opacity:.3}
+.hab .hminus{flex:none;width:34px;height:34px;border-radius:50%;border:1px solid rgba(63,224,255,.15);background:none;color:var(--muted);font-size:18px;padding:0}
+.hab .hint{text-align:center;font-size:12px;color:var(--muted);opacity:.7;margin:12px 0 0}
+.hab .hempty{margin-top:20px;text-align:center}
+.hab .hempty p{color:var(--muted);font-size:15px}
+.hab .presets{display:grid;grid-template-columns:1fr 1fr;gap:8px;margin:14px 0}
+.hab .presets.small{grid-template-columns:repeat(2,1fr);margin:0 0 14px}
+.hab .presets button{display:flex;align-items:center;gap:8px;padding:10px 12px;border-radius:14px;border:1px solid color-mix(in srgb,var(--hc) 30%,transparent);background:color-mix(in srgb,var(--hc) 7%,transparent);color:var(--text);font-size:13.5px;text-align:left}
+.hab .presets button span{font-size:18px}
+.hab .presets button i{margin-left:auto;font-style:normal;font-size:10px;color:var(--hc);font-family:var(--hud)}
+.hab .icons{display:flex;flex-wrap:wrap;gap:6px}
+.hab .icons button{width:40px;height:40px;border-radius:12px;border:1px solid rgba(63,224,255,.1);background:none;font-size:20px;padding:0}
+.hab .icons button.on{border-color:#ffe066;background:rgba(255,224,102,.12)}
+.hab .days{display:flex;gap:6px}
+.hab .days button{flex:1;height:38px;border-radius:12px;border:1px solid rgba(63,224,255,.12);background:none;color:var(--muted);font-family:var(--hud);font-size:11px}
+.hab .days button.on{border-color:#ffe066;background:rgba(255,224,102,.12);color:#ffe066}
+.hab .colors{display:flex;gap:10px}
+.hab .colors button{width:32px;height:32px;border-radius:50%;border:2px solid transparent;background:var(--cc);box-shadow:0 0 8px var(--cc);opacity:.6}
+.hab .colors button.on{opacity:1;border-color:#fff}
+.hab input[type=time]{min-height:46px}
+/* statistiques */
+.hab .kpis3{display:grid;grid-template-columns:repeat(3,1fr);gap:8px;margin-top:14px}
+.hab .kpis3 div{padding:11px 10px;border-radius:14px;background:rgba(9,28,42,.5);border:1px solid rgba(63,224,255,.08)}
+.hab .kpis3 small{display:block;font-family:var(--hud);font-size:8px;letter-spacing:.14em;color:var(--muted)}
+.hab .kpis3 b{display:block;font-family:var(--hud);font-size:17px;color:#ffe066;margin-top:6px}
+.hab .hstat{display:block;width:100%;margin-top:10px;padding:12px 14px;border-radius:16px;background:rgba(9,28,42,.5);border:1px solid rgba(63,224,255,.08);text-align:left;color:var(--text)}
+.hab .hs-top{display:flex;justify-content:space-between;font-size:15px;font-weight:600;margin-bottom:10px}
+.hab .hs-top b{font-family:var(--hud);font-size:13px;color:var(--hc)}
+.hab .hs-bot{display:flex;justify-content:space-between;font-size:12px;color:var(--muted);margin-top:8px}
+.hab .heat{display:grid;grid-template-rows:repeat(7,1fr);grid-auto-flow:column;gap:3px;aspect-ratio:15/7.4}
+.hab .heat i{border-radius:3px;background:rgba(63,224,255,.06)}
+.hab .heat i.x{background:rgba(63,224,255,.025)}
+.hab .heat i.today{outline:1px solid #fff}
+.hab .hd-top{display:flex;align-items:center;gap:12px;margin-bottom:6px}
+.hab .hd-ic{width:46px;height:46px;border-radius:14px;display:grid;place-items:center;font-size:24px;background:color-mix(in srgb,var(--hc) 15%,transparent)}
+.hab .hdays{display:grid;grid-template-columns:repeat(7,1fr);gap:6px;margin-bottom:12px}
+.hab .hdays button{display:flex;flex-direction:column;align-items:center;gap:4px;padding:8px 0;border-radius:12px;border:1px solid rgba(63,224,255,.1);background:none;color:var(--muted)}
+.hab .hdays button small{font-size:10px;text-transform:capitalize}
+.hab .hdays button b{font-family:var(--hud);font-size:14px;color:var(--text)}
+.hab .hdays button.on{background:color-mix(in srgb,var(--hc) 20%,transparent);border-color:var(--hc)}
+.hab .hdays button.on b{color:var(--hc)}
+.hab .hdays button.off{opacity:.35}
+.hab .slabel{margin-top:16px}
