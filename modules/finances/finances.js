@@ -786,6 +786,34 @@ function bind(){
   fq('#cWithdraw').addEventListener('click', () => contrib(-1));
 }
 
+/* ---------- Jarvis qui discute : actions et contexte ---------- */
+const nrm = s => String(s || '').toLowerCase().normalize('NFD').replace(/[\u0300-\u036f]/g, '');
+function chatAddTx(type, a){
+  const amount = r2(Math.abs(parseFloat(String(a.amount).replace(',', '.'))));
+  if (!(amount > 0)) throw new Error('montant manquant');
+  const cats = Object.keys(CAT[type]);
+  const cat = cats.find(c => nrm(c) === nrm(a.category)) || cats.find(c => nrm(a.category).includes(nrm(c)) || nrm(c).includes(nrm(a.category) || '#')) || (type === 'in' ? 'Autre' : 'Autre');
+  const d = /^\d{4}-\d{2}-\d{2}$/.test(a.date || '') ? a.date : null;
+  const month = d ? d.slice(0, 7) : thisMonth(), day = d ? +d.slice(8, 10) : todayD();
+  const done = !d || d <= mk(new Date()) + '-' + String(todayD()).padStart(2, '0');
+  const label = String(a.label || cat).slice(0, 60).replace(/^./, c => c.toUpperCase());
+  S().tx.push({id:uid(), month, day, type, label, amount, cat, done});
+  save(); render();
+  return {text:`${type === 'in' ? 'Revenu' : 'Dépense'} ${eur(amount)} · ${label} (${cat})${d && d !== mk(new Date()) + '-' + String(todayD()).padStart(2, '0') ? ' · ' + d.split('-').reverse().slice(0, 2).join('/') : ''}`, go:'finances'};
+}
+J.actions = J.actions || {};
+J.actions.add_expense = a => chatAddTx('out', a);
+J.actions.add_income = a => chatAddTx('in', a);
+function chatContext(){
+  const k = thisMonth(), T = totals(k), now = balanceNow(), end = balanceEnd(k), d = todayD();
+  const soon = T.list.filter(t => !t.done && t.day >= d && t.day <= d + 7).sort((a, b) => a.day - b.day).slice(0, 8).map(t => `${t.day}/${k.slice(5)} ${t.label} ${t.type === 'in' ? '+' : '-'}${t.amount}€`);
+  const byCat = {}; T.list.filter(t => t.type === 'out').forEach(t => byCat[t.cat] = (byCat[t.cat] || 0) + t.amount);
+  const top = Object.entries(byCat).sort((a, b) => b[1] - a[1]).slice(0, 4).map(([c, v]) => `${c} ${Math.round(v)}€`);
+  return `FINANCES (${mLabel(k)}) : ${now !== null ? `solde actuel ${now}€, solde prévu fin de mois ${end}€` : `reste prévu ${r2(T.inc - T.out)}€`} ; revenus ${T.inc}€, dépenses ${T.out}€.` +
+    (top.length ? ` Plus grosses catégories : ${top.join(', ')}.` : '') + (soon.length ? ` À venir (7 j) : ${soon.join(' ; ')}.` : '') +
+    (budgetAlerts(k).length ? ` Alertes : ${budgetAlerts(k).map(x => x.txt).join(' ; ')}.` : '');
+}
+
 /* ---------- déclaration du module ---------- */
 J.module({
   id: 'finances',
@@ -814,6 +842,7 @@ J.module({
     return left >= 0 ? `Il vous reste ${eur(left)} prévus ce mois-ci.` : `Attention, budget dépassé de ${eur(-left)} ce mois-ci.`;
   },
   report(){ return spoken(thisMonth()); },
+  chat(){ return chatContext(); },
   stat(){
     const k = thisMonth(), T = totals(k), now = balanceNow(), end = balanceEnd(k), left = r2(T.inc - T.out);
     const short = n => Math.round(n).toLocaleString('fr-FR') + ' €';

@@ -16,6 +16,26 @@ const VOICES = {
   george: 'JBFqnCBsd6RMkjVDRZzb',   // britannique, chaleureux, mature
 };
 const EL_MODEL = 'eleven_multilingual_v2';
+const CHAT_MODEL = '@cf/meta/llama-4-scout-17b-16e-instruct';
+const CHAT_SYSTEM = (name, now, calendar) => `Tu es J.A.R.V.I.S., l'assistant personnel de ${name} (l'IA de Tony Stark : majordome britannique, poli, efficace, une pointe d'humour pince-sans-rire).
+Nous sommes le ${now}. Correspondances de dates : ${calendar}
+Tu réponds UNIQUEMENT avec un objet JSON : {"reply": "...", "actions": [...]}.
+RÈGLES :
+- reply : en français, 1 à 3 phrases courtes, vouvoiement. Appelle l'utilisateur « ${name} » de temps en temps.
+- Pour chaque demande d'action de l'utilisateur, ajoute une entrée dans actions (plusieurs demandes = plusieurs actions).
+- N'invente JAMAIS de chiffres : ne calcule pas de nouveaux soldes ou totaux après une action (l'application affiche les résultats). Pour une question, réponds uniquement à partir du CONTEXTE ; si l'information n'y est pas, dis-le simplement.
+- Montants en euros sous forme de nombre (12.5). Dates au format AAAA-MM-JJ, heures HH:MM.
+- Si la demande est ambiguë (montant ou aliment manquant), pose une question au lieu d'agir.
+TYPES D'ACTIONS :
+{"type":"add_expense","amount":12.5,"label":"Resto midi","category":"Courses|Restaurants|Transport|Loisirs|Shopping|Santé|Abonnements|Factures|Logement|Épargne|Crédit|Autre","date":"AAAA-MM-JJ (facultatif)"}
+{"type":"add_income","amount":100,"label":"...","category":"Salaire|Prime|Remboursement|Vente|Cadeau|Autre","date":"facultatif"}
+{"type":"add_task","title":"...","due":"AAAA-MM-JJ ou null","time":"HH:MM ou null","priority":0}  (priority 0 à 3)
+{"type":"complete_task","title":"mots de la tâche"}
+{"type":"log_food","food":"nom simple de l'aliment","grams":150,"meal":"pdj|dej|col|din"}
+{"type":"log_weight","kg":78.4}
+{"type":"log_habit","name":"nom de l'habitude","amount":1}
+{"type":"add_note","title":"...","text":"..."}
+{"type":"open","module":"finances|nutrition|muscu|taches|habitudes|sante|notes"}  (si l'utilisateur veut voir un écran)`;
 /* Diction « Jarvis » : posée, régulière, pince-sans-rire (stabilité haute, peu d'emphase, débit un peu lent).
    Changer ces réglages → changer aussi le préfixe 'el2' du cache pour régénérer les phrases. */
 const EL_BUDGET = 9500;   // caractères par mois (offre gratuite : 10 000) — au-delà, voix Cloudflare
@@ -547,6 +567,32 @@ const routes = {
     const sent = await pushUser(env, u.id, { title: 'J.A.R.V.I.S.', body: 'Notifications opérationnelles. À votre service.', url: '#/' });
     if (!sent) fail(404, 'Aucun appareil abonné');
     return { ok: true, sent };
+  },
+
+  /* ---------- Jarvis qui discute (Workers AI, quota gratuit) ---------- */
+  'POST /api/chat': async (req, env) => {
+    const u = await auth(req, env);
+    await throttle(env, 'chat:' + u.id, 200, 86400);
+    await recordFailure(env, 'chat:' + u.id, 86400);
+    const { messages, context, name, now: clientNow, calendar } = await body(req);
+    const history = (Array.isArray(messages) ? messages : []).slice(-10)
+      .filter(m => m && (m.role === 'user' || m.role === 'assistant') && typeof m.content === 'string')
+      .map(m => ({ role: m.role, content: m.content.slice(0, 1200) }));
+    if (!history.length || history[history.length - 1].role !== 'user') fail(400, 'Message manquant');
+    const system = CHAT_SYSTEM(String(name || 'Monsieur').slice(0, 30), String(clientNow || '').slice(0, 80), String(calendar || '').slice(0, 600)) +
+      '\n\nCONTEXTE ACTUEL DE L\'UTILISATEUR (données réelles de ses modules) :\n' + String(context || '').slice(0, 7000);
+    let out;
+    try {
+      out = await env.AI.run(CHAT_MODEL, { messages: [{ role: 'system', content: system }, ...history], max_tokens: 700, temperature: 0.4,
+        response_format: { type: 'json_schema', json_schema: { type: 'object', properties: { reply: { type: 'string' }, actions: { type: 'array', items: { type: 'object' } } }, required: ['reply', 'actions'] } } });
+    } catch (e) {
+      console.log('chat IA', e.message);
+      fail(503, /quota|limit|neuron/i.test(e.message) ? 'Quota quotidien de l\'IA atteint, réessayez demain.' : 'IA momentanément indisponible');
+    }
+    let r = out && (out.response ?? out);
+    if (typeof r === 'string') { try { r = JSON.parse(r); } catch { r = { reply: r, actions: [] }; } }
+    const actions = Array.isArray(r.actions) ? r.actions.filter(a => a && typeof a.type === 'string').slice(0, 8) : [];
+    return { reply: String(r.reply || '').slice(0, 1500), actions };
   },
 
   /* ---------- administration ---------- */

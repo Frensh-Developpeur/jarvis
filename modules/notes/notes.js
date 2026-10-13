@@ -209,6 +209,15 @@ function bind(){
   });
 }
 
+/* ---------- Jarvis qui discute ---------- */
+J.actions = J.actions || {};
+J.actions.add_note = a => {
+  const title = String(a.title || '').slice(0, 80), body = String(a.text || a.body || '').slice(0, 4000);
+  if (!title && !body) throw new Error('note vide');
+  S().notes.push({id:uid(), title, body, color:'', pinned:false, created:Date.now(), updated:Date.now()}); save(); render();
+  return {text:`Note : ${title || body.slice(0, 40)}`, go:'notes'};
+};
+
 /* ---------- déclaration ---------- */
 J.module({
   id: 'notes',
@@ -231,6 +240,11 @@ J.module({
   },
   brief(){ return ''; },
   report(){ return status(); },
+  chat(){
+    const js = journalStats(), t = S().journal[today()];
+    const notes = [...S().notes].sort((a, b) => b.updated - a.updated).slice(0, 10).map(n => (n.title || n.body.split('\n')[0]).slice(0, 50) + (n.body ? ' : ' + n.body.replace(/\n/g, ' / ').slice(0, 120) : ''));
+    return `NOTES récentes : ${notes.join(' | ') || 'aucune'}. JOURNAL : ${t ? 'rempli aujourd\'hui' + (t.mood !== undefined ? ' (humeur ' + MOODS[t.mood].n + ')' : '') : 'pas encore rempli aujourd\'hui'} ; série ${js.streak} j${js.avg !== null ? ', humeur moyenne 30 j ' + (js.avg + 1).toFixed(1) + '/5' : ''}.`;
+  },
   reminders(){
     const out = [];
     for (let i = 0; i < 3; i++) { const k = addDays(today(), i); out.push({id:'journal-' + k, kind:'journal', date:k, time:'21:30', title:'✍️ Journal du soir', body:'Deux minutes pour faire le point sur ta journée ?', url:'#/notes', skipIf:() => !!S().journal[k]}); }

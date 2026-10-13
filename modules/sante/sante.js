@@ -104,6 +104,7 @@ J.module({
     return t && t.steps ? `${fmt(t.steps)} pas aujourd'hui.` : '';
   },
   report(){ return message(); },
+  chat(){ const t = today() || {}, s7 = last7('steps').filter(x => x.v !== null); return J.appleDoc().syncedAt ? `SANTÉ : ${fmt(t.steps || 0)} pas aujourd'hui (objectif ${fmt(G().stepGoal)}), ${fmt(t.energy || 0)} kcal actives ; moyenne 7 j ${fmt(s7.length ? s7.reduce((a, x) => a + x.v, 0) / s7.length : 0)} pas.` : 'SANTÉ : Apple Santé non connecté.'; },
 
   mount(body){
     root = body;

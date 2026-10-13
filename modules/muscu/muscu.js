@@ -596,6 +596,7 @@ J.module({
   },
   brief(){ return S().active ? 'Une séance de musculation est en cours.' : ''; },
   report(){ return status(); },
+  chat(){ const ses = [...S().sessions].sort((a, b) => b.start - a.start).slice(0, 4); return `MUSCULATION : ${thisWeek().length}/${S().weekGoal} séances cette semaine. ${S().active ? 'Séance en cours : ' + S().active.name + '. ' : ''}Dernières séances : ${ses.map(x => `${x.name} ${ago(x.start)} (${x.ex.map(e => e.name).join(', ')})`).join(' ; ') || 'aucune'}. Routines : ${S().routines.map(r => r.name).join(', ') || 'aucune'}.`; },
   briefingSpeech(){
     const last = [...S().sessions].sort((x, y) => y.start - x.start)[0];
     if (!last) return '';

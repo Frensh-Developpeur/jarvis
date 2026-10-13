@@ -787,6 +787,31 @@ function spoken(k){
     `Protéines : ${fmt(s.p)} grammes sur ${fmt(G.p)}.`;
 }
 
+/* ---------- Jarvis qui discute ---------- */
+J.actions = J.actions || {};
+J.actions.log_food = async a => {
+  const g = parseFloat(String(a.grams).replace(',', '.')); if (!(g > 0)) throw new Error('quantité manquante');
+  await loadCiqual();
+  let f = searchCiqual(String(a.food || ''))[0];
+  if (f) { // on préfère la version cuite / nature quand elle existe
+    const alt = searchCiqual(a.food + ' cuit')[0] || searchCiqual(a.food + ' nature')[0];
+    if (alt && norm(alt.name).split(/[ ,]/)[0] === norm(f.name).split(/[ ,]/)[0]) f = alt;
+  }
+  if (!f) { try { const {items: list} = await J.api('GET', '/api/food/search?q=' + encodeURIComponent(a.food)); if (list[0]) f = Object.assign(list[0], {src:'off'}); } catch(e) {} }
+  if (!f) throw new Error('aliment introuvable : ' + a.food);
+  const meal = ['pdj', 'dej', 'col', 'din'].includes(a.meal) ? a.meal : defaultMeal();
+  const d = S().days[today()] = S().days[today()] || {items:[]};
+  d.items.push({id:uid(), meal, name:f.name, brand:f.brand || '', g, per100:f.per100, src:f.src || 'ciqual', code:f.code || null});
+  remember(f, g); prune(); save(); render();
+  return {text:`${f.name.split(',').slice(0, 2).join(',')} · ${fmt(g)} g · ${fmt(f.per100.kcal * g / 100)} kcal (${MEALS.find(m => m.id === meal).name.toLowerCase()})`, go:'nutrition'};
+};
+J.actions.log_weight = a => {
+  const kg = parseFloat(String(a.kg).replace(',', '.')); if (!(kg > 25 && kg < 300)) throw new Error('poids invalide');
+  S().weights[today()] = Math.round(kg * 10) / 10; if (S().profile) S().profile.kg = S().weights[today()];
+  save(); render();
+  return {text:`Pesée : ${g1(kg)} kg`, go:'nutrition'};
+};
+
 /* ---------- déclaration du module ---------- */
 J.module({
   id: 'nutrition',
@@ -816,6 +841,12 @@ J.module({
     return left >= 0 ? `Il vous reste ${fmt(left)} kcal aujourd'hui.` : '';
   },
   report(){ return spoken(today()); },
+  chat(){
+    const k = today(), list = items(k), sm = sums(list), G = goalsFor(k);
+    const meals = MEALS.map(m => { const li = list.filter(i => i.meal === m.id); return li.length ? `${m.name} : ${li.map(i => i.name.split(',')[0] + ' ' + Math.round(i.g) + 'g').join(', ')}` : ''; }).filter(Boolean);
+    const lw = latestWeight();
+    return `NUTRITION aujourd'hui : ${Math.round(sm.kcal)} kcal consommées sur un objectif de ${G.kcal} (reste ${Math.round(G.kcal - sm.kcal)}) ; protéines ${Math.round(sm.p)}/${G.p} g, glucides ${Math.round(sm.c)}/${G.c} g, lipides ${Math.round(sm.f)}/${G.f} g. ${meals.join(' ; ') || 'Aucun repas saisi.'}${lw ? ` Dernier poids : ${lw.kg} kg.` : ''}`;
+  },
   stat(){
     const k = today(), list = items(k), s = sums(list), goal = goalK(k), left = goal - s.kcal;
     if (!list.length) return {label:'CALORIES', value:fmt(goal) + '<small> kcal</small>', sub:'rien de saisi aujourd\'hui', ratio:0};

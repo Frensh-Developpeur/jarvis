@@ -283,6 +283,18 @@ function bind(){
   });
 }
 
+/* ---------- Jarvis qui discute ---------- */
+const nrm = s => String(s || '').toLowerCase().normalize('NFD').replace(/[\u0300-\u036f]/g, '');
+J.actions = J.actions || {};
+J.actions.log_habit = a => {
+  const words = nrm(a.name).split(/\s+/).filter(w => w.length > 2);
+  const h = habits().map(h => [h, words.filter(w => nrm(h.name).includes(w)).length]).filter(x => x[1]).sort((a, b) => b[1] - a[1])[0];
+  if (!h) throw new Error('habitude introuvable : ' + a.name);
+  const hb = h[0], k = today(), add = Math.max(1, +a.amount || (hb.target > 1 ? 1 : hb.target));
+  setValue(hb, k, Math.min(hb.target * 3, manual(hb, k) + add)); render();
+  return {text:`${hb.icon} ${hb.name} : ${value(hb, k)}/${hb.target}${isDone(hb, k) ? ' ✓' : ''}`, go:'habitudes'};
+};
+
 /* ---------- déclaration ---------- */
 J.module({
   id: 'habitudes',
@@ -304,6 +316,7 @@ J.module({
   },
   brief(){ return ''; },
   report(){ return status(); },
+  chat(){ const k = today(); return `HABITUDES aujourd'hui : ${habits().map(h => `${h.name} ${scheduled(h, k) ? value(h, k) + '/' + h.target + (isDone(h, k) ? ' (fait)' : '') : '(repos)'}${streak(h) > 1 ? ', série ' + streak(h) + ' j' : ''}`).join(' ; ') || 'aucune habitude'}.`; },
   briefingSpeech(){
     const hs = habits(), k = today(), left = hs.filter(h => scheduled(h, k) && !isDone(h, k));
     return left.length ? `${left.length} habitude${left.length > 1 ? 's' : ''} à valider aujourd'hui.` : '';

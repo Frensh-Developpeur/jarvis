@@ -88,6 +88,7 @@ async function loadWeather(force){
   J.renderBriefing();
 }
 J.refreshWeather = () => loadWeather(true);
+J.weatherText = () => { const w = weatherInfo(); return w ? `${w.label}, ${w.temp}° (min ${w.min}°, max ${w.max}°), pluie ${w.rain} %${w.place ? ', ' + w.place : ''}${w.tips.length ? '. ' + w.tips.join(', ') : ''}` : ''; };
 
 function weatherInfo(){
   if (!weather || !weather.data || !weather.data.current || !weather.data.daily || !weather.data.hourly) {

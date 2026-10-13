@@ -434,6 +434,24 @@ function openListSheet(l){
   if (!l) J.focusAfterOpen(fq('#tlName'));
 }
 
+/* ---------- Jarvis qui discute ---------- */
+J.actions = J.actions || {};
+J.actions.add_task = a => {
+  const title = String(a.title || '').trim(); if (!title) throw new Error('titre manquant');
+  const due = /^\d{4}-\d{2}-\d{2}$/.test(a.due || '') ? a.due : null, time = /^\d{1,2}:\d{2}$/.test(a.time || '') ? a.time.padStart(5, '0') : null;
+  const l = a.list && S().lists.find(x => norm(x.name) === norm(a.list));
+  const t = addTask({title:title.charAt(0).toUpperCase() + title.slice(1), due:due || (time ? today() : null), time, prio:Math.max(0, Math.min(3, +a.priority || 0)), list:l ? l.id : 'perso'});
+  render();
+  return {text:`Tâche : ${t.title}${t.due ? ' · ' + dueLabel(t.due).toLowerCase() : ''}${t.time ? ' à ' + t.time.replace(':', 'h') : ''}`, go:'taches'};
+};
+J.actions.complete_task = a => {
+  const words = norm(a.title || '').split(/\s+/).filter(w => w.length > 2);
+  const t = active().map(t => [t, words.filter(w => norm(t.title).includes(w)).length]).filter(x => x[1]).sort((a, b) => b[1] - a[1])[0];
+  if (!t) throw new Error('tâche introuvable');
+  complete(t[0]);
+  return {text:`Terminée : ${t[0].title}`, go:'taches'};
+};
+
 /* ---------- déclaration du module ---------- */
 J.module({
   id: 'taches',
@@ -456,6 +474,11 @@ J.module({
   },
   brief(){ const od = overdue().length; return od ? `Attention, ${od} tâche${od > 1 ? 's' : ''} en retard.` : ''; },
   report(){ return status(); },
+  chat(){
+    const fmtT = t => `${t.title}${t.due ? ' (' + t.due + (t.time ? ' ' + t.time : '') + ')' : ''}${t.prio >= 2 ? ' [prioritaire]' : ''}`;
+    const up = active().filter(t => t.due && t.due > today() && t.due <= addDays(today(), 7)).sort(sortTasks).slice(0, 12);
+    return `TÂCHES : en retard : ${overdue().map(fmtT).join(' ; ') || 'aucune'}. Aujourd'hui : ${dueToday().sort(sortTasks).map(fmtT).join(' ; ') || 'aucune'}. À venir (7 j) : ${up.map(fmtT).join(' ; ') || 'rien'}. Sans date : ${active().filter(t => !t.due).length}. Listes : ${S().lists.map(l => l.name).join(', ')}.`;
+  },
   /* notifications : chaque tâche datée avec une heure */
   reminders(){
     return active().filter(t => t.due && t.time).map(t => ({id:'task-' + t.id + '-' + t.due + '-' + t.time, kind:'tasks', date:t.due, time:t.time,
