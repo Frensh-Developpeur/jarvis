@@ -8,7 +8,7 @@
    ============================================================ */
 'use strict';
 (() => {
-const APP_VERSION = '23';
+const APP_VERSION = '24';
 const API = location.hostname === 'localhost' ? 'http://localhost:8787' : 'https://jarvis-api.frensh-developpeur.workers.dev';
 const APP_URL = 'https://frensh-developpeur.github.io/jarvis/';
 
@@ -206,21 +206,19 @@ J.toast = (t, opts = {}) => {
    ============================================================ */
 let openSheetEl = null;
 const veil = $('#veil');
-/* pendant qu'une feuille est ouverte, la page derrière est figée : pas de défilement parasite,
-   et iOS ne fait plus « sauter » l'écran à l'ouverture du clavier */
+/* Feuille ouverte : la page derrière ne doit pas défiler.
+   On NE passe PAS le body en position fixe : en mode écran d'accueil, iOS décale alors tout l'affichage
+   (feuille surélevée, barre d'onglets restée en l'air à la fermeture). On bloque plutôt les gestes sur le voile,
+   et on remet exactement la position de défilement à la fermeture. */
 let lockY = 0;
-function lockScroll(){
-  if (document.body.classList.contains('locked')) return;
-  lockY = window.scrollY;
-  document.body.style.top = -lockY + 'px';
-  document.body.classList.add('locked');
-}
+function lockScroll(){ lockY = window.scrollY; }
 function unlockScroll(){
-  if (!document.body.classList.contains('locked')) return;
-  document.body.classList.remove('locked');
-  document.body.style.top = '';
-  window.scrollTo(0, lockY);
+  requestAnimationFrame(() => {
+    window.scrollTo(0, lockY);
+    document.documentElement.style.setProperty('--kb', '0px');
+  });
 }
+veil.addEventListener('touchmove', e => e.preventDefault(), {passive:false});
 /* J.focusAfterOpen(input) : met le curseur dans le champ une fois la feuille arrivée (le clavier ne monte pas pendant l'animation) */
 J.focusAfterOpen = (input) => {
   const sh = input.closest('.sheet');
@@ -253,13 +251,14 @@ let vvRaf = 0;
 function onViewport(){
   cancelAnimationFrame(vvRaf);
   vvRaf = requestAnimationFrame(() => {
-    const kb = Math.max(0, Math.round(window.innerHeight - vv.height - vv.offsetTop));
+    const typing = typeof isTextField === 'function' && isTextField(document.activeElement);
+    const kb = typing ? Math.max(0, Math.round(window.innerHeight - vv.height - vv.offsetTop)) : 0;   // pas de clavier = pas de décalage
     const root = document.documentElement.style;
     root.setProperty('--kb', kb + 'px');
     root.setProperty('--vvh', Math.round(vv.height) + 'px');
     const was = document.body.classList.contains('kb-open');
     document.body.classList.toggle('kb-open', kb > 80);
-    if (was && kb <= 80 && !document.body.classList.contains('locked')) window.scrollTo(window.scrollX, window.scrollY);
+    if (was && kb <= 80 && !openSheetEl) window.scrollTo(window.scrollX, window.scrollY);
   });
 }
 if (vv) { vv.addEventListener('resize', onViewport); vv.addEventListener('scroll', onViewport); onViewport(); }
@@ -289,7 +288,8 @@ document.addEventListener('focusout', () => {
   typingT = setTimeout(() => {
     if (isTextField(document.activeElement)) return;
     document.body.classList.remove('typing');
-    if (!document.body.classList.contains('locked')) window.scrollTo(window.scrollX, window.scrollY);
+    onViewport();
+    if (!openSheetEl) window.scrollTo(window.scrollX, window.scrollY);
   }, 150);
 });
 /* dans une feuille, le champ actif est ramené dans la zone visible (le reste de l'app : iOS s'en charge seul) */
