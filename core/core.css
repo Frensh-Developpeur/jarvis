@@ -436,3 +436,10 @@ body.sheet-open .fab,body.typing .fab{opacity:0;pointer-events:none}
 .sheet .hscroll{margin-left:0!important;margin-right:0!important;padding-left:0!important;padding-right:0!important;
   overscroll-behavior-x:contain;touch-action:pan-x;scrollbar-width:none;
   -webkit-mask-image:linear-gradient(90deg,#000 88%,transparent);mask-image:linear-gradient(90deg,#000 88%,transparent)}
+/* bouton + aux couleurs du module */
+.tsk .fab{border-color:#b98cff;color:#b98cff;background:radial-gradient(circle,#2a1745 0%,#0d0716 70%);box-shadow:0 0 22px rgba(185,140,255,.5),inset 0 0 18px rgba(185,140,255,.3)}
+.tsk .fab::before{border-color:rgba(185,140,255,.45)}
+.mus .fab{border-color:#ffb347;color:#ffb347;background:radial-gradient(circle,#3d2a0c 0%,#140d03 70%);box-shadow:0 0 22px rgba(255,179,71,.45),inset 0 0 18px rgba(255,179,71,.3)}
+.mus .fab::before{border-color:rgba(255,179,71,.45)}
+.nut .fab{border-color:#4dffc3;color:#4dffc3;background:radial-gradient(circle,#0c3a2c 0%,#03140f 70%);box-shadow:0 0 22px rgba(77,255,195,.4),inset 0 0 18px rgba(77,255,195,.3)}
+.nut .fab::before{border-color:rgba(77,255,195,.45)}
