@@ -427,3 +427,6 @@ body.in-app .tabbar{transition:transform .25s cubic-bezier(.2,.8,.2,1),opacity .
 body.sheet-open .tabbar,body.typing .tabbar,body.kb-open .tabbar{transform:translateY(115%);opacity:0;pointer-events:none;display:grid}
 .fab{transition:opacity .2s,transform .12s}
 body.sheet-open .fab,body.typing .fab{opacity:0;pointer-events:none}
+/* la feuille suit les changements de hauteur du clavier (barre de suggestions) en douceur */
+.sheet.show{transition:transform .28s cubic-bezier(.2,.8,.2,1),bottom .16s ease-out,max-height .16s ease-out}
+.sheet.dragging{transition:none}

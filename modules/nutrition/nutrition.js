@@ -649,7 +649,7 @@ function openWeigh(){
   const ks = Object.keys(S().weights).sort().reverse().slice(0, 6);
   fq('#wList').innerHTML = ks.length ? '<p class="note" style="margin-top:14px">Dernières pesées manuelles</p>' + ks.map(k => `<div class="wl"><span>${esc(dayLabel(k))}</span><b>${g1(S().weights[k])} kg</b><button data-wdel="${k}">✕</button></div>`).join('') : '';
   J.openSheet(fq('#nWeigh'));
-  setTimeout(() => fq('#wKg').select(), 320);
+  J.focusAfterOpen(fq('#wKg'));
 }
 
 /* ============================================================

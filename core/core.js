@@ -8,7 +8,7 @@
    ============================================================ */
 'use strict';
 (() => {
-const APP_VERSION = '21';
+const APP_VERSION = '22';
 const API = location.hostname === 'localhost' ? 'http://localhost:8787' : 'https://jarvis-api.frensh-developpeur.workers.dev';
 const APP_URL = 'https://frensh-developpeur.github.io/jarvis/';
 
@@ -221,6 +221,16 @@ function unlockScroll(){
   document.body.style.top = '';
   window.scrollTo(0, lockY);
 }
+/* J.focusAfterOpen(input) : met le curseur dans le champ une fois la feuille arrivée (le clavier ne monte pas pendant l'animation) */
+J.focusAfterOpen = (input) => {
+  const sh = input.closest('.sheet');
+  if (!sh) { input.focus(); return; }
+  let done = false;
+  const go = () => { if (done) return; done = true; sh.removeEventListener('transitionend', onEnd); if (sh.classList.contains('show')) input.focus({preventScroll:true}); };
+  const onEnd = e => { if (e.target === sh && e.propertyName === 'transform') go(); };
+  sh.addEventListener('transitionend', onEnd);
+  setTimeout(go, 450);
+};
 function openSheet(el){
   J.haptic && J.haptic();
   if (openSheetEl && openSheetEl !== el) openSheetEl.classList.remove('show');
@@ -253,6 +263,21 @@ function onViewport(){
   });
 }
 if (vv) { vv.addEventListener('resize', onViewport); vv.addEventListener('scroll', onViewport); onViewport(); }
+
+/* champs de saisie : pas de suggestions iOS là où elles ne servent à rien (montants, quantités, recherches…).
+   La barre de suggestions qui apparaît / disparaît change la hauteur du clavier et fait bouger l'écran. */
+function tameInput(el){
+  if (el.dataset.tamed) return; el.dataset.tamed = '1';
+  const num = /decimal|numeric/.test(el.getAttribute('inputmode') || '') || el.type === 'number' || el.type === 'date' || el.type === 'month';
+  if (!el.hasAttribute('autocomplete')) el.setAttribute('autocomplete', 'off');
+  if (!el.hasAttribute('autocorrect')) el.setAttribute('autocorrect', 'off');
+  if (!el.hasAttribute('spellcheck')) el.setAttribute('spellcheck', 'false');
+  if (num || el.type === 'search' || /search|recherch/i.test(el.placeholder || '')) el.setAttribute('autocapitalize', 'off');
+}
+const tameAll = root => { if (root.querySelectorAll) root.querySelectorAll('input:not([type=checkbox]):not([type=radio]):not([type=file]),textarea').forEach(tameInput); };
+tameAll(document);
+new MutationObserver(muts => muts.forEach(m => m.addedNodes.forEach(n => { if (n.nodeType === 1) { if (n.matches('input,textarea')) tameInput(n); else tameAll(n); } })))
+  .observe(document.body, {childList:true, subtree:true});
 
 /* saisie de texte : la barre d'onglets et le bouton + s'effacent (sinon iOS les fait flotter au-dessus du clavier),
    et à la fermeture du clavier on remet l'écran d'aplomb (iOS laisse parfois la vue décalée) */

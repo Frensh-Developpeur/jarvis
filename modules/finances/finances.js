@@ -555,7 +555,7 @@ function openEditor(t, preset){
   fq('#eMore').hidden = !t; fq('#eDelAsk').hidden = true; fq('#eSave').hidden = false;
   updateCalc(); renderSugg(); goalRow();
   J.openSheet(fq('#fEdit'));
-  if (!t) setTimeout(() => fq('#eAmt').focus(), 320);
+  if (!t) J.focusAfterOpen(fq('#eAmt'));
 }
 /* modification d'une récurrence depuis l'onglet FIXES : on édite sa prochaine échéance */
 function openRec(r){
@@ -611,7 +611,7 @@ function openBalance(){
   fq('#bAmt').value = now !== null ? String(now).replace('.', ',') : '';
   fq('#bClear').hidden = now === null;
   J.openSheet(fq('#fBal'));
-  setTimeout(() => fq('#bAmt').focus(), 320);
+  J.focusAfterOpen(fq('#bAmt'));
 }
 let budCat = null;
 function openBudget(c){
@@ -624,7 +624,7 @@ function openBudget(c){
   fq('#budAmt').value = S().budgets[c] ? String(S().budgets[c]).replace('.', ',') : '';
   fq('#budClear').hidden = !S().budgets[c];
   J.openSheet(fq('#fBud'));
-  setTimeout(() => fq('#budAmt').focus(), 320);
+  J.focusAfterOpen(fq('#budAmt'));
 }
 const GOAL_COLORS = ['#3fe0ff', '#4dffc3', '#ffb347', '#ff5f8f', '#b98cff', '#ffe066'];
 let goalEditing = null, goalColor = GOAL_COLORS[0];
@@ -646,7 +646,7 @@ function openContrib(g){
   fq('#cTitle').textContent = 'VERSEMENT · ' + g.name.toUpperCase();
   fq('#cAmt').value = '';
   J.openSheet(fq('#fContrib'));
-  setTimeout(() => fq('#cAmt').focus(), 320);
+  J.focusAfterOpen(fq('#cAmt'));
 }
 
 /* ---------- export CSV ---------- */
