@@ -8,7 +8,7 @@
    ============================================================ */
 'use strict';
 (() => {
-const APP_VERSION = '31';
+const APP_VERSION = '32';
 const API = location.hostname === 'localhost' ? 'http://localhost:8787' : 'https://jarvis-api.frensh-developpeur.workers.dev';
 const APP_URL = 'https://frensh-developpeur.github.io/jarvis/';
 
@@ -262,6 +262,7 @@ function onViewport(){
   });
 }
 if (vv) { vv.addEventListener('resize', onViewport); vv.addEventListener('scroll', onViewport); onViewport(); }
+if (vv) vv.addEventListener('scroll', () => { if (Math.abs(vv.offsetLeft) > 0.5 || window.scrollX) window.scrollTo(0, window.scrollY); });   // jamais de décalage horizontal
 
 /* champs de saisie : pas de suggestions iOS là où elles ne servent à rien (montants, quantités, recherches…).
    La barre de suggestions qui apparaît / disparaît change la hauteur du clavier et fait bouger l'écran. */
@@ -415,7 +416,7 @@ document.addEventListener('touchend', () => {
 const hapticEl = (() => {
   const l = document.createElement('label'), i = document.createElement('input');
   i.type = 'checkbox'; i.setAttribute('switch', ''); l.appendChild(i);
-  l.style.cssText = 'position:fixed;left:-99px;top:0;opacity:0;pointer-events:none';
+  l.style.cssText = 'position:fixed;left:0;top:0;width:1px;height:1px;overflow:hidden;opacity:0;pointer-events:none;clip-path:inset(50%)';   // dans l'écran : un élément hors écran laisse iOS (mode app) faire glisser la vue sur le côté
   l.setAttribute('aria-hidden', 'true'); document.body.appendChild(l);
   return l;
 })();
