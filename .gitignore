@@ -2,3 +2,4 @@
 server/.wrangler/
 node_modules/
 .DS_Store
+server/.dev.vars

@@ -233,7 +233,7 @@ J.module({
   report(){ return status(); },
   reminders(){
     const out = [];
-    for (let i = 0; i < 3; i++) { const k = addDays(today(), i); out.push({id:'journal-' + k, date:k, time:'21:30', title:'✍️ Journal du soir', body:'Deux minutes pour faire le point sur ta journée ?', url:'#/notes', skipIf:() => !!S().journal[k]}); }
+    for (let i = 0; i < 3; i++) { const k = addDays(today(), i); out.push({id:'journal-' + k, kind:'journal', date:k, time:'21:30', title:'✍️ Journal du soir', body:'Deux minutes pour faire le point sur ta journée ?', url:'#/notes', skipIf:() => !!S().journal[k]}); }
     return out;
   },
 

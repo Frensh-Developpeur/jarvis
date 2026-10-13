@@ -456,6 +456,11 @@ J.module({
   },
   brief(){ const od = overdue().length; return od ? `Attention, ${od} tâche${od > 1 ? 's' : ''} en retard.` : ''; },
   report(){ return status(); },
+  /* notifications : chaque tâche datée avec une heure */
+  reminders(){
+    return active().filter(t => t.due && t.time).map(t => ({id:'task-' + t.id + '-' + t.due + '-' + t.time, kind:'tasks', date:t.due, time:t.time,
+      title:'⏰ ' + t.title, body:[t.prio >= 2 ? 'Priorité ' + PRIO[t.prio].n.toLowerCase() : '', listOf(t.list).name, (t.sub || []).length ? `${t.sub.filter(x => x.done).length}/${t.sub.length} étapes` : ''].filter(Boolean).join(' · '), url:'#/taches'}));
+  },
   briefing(){
     const list = [...overdue(), ...dueToday()].sort(sortTasks).slice(0, 5);
     if (!list.length) return null;

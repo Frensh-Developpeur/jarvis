@@ -93,6 +93,66 @@ function offItem(p) {
   };
 }
 
+/* ---------- envoi Web Push (VAPID + chiffrement aes128gcm, RFC 8291 / 8292) ---------- */
+const b64u = buf => btoa(String.fromCharCode(...new Uint8Array(buf))).replace(/\+/g, '-').replace(/\//g, '_').replace(/=+$/, '');
+const unb64u = s => Uint8Array.from(atob(s.replace(/-/g, '+').replace(/_/g, '/') + '==='.slice((s.length + 3) % 4)), c => c.charCodeAt(0));
+const concat = (...arrs) => { const out = new Uint8Array(arrs.reduce((a, b) => a + b.length, 0)); let o = 0; for (const a of arrs) { out.set(a, o); o += a.length; } return out; };
+async function hkdf(salt, ikm, info, len) {
+  const key = await crypto.subtle.importKey('raw', ikm, 'HKDF', false, ['deriveBits']);
+  return new Uint8Array(await crypto.subtle.deriveBits({ name: 'HKDF', hash: 'SHA-256', salt, info }, key, len * 8));
+}
+let vapidKey = null;
+async function vapidJwt(env, aud) {
+  if (!vapidKey) vapidKey = await crypto.subtle.importKey('jwk', JSON.parse(env.VAPID_PRIVATE), { name: 'ECDSA', namedCurve: 'P-256' }, false, ['sign']);
+  const enc = new TextEncoder();
+  const head = b64u(enc.encode(JSON.stringify({ typ: 'JWT', alg: 'ES256' })));
+  const claims = b64u(enc.encode(JSON.stringify({ aud, exp: now() + 12 * 3600, sub: 'https://frensh-developpeur.github.io/jarvis/' })));
+  const sig = await crypto.subtle.sign({ name: 'ECDSA', hash: 'SHA-256' }, vapidKey, enc.encode(head + '.' + claims));
+  return head + '.' + claims + '.' + b64u(sig);
+}
+async function sendPush(env, sub, payload) {
+  const enc = new TextEncoder();
+  const uaPublic = unb64u(sub.p256dh), authSecret = unb64u(sub.auth);
+  const as = await crypto.subtle.generateKey({ name: 'ECDH', namedCurve: 'P-256' }, true, ['deriveBits']);
+  const asPublic = new Uint8Array(await crypto.subtle.exportKey('raw', as.publicKey));
+  const uaKey = await crypto.subtle.importKey('raw', uaPublic, { name: 'ECDH', namedCurve: 'P-256' }, false, []);
+  const ecdh = new Uint8Array(await crypto.subtle.deriveBits({ name: 'ECDH', public: uaKey }, as.privateKey, 256));
+  const ikm = await hkdf(authSecret, ecdh, concat(enc.encode('WebPush: info\0'), uaPublic, asPublic), 32);
+  const salt = crypto.getRandomValues(new Uint8Array(16));
+  const cek = await hkdf(salt, ikm, enc.encode('Content-Encoding: aes128gcm\0'), 16);
+  const nonce = await hkdf(salt, ikm, enc.encode('Content-Encoding: nonce\0'), 12);
+  const key = await crypto.subtle.importKey('raw', cek, 'AES-GCM', false, ['encrypt']);
+  const ct = new Uint8Array(await crypto.subtle.encrypt({ name: 'AES-GCM', iv: nonce }, key, concat(enc.encode(payload), new Uint8Array([2]))));
+  const header = new Uint8Array(86); header.set(salt, 0); new DataView(header.buffer).setUint32(16, 4096); header[20] = 65; header.set(asPublic, 21);
+  const jwt = await vapidJwt(env, new URL(sub.endpoint).origin);
+  return fetch(sub.endpoint, { method: 'POST', body: concat(header, ct), headers: {
+    TTL: '86400', Urgency: 'high', 'Content-Encoding': 'aes128gcm', 'Content-Type': 'application/octet-stream',
+    Authorization: `vapid t=${jwt}, k=${env.VAPID_PUBLIC}` } });
+}
+async function pushUser(env, userId, msg) {
+  const { results } = await env.DB.prepare('SELECT endpoint, p256dh, auth FROM push_subs WHERE user_id = ?').bind(userId).all();
+  let sent = 0;
+  for (const sub of results) {
+    try {
+      const r = await sendPush(env, sub, JSON.stringify(msg));
+      if (r.status === 404 || r.status === 410) await env.DB.prepare('DELETE FROM push_subs WHERE endpoint = ?').bind(sub.endpoint).run();   // abonnement expiré
+      else if (r.ok) sent++;
+      else console.log('push', r.status, (await r.text()).slice(0, 200));
+    } catch (e) { console.log('push erreur', e.message); }
+  }
+  return sent;
+}
+async function sendDueNotifications(env) {
+  const t = Date.now();
+  const { results } = await env.DB.prepare('SELECT user_id, nid, title, body, url FROM notifs WHERE sent = 0 AND at <= ? AND at > ? ORDER BY at LIMIT 100').bind(t, t - 3600e3).all();
+  for (const n of results) {
+    await env.DB.prepare('UPDATE notifs SET sent = 1 WHERE user_id = ? AND nid = ?').bind(n.user_id, n.nid).run();
+    await pushUser(env, n.user_id, { title: n.title, body: n.body, url: n.url, tag: n.nid });
+  }
+  // ménage : notifications de plus de 2 jours
+  await env.DB.prepare('DELETE FROM notifs WHERE at < ?').bind(t - 2 * 864e5).run();
+}
+
 /* ---------- crypto ---------- */
 const B32 = 'ABCDEFGHIJKLMNOPQRSTUVWXYZ234567';
 function randomBytes(n) { return crypto.getRandomValues(new Uint8Array(n)); }
@@ -445,6 +505,50 @@ const routes = {
     return { ok: true };
   },
 
+  /* ---------- notifications push ---------- */
+  'GET /api/push/key': async (req, env) => ({ key: env.VAPID_PUBLIC }),
+
+  'POST /api/push/subscribe': async (req, env) => {
+    const u = await auth(req, env);
+    const { subscription: sub } = await body(req);
+    if (!sub || !/^https:\/\//.test(sub.endpoint || '') || !sub.keys || !sub.keys.p256dh || !sub.keys.auth) fail(400, 'Abonnement invalide');
+    await env.DB.prepare(`INSERT INTO push_subs (endpoint, user_id, p256dh, auth, created) VALUES (?, ?, ?, ?, ?)
+      ON CONFLICT(endpoint) DO UPDATE SET user_id = excluded.user_id, p256dh = excluded.p256dh, auth = excluded.auth`)
+      .bind(sub.endpoint, u.id, sub.keys.p256dh, sub.keys.auth, now()).run();
+    return { ok: true };
+  },
+
+  'POST /api/push/unsubscribe': async (req, env) => {
+    const u = await auth(req, env);
+    const { endpoint } = await body(req);
+    await env.DB.prepare('DELETE FROM push_subs WHERE endpoint = ? AND user_id = ?').bind(endpoint || '', u.id).run();
+    return { ok: true };
+  },
+
+  /* l'app envoie la liste complète des notifications des 7 prochains jours ; on remplace celles pas encore envoyées */
+  'PUT /api/push/schedule': async (req, env) => {
+    const u = await auth(req, env);
+    const { items } = await body(req);
+    const t = Date.now();
+    const list = (Array.isArray(items) ? items : []).filter(i => i && i.nid && i.at > t - 60e3 && i.at < t + 8 * 864e5).slice(0, 300);
+    const stmts = [env.DB.prepare('DELETE FROM notifs WHERE user_id = ? AND sent = 0').bind(u.id)];
+    for (const i of list) {
+      stmts.push(env.DB.prepare(`INSERT INTO notifs (user_id, nid, at, title, body, url, sent) VALUES (?, ?, ?, ?, ?, ?, 0)
+        ON CONFLICT(user_id, nid) DO UPDATE SET at = excluded.at, title = excluded.title, body = excluded.body, url = excluded.url,
+        sent = CASE WHEN notifs.at = excluded.at THEN notifs.sent ELSE 0 END`)
+        .bind(u.id, String(i.nid).slice(0, 120), Math.round(i.at), String(i.title || 'Jarvis').slice(0, 120), String(i.body || '').slice(0, 300), String(i.url || '').slice(0, 60)));
+    }
+    await env.DB.batch(stmts);
+    return { ok: true, count: list.length };
+  },
+
+  'POST /api/push/test': async (req, env) => {
+    const u = await auth(req, env);
+    const sent = await pushUser(env, u.id, { title: 'J.A.R.V.I.S.', body: 'Notifications opérationnelles. À votre service.', url: '#/' });
+    if (!sent) fail(404, 'Aucun appareil abonné');
+    return { ok: true, sent };
+  },
+
   /* ---------- administration ---------- */
   'POST /api/invites': async (req, env) => {
     const u = await auth(req, env);
@@ -528,6 +632,7 @@ export default {
 
   /* ménage quotidien : sessions expirées, inscriptions abandonnées, vieux compteurs */
   async scheduled(event, env) {
+    if (event.cron === '* * * * *') return sendDueNotifications(env);   // toutes les minutes : notifications à envoyer
     const t = now();
     await env.DB.batch([
       env.DB.prepare('DELETE FROM sessions WHERE expires_at < ?').bind(t),

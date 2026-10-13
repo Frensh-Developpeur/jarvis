@@ -1,8 +1,8 @@
 // Change la version à chaque mise à jour (le script bump.sh le fait pour toi)
-const CACHE = 'jarvis-v27';
+const CACHE = 'jarvis-v28';
 const ASSETS = [
   './', './index.html', './manifest.json', './icon-192.png', './icon-512.png', './apple-touch-icon.png',
-  './core/core.css', './core/core.js', './core/voice.js', './core/briefing.js',
+  './core/core.css', './core/core.js', './core/voice.js', './core/briefing.js', './core/notify.js',
   './modules/finances/finances.css', './modules/finances/finances.js',
   './modules/sante/sante.css', './modules/sante/sante.js',
   './modules/nutrition/nutrition.css', './modules/nutrition/nutrition.js', './modules/nutrition/ciqual.json',
@@ -43,4 +43,23 @@ self.addEventListener('fetch', e => {
       })
       .catch(() => caches.match(req, {ignoreSearch: true}))
   );
+});
+
+// Notifications push (envoyées par le serveur Jarvis)
+self.addEventListener('push', e => {
+  let d = {};
+  try { d = e.data ? e.data.json() : {}; } catch (err) { d = {title: 'J.A.R.V.I.S.', body: e.data ? e.data.text() : ''}; }
+  e.waitUntil(self.registration.showNotification(d.title || 'J.A.R.V.I.S.', {
+    body: d.body || '', icon: 'icon-192.png', badge: 'icon-192.png', tag: d.tag || undefined, data: {url: d.url || '#/'},
+  }));
+});
+// Toucher une notification : ouvre Jarvis sur le bon module
+self.addEventListener('notificationclick', e => {
+  e.notification.close();
+  const url = (e.notification.data && e.notification.data.url) || '#/';
+  e.waitUntil((async () => {
+    const wins = await clients.matchAll({type: 'window', includeUncontrolled: true});
+    for (const c of wins) { c.postMessage({go: url}); return c.focus(); }
+    return clients.openWindow('./index.html' + url);
+  })());
 });

@@ -6,6 +6,8 @@ workers_dev = true
 [vars]
 # Origines autorisées à appeler l'API (l'app sur GitHub Pages + test local)
 ALLOWED_ORIGINS = "https://frensh-developpeur.github.io,http://localhost:8000"
+# Clé publique des notifications push (la clé privée est le secret VAPID_PRIVATE)
+VAPID_PUBLIC = "BH45p73fnH7FbzMD8t7ZrM7SDGlVgvqJHmg2QPv1UpeYw9exv01zQ8RrMlYGQcrajf4__cwo8C6xIhKsSIlIzY4"
 
 [[d1_databases]]
 binding = "DB"
@@ -13,7 +15,7 @@ database_name = "jarvis-db"
 database_id = "67b6240f-ae2a-48d1-b157-f196d83fa776"
 
 [triggers]
-crons = ["17 4 * * *"]
+crons = ["17 4 * * *", "* * * * *"]
 
 # Synthèse vocale (Workers AI, quota gratuit quotidien)
 [ai]

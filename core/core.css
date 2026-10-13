@@ -453,3 +453,4 @@ body.sheet-open .fab,body.typing .fab{opacity:0;pointer-events:none}
 .tabprefs{display:flex;flex-wrap:wrap;gap:6px}
 .tabprefs button{border:1px solid rgba(63,224,255,.15);background:none;color:var(--muted);border-radius:14px;padding:6px 12px;font-size:13px}
 .tabprefs button.on{border-color:var(--acc);color:var(--text);background:color-mix(in srgb,var(--acc) 14%,transparent)}
+.ntime{background:rgba(63,224,255,.05);border:1px solid rgba(63,224,255,.15);border-radius:10px;padding:8px;color:var(--text);font-size:15px;min-width:96px}

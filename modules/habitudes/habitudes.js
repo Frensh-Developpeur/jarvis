@@ -313,7 +313,7 @@ J.module({
     const out = [];
     for (let i = 0; i < 3; i++) {
       const k = addDays(today(), i);
-      habits().forEach(h => { if (h.remind && scheduled(h, k)) out.push({id:'hab-' + h.id + '-' + k, date:k, time:h.remind, title:`${h.icon} ${h.name}`, body:h.target > 1 ? `Objectif : ${h.target} ${h.unit}` : 'C\'est le moment !', url:'#/habitudes', skipIf:() => isDone(h, k)}); });
+      habits().forEach(h => { if (h.remind && scheduled(h, k)) out.push({id:'hab-' + h.id + '-' + k, kind:'habits', date:k, time:h.remind, title:`${h.icon} ${h.name}`, body:h.target > 1 ? `Objectif : ${h.target} ${h.unit}` : 'C\'est le moment !', url:'#/habitudes', skipIf:() => isDone(h, k)}); });
     }
     return out;
   },

@@ -75,3 +75,24 @@ CREATE TABLE IF NOT EXISTS logs (
   at      INTEGER NOT NULL,
   msg     TEXT NOT NULL
 );
+
+-- Notifications push : abonnements des appareils et notifications programmées
+CREATE TABLE IF NOT EXISTS push_subs (
+  endpoint TEXT PRIMARY KEY,
+  user_id  TEXT NOT NULL,
+  p256dh   TEXT NOT NULL,
+  auth     TEXT NOT NULL,
+  created  INTEGER NOT NULL
+);
+CREATE INDEX IF NOT EXISTS push_subs_user ON push_subs(user_id);
+CREATE TABLE IF NOT EXISTS notifs (
+  user_id TEXT NOT NULL,
+  nid     TEXT NOT NULL,
+  at      INTEGER NOT NULL,
+  title   TEXT NOT NULL,
+  body    TEXT,
+  url     TEXT,
+  sent    INTEGER NOT NULL DEFAULT 0,
+  PRIMARY KEY (user_id, nid)
+);
+CREATE INDEX IF NOT EXISTS notifs_due ON notifs(sent, at);

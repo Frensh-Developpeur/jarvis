@@ -8,7 +8,7 @@
    ============================================================ */
 'use strict';
 (() => {
-const APP_VERSION = '27';
+const APP_VERSION = '28';
 const API = location.hostname === 'localhost' ? 'http://localhost:8787' : 'https://jarvis-api.frensh-developpeur.workers.dev';
 const APP_URL = 'https://frensh-developpeur.github.io/jarvis/';
 
@@ -102,7 +102,7 @@ J.store = (id, defaults) => {
     updatedAt: cached ? cached.updatedAt : 0,
     dirty: cached ? !!cached.dirty : false,
     listeners: [],
-    save(){ st.updatedAt = Date.now(); st.dirty = true; st.persist(); schedulePush(); },
+    save(){ st.updatedAt = Date.now(); st.dirty = true; st.persist(); schedulePush(); if (J.scheduleNotifs) J.scheduleNotifs(); },
     persist(){ ls.set(cacheKey(id), {data:st.data, updatedAt:st.updatedAt, dirty:st.dirty}); },
     replace(data, updatedAt){ st.data = Object.assign(fresh(), data); st.updatedAt = updatedAt; st.dirty = false; st.persist(); st.listeners.forEach(f => f(st.data)); },
     onChange(f){ st.listeners.push(f); },
@@ -598,6 +598,7 @@ function openSettings(){
   $$('#sVoiceName button').forEach(b => b.classList.toggle('on', b.dataset.v === (prefs.data.voiceName || 'george')));
   S$('#sVoiceNameField').hidden = prefs.data.voiceMode === 'iphone';
   S$('#sCity').value = prefs.data.city || '';
+  if (J.renderNotifSettings) J.renderNotifSettings();
   renderTabPrefs();
   S$('#sUsage').textContent = '';
   J.api('GET', '/api/tts/usage').then(u => {
@@ -828,6 +829,7 @@ async function enter(isNew){
   if (isNew) J.say(`Bienvenue ${session.user.username}. Compte activé${session.user.isAdmin ? ' avec les droits administrateur' : ''}. Où souhaitez-vous aller ?`);
   await J.sync();
   if (!current) { renderHub(); if (!isNew) J.say(hubMessage()); }
+  if (J.scheduleNotifs) J.scheduleNotifs();
 }
 
 J.start = () => {
@@ -836,7 +838,8 @@ J.start = () => {
   setTimeout(() => {
     $('#boot').classList.add('done');
     if (session) {
-      enter();
+      const startRoute = (location.hash.match(/^#\/([a-z]+)/) || [])[1];
+      enter().then(() => { if (startRoute && J.modules.some(m => m.id === startRoute && !m.soon)) J.go(startRoute); });
       // test local uniquement : scénario automatique (jamais actif sur le site publié)
       if (location.hostname === 'localhost' || location.hostname === '127.0.0.1') { const ds = sessionStorage.getItem('jarvis.dev'); if (ds) setTimeout(() => { try { new Function(ds)(); } catch(e) { console.error(e); } }, 2500); }
       J.api('GET', '/api/me').then(u => { session.user = u; ls.set('jarvis.session', session); }).catch(() => {});
