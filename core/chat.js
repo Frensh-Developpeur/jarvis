@@ -28,7 +28,9 @@ function context(){
   const parts = [];
   J.modules.filter(m => !m.soon && m.chat).forEach(m => { try { const t = m.chat(); if (t) parts.push(t); } catch(e) { J.report(m.id + '.chat : ' + e); } });
   try { const w = J.weatherText && J.weatherText(); if (w) parts.push('MÉTÉO : ' + w); } catch(e) {}
-  return parts.join('\n');
+  // montants à la française (sinon l'IA recopie « 2422.9 € » et la voix le lit mal)
+  const eur = n => n.toLocaleString('fr-FR', {minimumFractionDigits:n % 1 ? 2 : 0, maximumFractionDigits:2}) + ' €';
+  return parts.join('\n').replace(/(-?\d+(?:\.\d+)?)\s?€/g, (_, n) => eur(+n)).replace(/(\d)\.(\d)/g, '$1,$2');
 }
 function calendar(){
   const out = [];
@@ -51,6 +53,44 @@ function render(){
 }
 
 /* ---------- envoi ---------- */
+/* réponse partielle : le texte de "reply" déjà reçu (le JSON arrive morceau par morceau) */
+function partialReply(raw){
+  const m = raw.match(/"reply"\s*:\s*"((?:[^"\\]|\\.)*)/);
+  if (!m) return '';
+  try { return JSON.parse('"' + m[1].replace(/\\u[0-9a-fA-F]{0,3}$/, '') + '"'); } catch(e) { return m[1].replace(/\\n/g, ' ').replace(/\\(.)/g, '$1'); }
+}
+function finalReply(raw){
+  let r = null;
+  try { r = JSON.parse(raw); } catch(e) { try { r = JSON.parse(raw.slice(raw.indexOf('{'), raw.lastIndexOf('}') + 1)); } catch(e2) {} }
+  if (!r || typeof r !== 'object') return {reply:partialReply(raw), actions:[]};
+  return {reply:String(r.reply || ''), actions:Array.isArray(r.actions) ? r.actions.filter(a => a && typeof a.type === 'string').slice(0, 8) : []};
+}
+async function stream(payload, onText){
+  let res;
+  try {
+    res = await fetch(J.API + '/api/chat?stream', {method:'POST', cache:'no-store',
+      headers:{'Content-Type':'application/json', Authorization:'Bearer ' + J.token()}, body:JSON.stringify(payload)});
+  } catch(e) { const err = new Error('Liaison interrompue avec le serveur.'); throw err; }
+  if (!res.ok) { let out = {}; try { out = await res.json(); } catch(e) {} const err = new Error(out.error || 'Erreur ' + res.status); err.status = res.status; throw err; }
+  if (!res.body || !res.body.getReader) return finalReply(await res.text());
+  const rd = res.body.getReader(), dec = new TextDecoder();
+  let raw = '', shown = '';
+  for (;;) {
+    const {done, value} = await rd.read();
+    if (done) break;
+    raw += dec.decode(value, {stream:true});
+    const t = partialReply(raw);
+    if (t && t !== shown) { shown = t; onText(t); }
+  }
+  return finalReply(raw);
+}
+/* bulle de Jarvis en cours d'écriture (feuille de conversation) */
+function liveBubble(t){
+  let b = $('#chatMsgs .cm.live .cb');
+  if (!b) { const ty = $('#chatMsgs .cb-typing'); if (ty) ty.closest('.cm').remove(); $('#chatMsgs').insertAdjacentHTML('beforeend', '<div class="cm j live"><span class="cav"></span><div><div class="cb"></div></div></div>'); b = $('#chatMsgs .cm.live .cb'); }
+  b.textContent = t; toBottom();
+}
+
 async function send(text, opts = {}){
   text = String(text || '').trim();
   if (!text || busy) return;
@@ -63,11 +103,14 @@ async function send(text, opts = {}){
   let reply = '', acts = [], asks = [];
   try {
     const now = new Date();
-    const r = await J.api('POST', '/api/chat', {
+    const payload = {
       messages:msgs.slice(-10).map(m => ({role:m.role, content:m.content})),
       context:context(), name:(J.prefs() || {}).name || 'Monsieur', calendar:calendar(),
       now:`${WD[now.getDay()]} ${now.toLocaleDateString('fr-FR', {day:'numeric', month:'long', year:'numeric'})}, ${now.toLocaleTimeString('fr-FR', {hour:'2-digit', minute:'2-digit'})}`,
-    });
+    };
+    // la réponse s'affiche mot à mot pendant que l'IA l'écrit
+    const live = t => { if (fromHub) J.say(t, true); else liveBubble(t); };
+    const r = await stream(payload, live);
     reply = r.reply || '';
     for (const a of r.actions || []) {
       if (a.type === 'briefing') { briefing = true; continue; }
@@ -89,7 +132,7 @@ async function send(text, opts = {}){
   msgs.push({role:'assistant', content:reply, acts}); persist();
   if (fromHub) {
     $('#hubReactor').classList.remove('thinking');
-    J.say(reply);
+    J.say(reply, 'final');
     $('#hubActs').innerHTML = acts.map(a => `<button class="ca ${a.ok ? '' : 'ko'}" ${a.go ? `data-go="${a.go}"` : ''}>${a.ok ? '✓' : '⚠'} ${esc(a.text)}${a.go ? ' ›' : ''}</button>`).join('');
     $('#hubConv').hidden = false;
     if (J.renderBriefing) J.renderBriefing();

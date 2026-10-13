@@ -40,16 +40,23 @@ function words(n){
   return out.join(' ');
 }
 const NUM = '(-?\\d{1,3}(?:[\\s\\u00a0\\u202f]\\d{3})*|-?\\d+)';
+const hours = h => (h === 1 || h === 21 ? words(h).replace(/un$/, 'une') : words(h)) + (h > 1 ? ' heures' : ' heure');
 function speakable(text){
   return text
+    .replace(/\b([01]?\d|2[0-3])\s?h\s?([0-5]\d)\b/g, (_, h, m) => hours(+h) + ' ' + words(+m))      // 18h30 → dix-huit heures trente
+    .replace(/\b([01]?\d|2[0-3])\s?h\b(?!\/)/g, (_, h) => hours(+h))                                  // 18 h → dix-huit heures
+    .replace(/(\d)\s?kcal\b/g, '$1 kilocalories').replace(/(\d)\s?kg\b/g, '$1 kilos').replace(/(\d)\s?g\b/g, '$1 grammes')
+    .replace(/(\d)\s?km\b/g, '$1 kilomètres').replace(/(\d)\s?ml\b/gi, '$1 millilitres').replace(/(\d)\s?L\b/g, '$1 litres').replace(/(\d)\s?min\b/g, '$1 minutes')
+    .replace(/(\d)\s?[×x]\s?(\d)/g, '$1 fois $2')
     .replace(new RegExp(NUM + '(?:,(\\d{1,2}))?\\s?€', 'g'), (_, i, c) => {
       const e = parseInt(i.replace(/[\s  ]/g, ''), 10), cents = c ? parseInt(c.padEnd(2, '0'), 10) : 0;
       return (e < 0 ? 'moins ' : '') + words(e) + (Math.abs(e) > 1 ? ' euros' : ' euro') + (cents ? ' et ' + words(cents) + ' centimes' : '');
     })
     .replace(new RegExp(NUM + '\\s?%', 'g'), (_, i) => words(parseInt(i.replace(/\D/g, ''), 10)) + ' pour cent')
     .replace(/\d{1,3}(?:[\u00a0\u202f ]\d{3})+(?!\d)/g, n => words(parseInt(n.replace(/\D/g, ''), 10)))   // 5 432 → cinq mille…
+    .replace(/\b(\d+)[,.](\d+)\b/g, (_, i, d) => words(+i) + ' virgule ' + (d.startsWith('0') ? 'zéro ' + words(+d) : words(+d)))   // 78,4 → soixante-dix-huit virgule quatre
     .replace(/\b\d+\b/g, n => words(parseInt(n, 10)))
-    .replace(/[«»"]/g, '').replace(/\s+/g, ' ').trim();
+    .replace(/[«»"*_#]/g, '').replace(/\p{Extended_Pictographic}/gu, '').replace(/\s+/g, ' ').trim();
 }
 J.speakable = speakable;
 
@@ -169,7 +176,7 @@ function stretch(x, alpha, sr){
    - ElevenLabs : voix déjà masculine et naturelle → juste une touche « IA »
    - Cloudflare (repli) : voix féminine → ton baissé + effets plus marqués */
 const FX = {
-  eleven: {comb:.06, dbl:.14, verb:.1,  presence:3, warm:1.5, air:3.5, sat:.08, width:.28, hp:130, rate:1},
+  eleven: {comb:0,   dbl:0,   verb:.07, presence:2, warm:1,   air:2.5, sat:0,   width:.16, hp:110, rate:1},   // voix propre : le peigne et le dédoublement la rendaient « bizarre »
   melo:   {comb:.16, dbl:.22, verb:.14, presence:4, warm:3,   air:2,   sat:.05, width:.2,  hp:90,  rate:PITCH},
 };
 function setFx(engine){

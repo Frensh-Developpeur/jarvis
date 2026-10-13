@@ -8,7 +8,7 @@
    ============================================================ */
 'use strict';
 (() => {
-const APP_VERSION = '33';
+const APP_VERSION = '34';
 const API = location.hostname === 'localhost' ? 'http://localhost:8787' : 'https://jarvis-api.frensh-developpeur.workers.dev';
 const APP_URL = 'https://frensh-developpeur.github.io/jarvis/';
 
@@ -178,9 +178,14 @@ J.greeting = () => {
    Voix & messages
    ============================================================ */
 let typeTimer;
-J.say = (text) => {
+/* J.say(text) : machine à écrire ; J.say(text, true) : texte qui arrive en direct (IA) ; J.say(text, 'final') : fin du direct */
+let sayLive = false;
+J.say = (text, mode) => {
   const el = $('.view.active .msg'); if (!el) return;
   clearInterval(typeTimer);
+  if (mode === true) { sayLive = true; el.innerHTML = esc(text) + '<span class="cursor"></span>'; return; }
+  if (mode === 'final' && sayLive) { sayLive = false; el.innerHTML = esc(text); return; }
+  sayLive = false;
   let i = 0;
   el.innerHTML = '<span class="cursor"></span>';
   typeTimer = setInterval(() => {
@@ -637,7 +642,7 @@ function openSettings(){
   renderTabPrefs();
   S$('#sUsage').textContent = '';
   J.api('GET', '/api/tts/usage').then(u => {
-    if (u.premium) S$('#sUsage').textContent = `Voix premium : ${u.chars.toLocaleString('fr-FR')} / ${u.budget.toLocaleString('fr-FR')} caractères ce mois-ci (partagés par tous les comptes). Au-delà, voix de secours jusqu'au mois suivant.`;
+    if (u.premium) S$('#sUsage').textContent = `Voix premium : ${Math.min(100, Math.round(u.chars / u.budget * 100))} % du quota du mois utilisé (partagé par tous les comptes). Au-delà, voix de secours jusqu'au mois suivant.`;
   }).catch(() => {});
   S$('#sAccount').textContent = session.user.username + (session.user.isAdmin ? ' · administrateur' : '');
   S$('#adminBox').hidden = !session.user.isAdmin;

@@ -521,7 +521,9 @@ body.kb-open .sheet.chat{padding-bottom:10px}
 @keyframes listen{50%{filter:brightness(1.6) drop-shadow(0 0 18px rgba(255,95,143,.8));transform:scale(1.03)}}
 
 /* aucun défilement horizontal possible (en mode app, iOS faisait glisser la vue vers la droite à l'ouverture du clavier) */
-html,body{overflow-x:hidden;max-width:100%}
+/* html seulement : sur body, overflow-x:hidden en fait une zone de défilement à part et bloque le défilement tactile sur Android ; clip ne crée pas de zone de défilement */
+html{overflow-x:hidden}
+body{overflow-x:clip;max-width:100%}
 body{position:relative}
 .askbar,.chat-in{max-width:100%;box-sizing:border-box}
 .askbar input,.chat-in textarea{width:100%}

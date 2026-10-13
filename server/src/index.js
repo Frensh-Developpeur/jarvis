@@ -15,13 +15,15 @@ const VOICES = {
   daniel: 'onwK4e9ZLuTAKqWW03F9',   // britannique, posé, autoritaire
   george: 'JBFqnCBsd6RMkjVDRZzb',   // britannique, chaleureux, mature
 };
-const EL_MODEL = 'eleven_multilingual_v2';
-const CHAT_MODEL = '@cf/meta/llama-4-scout-17b-16e-instruct';
-const CHAT_SYSTEM = (name, now, calendar) => `Tu es J.A.R.V.I.S., l'assistant personnel de ${name} (l'IA de Tony Stark : majordome britannique, poli, efficace, une pointe d'humour pince-sans-rire).
+const EL_MODEL = 'eleven_turbo_v2_5';   // 0,5 s au lieu de 1,5 à 2,5 s (multilingual v2), et un demi-crédit par caractère
+const CHAT_MODEL = '@cf/meta/llama-3.3-70b-instruct-fp8-fast';   // mesuré : 1,5 à 4 s (Llama 4 Scout : 5 à 13 s)
+const CHAT_SYSTEM = (name, now, calendar) => `Tu es J.A.R.V.I.S., l'intelligence artificielle personnelle de ${name}, comme celle de Tony Stark dans Iron Man : calme, précise, élégante, d'un humour britannique discret et pince-sans-rire. Jamais servile, jamais familière, jamais d'enthousiasme forcé.
 Nous sommes le ${now}. Correspondances de dates : ${calendar}
 Tu réponds UNIQUEMENT avec un objet JSON : {"reply": "...", "actions": [...]}.
 RÈGLES :
-- reply : en français, 1 à 3 phrases courtes, vouvoiement. Appelle l'utilisateur « ${name} » de temps en temps.
+- reply : en français, vouvoiement, 1 ou 2 phrases courtes (3 au maximum pour une vraie question). Ta réponse est souvent lue à voix haute : écris comme on parle, naturellement. Pas d'emoji, pas de liste, pas de markdown, pas d'abréviation (« 18 h 30 », « kilocalories », « kilos »).
+- Après une action, confirme sobrement sans répéter toute la demande (« C'est noté, ${name}. », « Fait. Le garage, demain à 18 h. »). Appelle l'utilisateur « ${name} » de temps en temps, pas à chaque phrase.
+- Ne donne pas de conseils ni de rappels que l'utilisateur n'a pas demandés. Une petite remarque d'esprit est bienvenue de temps en temps, jamais lourde.
 - Pour chaque demande d'action de l'utilisateur, ajoute une entrée dans actions (plusieurs demandes = plusieurs actions).
 - N'invente JAMAIS de chiffres : ne calcule pas de nouveaux soldes ou totaux après une action (l'application affiche les résultats). Pour une question, réponds uniquement à partir du CONTEXTE ; si l'information n'y est pas, dis-le simplement.
 - Montants en euros sous forme de nombre (12.5). Dates au format AAAA-MM-JJ, heures HH:MM.
@@ -39,12 +41,32 @@ TYPES D'ACTIONS :
 {"type":"open","module":"finances|nutrition|muscu|taches|habitudes|sante|notes"}  (si l'utilisateur veut voir un écran)
 {"type":"briefing"}  (s'il demande le briefing, le point de la journée ou « quoi de neuf »)`;
 /* Diction « Jarvis » : posée, régulière, pince-sans-rire (stabilité haute, peu d'emphase, débit un peu lent).
-   Changer ces réglages → changer aussi le préfixe 'el2' du cache pour régénérer les phrases. */
-const EL_BUDGET = 9500;   // caractères par mois (offre gratuite : 10 000) — au-delà, voix Cloudflare
+   Changer ces réglages → changer aussi le préfixe 'el3' du cache pour régénérer les phrases. */
+const EL_BUDGET = 9500;   // crédits par mois (offre gratuite : 10 000) — au-delà, voix Cloudflare
+const elCost = text => Math.ceil(text.length / 2);   // modèles Turbo / Flash : un demi-crédit par caractère
 const month = () => new Date().toISOString().slice(0, 7);
-const VOICE_SETTINGS = { stability: 0.68, similarity_boost: 0.85, style: 0.05, use_speaker_boost: true, speed: 0.93 };
+const VOICE_SETTINGS = { stability: 0.6, similarity_boost: 0.85, style: 0.05, use_speaker_boost: true, speed: 0.98 };
 
 const now = () => Math.floor(Date.now() / 1000);
+
+/* flux SSE de Workers AI → texte brut (seulement les morceaux de réponse) */
+function sseToText() {
+  const dec = new TextDecoder(), enc = new TextEncoder();
+  let buf = '';
+  const piece = line => {
+    if (!line.startsWith('data:')) return '';
+    const d = line.slice(5).trim(); if (!d || d === '[DONE]') return '';
+    try { const j = JSON.parse(d); return (j.choices && j.choices[0] && j.choices[0].delta && j.choices[0].delta.content) ?? j.response ?? ''; } catch { return ''; }
+  };
+  return new TransformStream({
+    transform(chunk, ctrl) {
+      buf += dec.decode(chunk, { stream: true });
+      const lines = buf.split('\n'); buf = lines.pop();
+      const t = lines.map(piece).join(''); if (t) ctrl.enqueue(enc.encode(t));
+    },
+    flush(ctrl) { const t = piece(buf); if (t) ctrl.enqueue(enc.encode(t)); },
+  });
+}
 
 /* ---------- utilitaires HTTP ---------- */
 function cors(req, env) {
@@ -393,7 +415,7 @@ const routes = {
     if (!clean) fail(400, 'Texte vide');
     const voiceId = VOICES[voice] || VOICES.george;
     const useEleven = !!env.ELEVENLABS_API_KEY;
-    const hash = await sha256((useEleven ? 'el2:' + voiceId + ':' + EL_MODEL : 'melo') + ':' + clean);
+    const hash = await sha256((useEleven ? 'el3:' + voiceId + ':' + EL_MODEL : 'melo') + ':' + clean);
     const send = (audio, engine, mime) => new Response(audio, { headers: { 'Content-Type': mime, 'X-Voice-Engine': engine, 'Access-Control-Expose-Headers': 'X-Voice-Engine' } });
 
     const hit = await env.DB.prepare('SELECT engine, mime, audio FROM tts_cache WHERE hash = ?').bind(hash).first();
@@ -405,7 +427,7 @@ const routes = {
 
     let audio = null, engine = 'melo', mime = 'audio/wav';
     const used = useEleven ? ((await env.DB.prepare('SELECT chars FROM usage WHERE month = ?').bind(month()).first()) || {chars: 0}).chars : 0;
-    if (useEleven && used + clean.length <= EL_BUDGET) {
+    if (useEleven && used + elCost(clean) <= EL_BUDGET) {
       const r = await fetch(`https://api.elevenlabs.io/v1/text-to-speech/${voiceId}?output_format=mp3_44100_128`, {
         method: 'POST',
         headers: { 'xi-api-key': env.ELEVENLABS_API_KEY, 'Content-Type': 'application/json', Accept: 'audio/mpeg' },
@@ -417,7 +439,7 @@ const routes = {
       if (r.ok) {
         audio = new Uint8Array(await r.arrayBuffer()); engine = 'eleven'; mime = 'audio/mpeg';
         ctx.waitUntil(env.DB.prepare('INSERT INTO usage (month, chars) VALUES (?, ?) ON CONFLICT(month) DO UPDATE SET chars = chars + excluded.chars')
-          .bind(month(), clean.length).run());
+          .bind(month(), elCost(clean)).run());
       }
       else console.log('ElevenLabs', r.status, (await r.text()).slice(0, 300));   // quota épuisé, clé invalide… → repli
     }
@@ -583,14 +605,17 @@ const routes = {
     if (!history.length || history[history.length - 1].role !== 'user') fail(400, 'Message manquant');
     const system = CHAT_SYSTEM(String(name || 'Monsieur').slice(0, 30), String(clientNow || '').slice(0, 80), String(calendar || '').slice(0, 600)) +
       '\n\nCONTEXTE ACTUEL DE L\'UTILISATEUR (données réelles de ses modules) :\n' + String(context || '').slice(0, 7000);
+    const stream = new URL(req.url).searchParams.has('stream');
     let out;
     try {
-      out = await env.AI.run(CHAT_MODEL, { messages: [{ role: 'system', content: system }, ...history], max_tokens: 700, temperature: 0.4,
+      out = await env.AI.run(CHAT_MODEL, { messages: [{ role: 'system', content: system }, ...history], max_tokens: 600, temperature: 0.5, stream,
         response_format: { type: 'json_schema', json_schema: { type: 'object', properties: { reply: { type: 'string' }, actions: { type: 'array', items: { type: 'object' } } }, required: ['reply', 'actions'] } } });
     } catch (e) {
       console.log('chat IA', e.message);
       fail(503, /quota|limit|neuron/i.test(e.message) ? 'Quota quotidien de l\'IA atteint, réessayez demain.' : 'IA momentanément indisponible');
     }
+    // streaming : on renvoie le JSON au fil de l'eau, en texte brut (le client affiche la réponse mot à mot)
+    if (stream) return new Response(out.pipeThrough(sseToText()), { headers: { 'Content-Type': 'text/plain; charset=utf-8', 'Cache-Control': 'no-store' } });
     let r = out && (out.response ?? out);
     if (typeof r === 'string') { try { r = JSON.parse(r); } catch { r = { reply: r, actions: [] }; } }
     const actions = Array.isArray(r.actions) ? r.actions.filter(a => a && typeof a.type === 'string').slice(0, 8) : [];
