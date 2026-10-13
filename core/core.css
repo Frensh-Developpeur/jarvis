@@ -421,3 +421,9 @@ body .srow.arm-r .sbg{background:rgba(77,255,195,.16)}
 body .srow .sact{position:absolute;top:0;right:0;bottom:0;width:92px;border:none;border-radius:0;background:#e5483b;color:#fff;font-family:var(--ui);font-size:14px;font-weight:700;padding:0;transition:width .2s ease}
 body .srow.arm-full .sact{width:100%}
 body .srow .sact:active{filter:brightness(1.15);transform:none}
+
+/* barre d'onglets et bouton + : masqués pendant une feuille ou une saisie (iOS les ferait flotter au-dessus du clavier) */
+body.in-app .tabbar{transition:transform .25s cubic-bezier(.2,.8,.2,1),opacity .2s}
+body.sheet-open .tabbar,body.typing .tabbar,body.kb-open .tabbar{transform:translateY(115%);opacity:0;pointer-events:none;display:grid}
+.fab{transition:opacity .2s,transform .12s}
+body.sheet-open .fab,body.typing .fab{opacity:0;pointer-events:none}

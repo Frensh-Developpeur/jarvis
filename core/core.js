@@ -8,7 +8,7 @@
    ============================================================ */
 'use strict';
 (() => {
-const APP_VERSION = '20';
+const APP_VERSION = '21';
 const API = location.hostname === 'localhost' ? 'http://localhost:8787' : 'https://jarvis-api.frensh-developpeur.workers.dev';
 const APP_URL = 'https://frensh-developpeur.github.io/jarvis/';
 
@@ -225,12 +225,13 @@ function openSheet(el){
   J.haptic && J.haptic();
   if (openSheetEl && openSheetEl !== el) openSheetEl.classList.remove('show');
   openSheetEl = el; el.scrollTop = 0;
-  lockScroll(); veil.classList.add('show'); el.classList.add('show');
+  lockScroll(); document.body.classList.add('sheet-open'); veil.classList.add('show'); el.classList.add('show');
 }
 function closeSheet(){
   if (!openSheetEl) return;
   if (document.activeElement && document.activeElement.blur) document.activeElement.blur();
   openSheetEl.classList.remove('show'); veil.classList.remove('show'); openSheetEl = null;
+  document.body.classList.remove('sheet-open');
   unlockScroll();
 }
 J.openSheet = openSheet; J.closeSheet = closeSheet; J.sheetOpen = () => !!openSheetEl;
@@ -246,10 +247,26 @@ function onViewport(){
     const root = document.documentElement.style;
     root.setProperty('--kb', kb + 'px');
     root.setProperty('--vvh', Math.round(vv.height) + 'px');
+    const was = document.body.classList.contains('kb-open');
     document.body.classList.toggle('kb-open', kb > 80);
+    if (was && kb <= 80 && !document.body.classList.contains('locked')) window.scrollTo(window.scrollX, window.scrollY);
   });
 }
 if (vv) { vv.addEventListener('resize', onViewport); vv.addEventListener('scroll', onViewport); onViewport(); }
+
+/* saisie de texte : la barre d'onglets et le bouton + s'effacent (sinon iOS les fait flotter au-dessus du clavier),
+   et à la fermeture du clavier on remet l'écran d'aplomb (iOS laisse parfois la vue décalée) */
+const isTextField = el => el && el.matches && el.matches('input:not([type=checkbox]):not([type=radio]):not([type=file]):not([type=range]),textarea,select');
+let typingT = 0;
+document.addEventListener('focusin', e => { if (isTextField(e.target)) { clearTimeout(typingT); document.body.classList.add('typing'); } });
+document.addEventListener('focusout', () => {
+  clearTimeout(typingT);
+  typingT = setTimeout(() => {
+    if (isTextField(document.activeElement)) return;
+    document.body.classList.remove('typing');
+    if (!document.body.classList.contains('locked')) window.scrollTo(window.scrollX, window.scrollY);
+  }, 150);
+});
 /* dans une feuille, le champ actif est ramené dans la zone visible (le reste de l'app : iOS s'en charge seul) */
 document.addEventListener('focusin', e => {
   const el = e.target, sh = el.closest && el.closest('.sheet');
