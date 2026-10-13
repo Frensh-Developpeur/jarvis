@@ -8,7 +8,7 @@
    ============================================================ */
 'use strict';
 (() => {
-const APP_VERSION = '15';
+const APP_VERSION = '16';
 const API = location.hostname === 'localhost' ? 'http://localhost:8787' : 'https://jarvis-api.frensh-developpeur.workers.dev';
 const APP_URL = 'https://frensh-developpeur.github.io/jarvis/';
 
@@ -447,6 +447,8 @@ G$('#gCheck').addEventListener('click', async () => {
   out.innerHTML = `<p class="note">${fresh ? '✓ Données reçues ' : '⚠ Dernière réception '}${J.ago(doc.syncedAt)}.</p>` +
     row(t && t.steps != null, 'steps', t && t.steps != null ? Math.round(t.steps).toLocaleString('fr-FR') + ' pas' : 'manquant') +
     row(t && t.energy != null, 'energy', t && t.energy != null ? Math.round(t.energy) + ' kcal' : 'manquant') +
+    (t && t.weight ? row(true, 'weight', String(t.weight).replace('.', ',') + ' kg') : '') +
+    (() => { const y = new Date(); y.setDate(y.getDate() - 1); const yk = y.getFullYear() + '-' + String(y.getMonth() + 1).padStart(2, '0') + '-' + String(y.getDate()).padStart(2, '0'); const b = ((doc.days || {})[yk] || {}).basal; return b ? row(true, 'basal', b + ' kcal (hier)') : ''; })() +
     '<p class="note">Une ligne ✗ ? Vérifiez l\'orthographe de la clé (minuscules) et que la valeur est bien une variable (bulle bleue). Une valeur à 0 est normale s\'il n\'y a rien aujourd\'hui.</p>';
 });
 G$('#gClose').addEventListener('click', closeSheet);

@@ -172,3 +172,58 @@
 .nut .kpi{border-radius:14px;border-color:rgba(63,224,255,.08)}
 .nut .utabs button.on{color:var(--green)}
 .nut .utabs button.on::after{background:var(--green);box-shadow:0 0 8px var(--green)}
+
+/* ---------- objectif adaptatif ---------- */
+.nut .why{display:flex;align-items:center;justify-content:center;gap:7px;width:100%;margin:10px 0 2px;background:none;border:none;color:var(--muted);font-size:12.5px}
+.nut .why u{color:var(--green);text-decoration:none}
+.nut .why .dot{width:7px;height:7px;border-radius:50%;background:var(--green);box-shadow:0 0 6px var(--green);animation:pulse 2.4s infinite}
+.nut .seg.mode{grid-auto-columns:1fr;margin-top:14px}
+.nut .seg.mode button{font-size:10px;padding:10px 0}
+.nut .ohero{margin-top:12px;padding:16px 18px;border-radius:20px;background:linear-gradient(150deg,rgba(77,255,195,.13),rgba(77,255,195,.02) 60%),rgba(9,28,42,.6);border:1px solid rgba(77,255,195,.22)}
+.nut .ohero small{font-family:var(--hud);font-size:9px;letter-spacing:.2em;color:var(--muted)}
+.nut .ohero>b{display:block;font-family:var(--hud);font-size:38px;color:var(--green);margin:6px 0 8px;text-shadow:0 0 16px rgba(77,255,195,.4)}
+.nut .ohero>b span{font-size:14px;color:var(--muted);text-shadow:none}
+.nut .omac{display:flex;gap:14px;font-family:var(--hud);font-size:12px}
+.nut .omac span{color:var(--mc)}
+.nut .lnk{display:inline-block;margin-top:12px;background:none;border:none;color:var(--green);padding:0;font-size:13.5px;font-weight:600}
+.nut .rates{display:grid;grid-template-columns:repeat(3,minmax(0,1fr));gap:6px;padding:0 14px 4px}
+.nut .rates button{border:1px solid rgba(63,224,255,.12);background:rgba(63,224,255,.03);border-radius:12px;padding:9px 4px;color:var(--muted)}
+.nut .rates b{display:block;font-family:var(--hud);font-size:14px;color:var(--text)}
+.nut .rates small{font-size:11px}
+.nut .rates button.on{border-color:var(--green);background:rgba(77,255,195,.1);box-shadow:0 0 12px rgba(77,255,195,.2)}
+.nut .rates button.on b{color:var(--green)}
+.nut .warn{color:var(--gold)}
+.nut .srcs{padding:0 14px 8px}
+.nut .src{display:flex;align-items:center;gap:12px;padding:10px 0;border-top:1px solid rgba(63,224,255,.06)}
+.nut .src:first-child{border-top:none}
+.nut .src>span{flex:none;width:10px;height:10px;border-radius:50%;background:rgba(108,151,171,.4)}
+.nut .src.ok>span{background:var(--green);box-shadow:0 0 6px var(--green)}
+.nut .src.mid>span{background:var(--gold);box-shadow:0 0 6px var(--gold)}
+.nut .src>div{flex:1;min-width:0}
+.nut .src b{display:block;font-size:14.5px}
+.nut .src small{display:block;font-size:12px;color:var(--muted);line-height:1.35;margin-top:1px}
+.nut .chip.sm{padding:4px 10px;font-size:11px;letter-spacing:.04em;font-family:var(--ui)}
+.nut .ph .chip.sm{font-family:var(--ui)}
+.nut .calcf label small{font-family:var(--ui);letter-spacing:0;text-transform:none;color:var(--muted)}
+.nut .pad{padding:0 14px 14px}
+/* détail du calcul */
+.nut .wrow{display:flex;justify-content:space-between;align-items:flex-start;gap:12px;padding:10px 0;border-top:1px solid rgba(63,224,255,.07);font-size:14.5px}
+.nut .wrow span small{display:block;font-size:12px;color:var(--muted);margin-top:2px}
+.nut .wrow b{font-family:var(--hud);font-size:13.5px;white-space:nowrap}
+.nut .wrow.tot{border-top-color:rgba(63,224,255,.25)} .nut .wrow.tot b{color:var(--cyan)}
+.nut .wrow.goal{border-top:1px solid var(--green)} .nut .wrow.goal span,.nut .wrow.goal b{color:var(--green);font-weight:700} .nut .wrow.goal b{font-size:17px}
+.nut .wmac{display:grid;grid-template-columns:repeat(3,1fr);gap:8px;margin:12px 0}
+.nut .wmac div{text-align:center;padding:10px 4px;border-radius:12px;border:1px solid rgba(63,224,255,.1)}
+.nut .wmac b{display:block;font-family:var(--hud);font-size:15px;color:var(--mc)}
+.nut .wmac small{display:block;font-family:var(--hud);font-size:7.5px;letter-spacing:.14em;color:var(--muted);margin-top:3px}
+.nut .wmac i{display:block;font-style:normal;font-size:11px;color:var(--muted);margin-top:3px}
+/* poids */
+.nut .wnow{display:flex;align-items:baseline;gap:10px;padding:0 16px;flex-wrap:wrap}
+.nut .wnow b{font-family:var(--hud);font-size:22px;color:var(--green)}
+.nut .wnow span{font-size:12.5px;color:var(--muted)} .nut .wnow span b{font-size:12.5px;color:var(--text)}
+.nut .wchart{display:block;width:100%;height:auto;padding:6px 8px 10px}
+.nut .wchart .ax{font-family:var(--hud);font-size:8px;fill:var(--muted)}
+.nut .wl{display:flex;align-items:center;gap:10px;padding:8px 0;border-top:1px solid rgba(63,224,255,.07);font-size:14px}
+.nut .wl span{flex:1;color:var(--muted);text-transform:capitalize}
+.nut .wl b{font-family:var(--hud);font-size:13px}
+.nut .wl button{background:none;border:none;color:var(--muted);font-size:14px;padding:2px 6px}

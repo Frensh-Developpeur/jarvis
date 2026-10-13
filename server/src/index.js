@@ -385,8 +385,18 @@ const routes = {
       sleep: 'sleep', sommeil: 'sleep', heart: 'heart', bpm: 'heart', exercise: 'exercise', flights: 'flights', weight: 'weight', poids: 'weight' };
     for (const [k, target] of Object.entries(fields)) {
       if (p[k] === undefined || p[k] === '') continue;
-      const n = toNum(p[k]);
+      const n = toNum(Array.isArray(p[k]) || target !== 'weight' ? p[k] : String(p[k]).split('\n')[0]);   // poids : on garde la 1re valeur (la plus récente)
       if (n !== null) d[target] = target === 'sleep' ? sleepHours(n) : n;
+    }
+    // énergie au repos d'hier (journée complète) → rangée sur la veille
+    const basalIn = p.basal ?? p.repos;
+    if (basalIn !== undefined && basalIn !== '') {
+      const n = toNum(basalIn);
+      if (n !== null && n > 300) {
+        const y = new Date(day + 'T12:00:00Z'); y.setUTCDate(y.getUTCDate() - 1);
+        const yk = y.toISOString().slice(0, 10);
+        doc.days[yk] = Object.assign(doc.days[yk] || {}, { basal: Math.round(n) });
+      }
     }
     d.at = Date.now();
     for (const k of ['agenda', 'events', 'calendrier']) if (p[k] !== undefined) { doc.agenda = { date: day, items: toLines(p[k]), at: Date.now() }; break; }

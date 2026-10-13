@@ -195,6 +195,13 @@
       <li><b>Définir la variable</b> → nom <b>Energie</b>.</li>
     </ol></div></div>
 
+  <div class="gstep"><span class="gn">+</span><div><b>Facultatif : poids et métabolisme</b> <span class="opt">CALCUL ADAPTATIF</span>
+    <p class="note" style="margin:4px 0 0">Pour un objectif calories encore plus précis (module Nutrition). Vous pouvez aussi saisir vos pesées à la main dans Jarvis.</p>
+    <ol>
+      <li><b>Rechercher des échantillons de santé</b> → Type <i>Poids</i> → <i>Trier par</i> <i>Date de début</i>, <i>Ordre</i> <i>Plus récent en premier</i> → <i>Limite</i> activée : <i>1</i>. Puis <b>Définir la variable</b> → <b>Poids</b>.</li>
+      <li><b>Rechercher des échantillons de santé</b> → Type <i>Énergie au repos</i> → filtre <i>Date de début</i> <i>est hier</i>. Puis <b>Calculer des statistiques</b> → <i>Somme</i>, et <b>Définir la variable</b> → <b>Repos</b>.</li>
+    </ol></div></div>
+
   <div class="gstep key"><span class="gn">C</span><div><b>L'envoi à Jarvis</b> — l'étape importante
     <ol>
       <li>Ajoutez <b>Obtenir le contenu de l'URL</b>.</li>
@@ -208,6 +215,8 @@
           <tr><th>Clé</th><th>Type</th><th>Valeur (variable)</th></tr>
           <tr><td><code>steps</code></td><td>Texte</td><td><b>Pas</b></td></tr>
           <tr><td><code>energy</code></td><td>Texte</td><td><b>Energie</b></td></tr>
+          <tr><td><code>weight</code></td><td>Texte</td><td><b>Poids</b> <span class="muted">(facultatif)</span></td></tr>
+          <tr><td><code>basal</code></td><td>Texte</td><td><b>Repos</b> <span class="muted">(facultatif)</span></td></tr>
         </table>
       </li>
     </ol>

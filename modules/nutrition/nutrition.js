@@ -33,7 +33,7 @@ let st = null, root = null, fixed = null;
 let day = today(), tab = 'jour', histRange = 7;
 const S = () => st.data;
 const save = () => st.save();
-const DEFAULTS = {goals:{kcal:2200, p:140, c:250, f:70}, addActive:false, profile:null, days:{}, foods:[], recents:[], favs:[]};
+const DEFAULTS = {goals:{kcal:2200, p:140, c:250, f:70}, addActive:false, mode:'fixed', plan:{rate:-0.25}, weights:{}, profile:null, days:{}, foods:[], recents:[], favs:[]};
 
 const items = k => ((S().days[k] || {}).items || []);
 const val = (it, key) => it.per100[key] * it.g / 100;
@@ -42,8 +42,79 @@ function sums(list){
   list.forEach(it => { o.kcal += val(it, 'kcal'); o.p += val(it, 'p'); o.c += val(it, 'c'); o.f += val(it, 'f'); });
   return o;
 }
-const activeKcal = k => { if (!S().addActive) return 0; const d = (J.appleDoc().days || {})[k]; return d && d.energy ? Math.round(d.energy) : 0; };
-const goalK = k => S().goals.kcal + activeKcal(k);
+/* ============================================================
+   Moteur de calcul de l'objectif
+   - fixe : valeurs saisies (+ calories actives Apple en option)
+   - adaptatif : métabolisme de base (Apple ou Mifflin-St Jeor) + activité
+     mesurée par Apple Santé + digestion, calibré sur l'évolution réelle
+     du poids, puis ajusté selon le rythme visé (kg / semaine)
+   ============================================================ */
+const RATES = [[-0.75, 'Perte rapide'], [-0.5, 'Perte'], [-0.25, 'Perte douce'], [0, 'Maintien'], [0.25, 'Prise douce'], [0.5, 'Prise de masse']];
+const rateLabel = r => (RATES.find(x => x[0] === r) || [0, 'Maintien'])[1];
+const kgw = r => (r > 0 ? '+' : r < 0 ? '−' : '') + String(Math.abs(r)).replace('.', ',') + ' kg / sem.';
+const appleDay = k => (J.appleDoc().days || {})[k] || {};
+function weightMap(){
+  const m = {};
+  Object.entries(J.appleDoc().days || {}).forEach(([k, d]) => { if (d.weight > 25 && d.weight < 300) m[k] = d.weight; });
+  return Object.assign(m, S().weights);          // les pesées manuelles priment
+}
+function weightAt(k){ const m = weightMap(), ks = Object.keys(m).filter(x => x <= k).sort(); return ks.length ? m[ks[ks.length - 1]] : null; }
+function latestWeight(){ const m = weightMap(), ks = Object.keys(m).sort(); return ks.length ? {k:ks[ks.length - 1], kg:m[ks[ks.length - 1]], apple:!S().weights[ks[ks.length - 1]]} : null; }
+const profileOk = () => { const p = S().profile; return !!(p && p.age > 10 && p.cm > 120 && (p.kg > 30 || latestWeight())); };
+const bmrFor = k => { const p = S().profile, kg = weightAt(k) || p.kg; return 10 * kg + 6.25 * p.cm - 5 * p.age + (p.sex === 'f' ? -161 : 5); };
+const avg = a => a.reduce((x, y) => x + y, 0) / a.length;
+/* activité habituelle : moyenne des 7 derniers jours mesurés par Apple (hors jour en cours) */
+function activeExpected(k){ const v = []; for (let i = 1; i <= 7; i++) { const e = appleDay(addDays(k, -i)).energy; if (e > 0) v.push(e); } return v.length >= 2 ? avg(v) : null; }
+function basalAvg(k){ const v = []; for (let i = 1; i <= 14; i++) { const b = appleDay(addDays(k, -i)).basal; if (b > 800 && b < 4000) v.push(b); } return v.length >= 2 ? avg(v) : null; }
+function rawTdee(k){
+  const p = S().profile, bmr = bmrFor(k), basal = basalAvg(k), base = basal || bmr;
+  const declared = Math.max(0, bmr * (0.9 * (p.act || 1.375) - 1));        // activité déduite du niveau déclaré
+  const measured = appleDay(k).energy > 0 ? appleDay(k).energy : null, expected = activeExpected(k);
+  let act, src;
+  if (k === today()) {
+    const ref = expected !== null ? expected : declared;
+    act = Math.max(ref, measured || 0);
+    src = measured !== null && measured >= ref ? "mesurée aujourd'hui" : expected !== null ? 'votre moyenne sur 7 jours' : 'niveau déclaré';
+  } else if (measured !== null) { act = measured; src = 'mesurée'; }
+  else if (expected !== null) { act = expected; src = 'moyenne 7 jours'; }
+  else { act = declared; src = 'niveau déclaré'; }
+  const tef = (base + act) / 9;                                               // digestion ≈ 10 % de la dépense
+  return {bmr, base, basal:!!basal, act, src, apple:measured !== null || expected !== null, tef, tdee:base + act + tef};
+}
+/* calibration : dépense réelle = apports moyens − variation de poids × 7 700 kcal/kg */
+let calCache = null;
+function calibration(){
+  const key = st.updatedAt + '|' + (J.appleDoc().syncedAt || 0) + '|' + today();
+  if (calCache && calCache.key === key) return calCache;
+  const res = {key, factor:1, days:0, weighIns:0, ok:false};
+  const wm = weightMap(), wk = Object.keys(wm).filter(k => k >= addDays(today(), -35) && k <= today()).sort();
+  const intake = [];
+  for (let i = 1; i <= 28; i++) { const k = addDays(today(), -i), list = items(k), kc = sums(list).kcal; if (list.length >= 2 && kc > 800) intake.push({kc, f:rawTdee(k).tdee}); }
+  res.days = intake.length; res.weighIns = wk.length;
+  if (wk.length >= 3 && intake.length >= 10) {
+    const t0 = parseDk(wk[0]), pts = wk.map(k => [(parseDk(k) - t0) / 864e5, wm[k]]);
+    if (pts[pts.length - 1][0] >= 10) {
+      const mx = avg(pts.map(p => p[0])), my = avg(pts.map(p => p[1]));
+      const slope = pts.reduce((a, p) => a + (p[0] - mx) * (p[1] - my), 0) / pts.reduce((a, p) => a + (p[0] - mx) ** 2, 0);
+      const observed = avg(intake.map(d => d.kc)) - slope * 7700, formula = avg(intake.map(d => d.f));
+      const raw = Math.min(1.2, Math.max(0.8, observed / formula)), conf = Math.min(1, intake.length / 21);
+      Object.assign(res, {ok:true, factor:1 + (raw - 1) * conf, observed, formula, slope, conf});
+    }
+  }
+  return calCache = res;
+}
+function goalsFor(k){
+  if (S().mode !== 'adaptive' || !profileOk()) {
+    const g = S().goals, act = S().addActive && appleDay(k).energy > 0 ? Math.round(appleDay(k).energy) : 0;
+    return {kcal:g.kcal + act, p:g.p, c:g.c, f:g.f, mode:'fixed', active:act};
+  }
+  const r = rawTdee(k), cal = calibration(), p = S().profile, rate = S().plan.rate;
+  const tdee = r.tdee * cal.factor, delta = rate * 7700 / 7, floor = p.sex === 'f' ? 1200 : 1500;
+  const kcal = Math.max(floor, Math.round((tdee + delta) / 10) * 10);
+  const kg = weightAt(k) || p.kg, prot = Math.round(kg * (rate < 0 ? 2 : 1.8)), fat = Math.round(kcal * .27 / 9);
+  return {kcal, p:prot, c:Math.max(0, Math.round((kcal - prot * 4 - fat * 9) / 4)), f:fat, mode:'adaptive', r, cal, tdee, delta, rate, kg, floored:tdee + delta < floor};
+}
+const goalK = k => goalsFor(k).kcal;
 function prune(){
   const keys = Object.keys(S().days).sort();
   if (keys.length > 180) keys.slice(0, keys.length - 180).forEach(k => delete S().days[k]);
@@ -53,7 +124,7 @@ function prune(){
 function status(k){
   const list = items(k), s = sums(list), goal = goalK(k), left = goal - s.kcal;
   if (!list.length) return k === today() ? 'Aucun repas enregistré aujourd\'hui. Touchez + pour ajouter ce que vous mangez.' : 'Aucun repas enregistré ce jour-là.';
-  const pLeft = S().goals.p - s.p;
+  const pLeft = goalsFor(k).p - s.p;
   if (left < -150) return `Objectif dépassé de ${fmt(-left)} kcal. Rien de dramatique, demain est un autre jour.`;
   if (left < 0) return `Objectif atteint, légèrement dépassé de ${fmt(-left)} kcal.`;
   return `Il vous reste ${fmt(left)} kcal.` + (pLeft > 15 ? ` Encore ${fmt(pLeft)} g de protéines à trouver.` : ' Apport en protéines au rendez-vous.');
@@ -113,7 +184,7 @@ function itemRow(it){
     </div></div>`;
 }
 function renderJour(){
-  const k = day, list = items(k), s = sums(list), G = S().goals, goal = goalK(k), act = activeKcal(k);
+  const k = day, list = items(k), s = sums(list), G = goalsFor(k), goal = G.kcal;
   const left = goal - s.kcal, ratio = goal ? s.kcal / goal : 0;
   const yest = items(addDays(k, -1));
   q('#nTab').innerHTML = `
@@ -128,10 +199,12 @@ function renderJour(){
         <div class="k">${left >= 0 ? 'RESTANT' : 'DÉPASSEMENT'}</div>
         <div class="v ${left < 0 ? 'neg' : ''}">${fmt(Math.abs(left))}<small> kcal</small></div>
         <div class="s"><b>${fmt(s.kcal)}</b> / ${fmt(goal)} kcal</div>
-        ${act ? `<div class="r">DONT +${fmt(act)} KCAL ACTIVES</div>` : ''}
+        ${G.mode === 'adaptive' ? `<div class="r">DÉPENSE ESTIMÉE ${fmt(G.tdee)} KCAL</div>` : G.active ? `<div class="r">DONT +${fmt(G.active)} KCAL ACTIVES</div>` : ''}
       </div>
     </div>
     <div class="macs">${macroBar('p', s.p, G.p)}${macroBar('c', s.c, G.c)}${macroBar('f', s.f, G.f)}</div>
+    ${G.mode === 'adaptive' ? `<button class="why" data-a="why"><span class="dot"></span>Objectif adaptatif · ${rateLabel(G.rate).toLowerCase()} · <u>comment est-il calculé ?</u></button>`
+      : `<button class="why" data-a="goadapt">Objectif fixe · <u>passer à l'objectif adaptatif (Apple Santé)</u></button>`}
     ${MEALS.map(m => {
       const li = list.filter(it => it.meal === m.id), ms = sums(li);
       const canCopy = !li.length && yest.some(it => it.meal === m.id);
@@ -146,7 +219,7 @@ function renderJour(){
 }
 
 function renderHist(){
-  const G = S().goals, days = [];
+  const G = goalsFor(today()), days = [];
   for (let i = histRange - 1; i >= 0; i--) { const k = addDays(today(), -i); days.push({k, s:sums(items(k)), n:items(k).length, goal:goalK(k)}); }
   const logged = days.filter(d => d.n);
   const avg = key => logged.length ? logged.reduce((a, d) => a + d.s[key], 0) / logged.length : 0;
@@ -160,13 +233,14 @@ function renderHist(){
       <div class="kpi"><div class="k">DANS LA CIBLE</div><div class="v">${onTarget}/${logged.length}<small> j</small></div></div>
       <div class="kpi"><div class="k">SÉRIE</div><div class="v">${streak}<small> j</small></div></div>
     </div>
-    <section class="panel"><div class="ph"><span>CALORIES</span><span>objectif ${fmt(G.kcal)}</span></div>
+    <section class="panel"><div class="ph"><span>CALORIES</span><span>objectif ${G.mode === 'adaptive' ? 'du jour ' : ''}${fmt(G.kcal)}</span></div>
       <div class="hbars ${histRange === 30 ? 'dense' : ''}">${days.map(d => {
         const r = d.goal ? d.s.kcal / d.goal : 0, cls = !d.n ? '' : Math.abs(r - 1) <= .1 ? 'ok' : r > 1.1 ? 'over' : 'under';
         return `<button class="hb" data-goday="${d.k}"><div class="hv">${d.n && histRange === 7 ? fmt(d.s.kcal) : ''}</div><div class="ht"><i class="${cls}" style="height:${d.s.kcal / max * 100}%"></i><span class="goal" style="bottom:${G.kcal / max * 100}%"></span></div>
           <div class="hd">${histRange === 7 ? parseDk(d.k).toLocaleDateString('fr-FR', {weekday:'short'}).slice(0, 2) : (parseDk(d.k).getDate() % 5 === 1 ? parseDk(d.k).getDate() : '')}</div></button>`; }).join('')}</div>
       <p class="note pad"><i class="lgd ok"></i>dans la cible (±10 %) <i class="lgd under"></i>en dessous <i class="lgd over"></i>au-dessus</p>
     </section>
+    ${weightPanel()}
     <section class="panel"><div class="ph"><span>MACROS MOYENNES</span><span>${logged.length} jour${logged.length > 1 ? 's' : ''} saisi${logged.length > 1 ? 's' : ''}</span></div>
       <div class="macs pad">${macroBar('p', avg('p'), G.p)}${macroBar('c', avg('c'), G.c)}${macroBar('f', avg('f'), G.f)}</div>
     </section>
@@ -175,10 +249,89 @@ function renderHist(){
     </section>`;
 }
 
+function weightPanel(){
+  const wm = weightMap(), ks = Object.keys(wm).filter(k => k >= addDays(today(), -60)).sort();
+  if (!ks.length) return `<section class="panel"><div class="ph"><span>POIDS</span><span></span></div><div class="empty">Aucune pesée. Elles permettent d'adapter votre objectif à votre dépense réelle.<br><button class="chip" data-a="weigh" style="margin-top:10px">+ AJOUTER UNE PESÉE</button></div></section>`;
+  const W = 320, H = 120, span = Math.max(14, Math.round((parseDk(today()) - parseDk(ks[0])) / 864e5)), t0 = parseDk(addDays(today(), -span));
+  const pts = ks.map(k => ({k, x:(parseDk(k) - t0) / 864e5 * 60 / span, y:wm[k]}));
+  const min = Math.min(...pts.map(p => p.y)) - .5, max = Math.max(...pts.map(p => p.y)) + .5;
+  const X = x => 8 + x / 60 * (W - 16), Y = y => H - 14 - (y - min) / (max - min) * (H - 28);
+  // tendance sur 21 jours (régression linéaire)
+  const rec = pts.filter(p => p.k >= addDays(today(), -21)).map(p => ({x:(parseDk(p.k) - t0) / 864e5, y:p.y})); let trend = '';
+  if (rec.length >= 2 && rec[rec.length - 1].x - rec[0].x >= 6) {
+    const mx = avg(rec.map(p => p.x)), my = avg(rec.map(p => p.y));
+    const sl = rec.reduce((a, p) => a + (p.x - mx) * (p.y - my), 0) / rec.reduce((a, p) => a + (p.x - mx) ** 2, 0);
+    trend = `Tendance : <b>${sl * 7 > 0 ? '+' : ''}${g1(sl * 7)} kg / semaine</b>`;
+  }
+  const last = pts[pts.length - 1];
+  return `<section class="panel"><div class="ph"><span>POIDS</span><button class="chip sm" data-a="weigh">+ PESÉE</button></div>
+    <div class="wnow"><b>${g1(last.y)} kg</b><span>${esc(dayLabel(last.k))}${trend ? ' · ' + trend : ''}</span></div>
+    <svg viewBox="0 0 ${W} ${H}" class="wchart">
+      <polyline points="${pts.map(p => X(p.x) + ',' + Y(p.y)).join(' ')}" fill="none" stroke="#4dffc3" stroke-width="2" style="filter:drop-shadow(0 0 4px #4dffc3)"/>
+      ${pts.map(p => `<circle cx="${X(p.x)}" cy="${Y(p.y)}" r="2.6" fill="#4dffc3"/>`).join('')}
+      <text x="8" y="${H - 2}" class="ax">−${span} j</text><text x="${W - 8}" y="${H - 2}" text-anchor="end" class="ax">aujourd'hui</text>
+    </svg></section>`;
+}
+
 function renderObj(){
+  const adaptive = S().mode === 'adaptive';
+  const modeSeg = `<div class="seg mode" id="oMode"><button data-mode="adaptive" class="${adaptive ? 'on' : ''}">ADAPTATIF</button><button data-mode="fixed" class="${adaptive ? '' : 'on'}">FIXE</button></div>`;
+  if (adaptive) return renderAdaptive(modeSeg);
+  renderFixed(modeSeg);
+}
+function profileFields(){
+  const pr = S().profile || {}, lw = latestWeight();
+  return `<div class="calcf">
+    <div class="seg" id="pSex"><button data-v="h" class="${pr.sex !== 'f' ? 'on' : ''}">HOMME</button><button data-v="f" class="${pr.sex === 'f' ? 'on' : ''}">FEMME</button></div>
+    <div class="three">
+      <label>Âge<input id="pAge" inputmode="numeric" value="${pr.age || ''}" placeholder="ans" autocomplete="off"></label>
+      <label>Taille<input id="pCm" inputmode="numeric" value="${pr.cm || ''}" placeholder="cm" autocomplete="off"></label>
+      <label>Poids<input id="pKg" inputmode="decimal" value="${lw ? g1(lw.kg) : pr.kg || ''}" placeholder="kg" autocomplete="off"></label>
+    </div>
+    <label class="sel">Activité habituelle <small>(utilisée seulement sans données Apple)</small><select id="pAct">
+      ${[[1.2, 'Sédentaire'], [1.375, 'Légère (1 à 3 séances / sem.)'], [1.55, 'Modérée (3 à 5 séances / sem.)'], [1.725, 'Élevée (6 à 7 séances / sem.)'], [1.9, 'Très élevée']]
+        .map(([v, l]) => `<option value="${v}" ${+(pr.act || 1.375) === v ? 'selected' : ''}>${l}</option>`).join('')}</select></label>
+  </div>`;
+}
+function renderAdaptive(modeSeg){
+  if (!profileOk()) {
+    q('#nTab').innerHTML = modeSeg + `
+      <section class="panel"><div class="ph"><span>VOTRE PROFIL</span><span></span></div>
+        <p class="note pad">Pour calculer votre dépense réelle, j'ai besoin de quelques informations. Votre activité sera ensuite mesurée chaque jour par Apple Santé.</p>
+        ${profileFields()}
+        <div class="pad"><button class="btn primary" data-a="saveprofile">ACTIVER L'OBJECTIF ADAPTATIF</button></div>
+      </section>`;
+    return;
+  }
+  const G = goalsFor(today()), r = G.r, cal = G.cal, lw = latestWeight();
+  const appleDays = Array.from({length:7}, (_, i) => appleDay(addDays(today(), -i - 1)).energy > 0).filter(Boolean).length;
+  const weeks4 = G.rate * 4;
+  q('#nTab').innerHTML = modeSeg + `
+    <div class="ohero">
+      <small>OBJECTIF D'AUJOURD'HUI</small>
+      <b>${fmt(G.kcal)} <span>kcal</span></b>
+      <div class="omac"><span style="--mc:${MAC.p.c}">P ${G.p} g</span><span style="--mc:${MAC.c.c}">G ${G.c} g</span><span style="--mc:${MAC.f.c}">L ${G.f} g</span></div>
+      <button class="lnk" data-a="why">Voir le détail du calcul ›</button>
+    </div>
+    <section class="panel"><div class="ph"><span>RYTHME VISÉ</span><span>${kgw(G.rate)}</span></div>
+      <div class="rates">${RATES.map(([v, l]) => `<button data-rate="${v}" class="${v === G.rate ? 'on' : ''}"><b>${v > 0 ? '+' : v < 0 ? '−' : ''}${String(Math.abs(v)).replace('.', ',')}</b><small>${l}</small></button>`).join('')}</div>
+      <p class="note pad">${G.rate ? `Soit environ <b>${weeks4 > 0 ? '+' : '−'}${g1(Math.abs(weeks4))} kg en 4 semaines</b> (${G.delta > 0 ? '+' : '−'}${fmt(Math.abs(G.delta))} kcal / jour).` : 'Apports alignés sur votre dépense : poids stable.'}
+        ${G.floored ? '<br><span class="warn">Plancher de sécurité atteint : objectif limité pour rester au-dessus du minimum recommandé.</span>' : ''}</p>
+    </section>
+    <section class="panel"><div class="ph"><span>SOURCES</span><span></span></div>
+      <div class="srcs">
+        <div class="src ${appleDays ? 'ok' : ''}"><span></span><div><b>Activité Apple Santé</b><small>${appleDays ? `${appleDays} jour${appleDays > 1 ? 's' : ''} mesuré${appleDays > 1 ? 's' : ''} sur 7 · moyenne ${fmt(activeExpected(today()) || 0)} kcal` : 'Pas encore de données : niveau déclaré utilisé'}</small></div>${appleDays ? '' : '<button class="chip sm" data-a="guide">CONNECTER</button>'}</div>
+        <div class="src ${r.basal ? 'ok' : 'mid'}"><span></span><div><b>Métabolisme de base</b><small>${r.basal ? `Mesuré par Apple : ${fmt(r.base)} kcal / jour` : `Calculé (Mifflin-St Jeor) : ${fmt(r.bmr)} kcal · facultatif : ajoutez l'énergie au repos au raccourci`}</small></div></div>
+        <div class="src ${lw ? 'ok' : ''}"><span></span><div><b>Poids</b><small>${lw ? `${g1(lw.kg)} kg · ${esc(dayLabel(lw.k))}${lw.apple ? ' (Apple)' : ''} · ${cal.weighIns} pesée${cal.weighIns > 1 ? 's' : ''} sur 5 sem.` : 'Aucune pesée'}</small></div><button class="chip sm" data-a="weigh">+ PESÉE</button></div>
+        <div class="src ${cal.ok ? 'ok' : 'mid'}"><span></span><div><b>Calibration</b><small>${cal.ok ? `Dépense réelle observée ${fmt(cal.observed)} kcal · correction ${cal.factor >= 1 ? '+' : '−'}${Math.round(Math.abs(cal.factor - 1) * 100)} %` : `En apprentissage : ${Math.min(cal.days, 10)}/10 jours de repas complets et ${Math.min(cal.weighIns, 3)}/3 pesées sur 10 jours`}</small></div></div>
+      </div>
+    </section>
+    <section class="panel"><div class="ph"><span>PROFIL</span><span></span></div>${profileFields()}</section>`;
+}
+function renderFixed(modeSeg){
   const G = S().goals, fromMac = G.p * 4 + G.c * 4 + G.f * 9, pr = S().profile || {};
   const pct = k => fromMac ? Math.round(G[k] * (k === 'f' ? 9 : 4) / fromMac * 100) : 0;
-  q('#nTab').innerHTML = `
+  q('#nTab').innerHTML = modeSeg + `
     <section class="panel"><div class="ph"><span>OBJECTIFS QUOTIDIENS</span><span></span></div>
       <div class="ogrid">
         <label class="okcal">Calories<input id="oKcal" inputmode="numeric" value="${G.kcal}"><small>kcal / jour</small></label>
@@ -259,6 +412,18 @@ const FIXED = `
       </div>
       <button class="btn primary" id="fSave">ENREGISTRER L'ALIMENT</button>
     </div>
+  </div>
+
+  <div class="sheet nut" id="nWhy" role="dialog" aria-label="Détail de l'objectif"><div class="grab"></div><div id="nWhyB"></div></div>
+
+  <div class="sheet nut" id="nWeigh" role="dialog" aria-label="Pesée">
+    <div class="grab"></div>
+    <h2>NOUVELLE PESÉE</h2>
+    <p class="note">Pesez-vous de préférence le matin, à jeun, dans les mêmes conditions. 2 à 3 pesées par semaine suffisent.</p>
+    <div class="field amtfield"><input id="wKg" class="big" inputmode="decimal" autocomplete="off" placeholder="0,0"><span class="cur">kg</span></div>
+    <div class="field"><label>DATE</label><input id="wDate" type="date"></div>
+    <button class="btn primary" id="wSave">ENREGISTRER</button>
+    <div id="wList"></div>
   </div>
 
   <div class="scanner" id="nScan" hidden>
@@ -443,6 +608,36 @@ async function found(code){
   }
 }
 
+function openWhy(){
+  const G = goalsFor(day), r = G.r, cal = G.cal;
+  const row = (l, v, sub, cls = '') => `<div class="wrow ${cls}"><span>${l}${sub ? `<small>${sub}</small>` : ''}</span><b>${v}</b></div>`;
+  fq('#nWhyB').innerHTML = `
+    <h2>CALCUL DE L'OBJECTIF</h2>
+    <p class="note">${esc(dayLabel(day))} · recalculé chaque jour à partir d'Apple Santé.</p>
+    ${row('Métabolisme de base', fmt(r.base) + ' kcal', r.basal ? 'énergie au repos mesurée par Apple (moyenne 14 j)' : `formule Mifflin-St Jeor · ${g1(G.kg)} kg, ${S().profile.cm} cm, ${S().profile.age} ans`)}
+    ${row('+ Activité', fmt(r.act) + ' kcal', (r.apple ? 'Apple Santé · ' : '') + r.src)}
+    ${row('+ Digestion', fmt(r.tef) + ' kcal', 'environ 10 % de la dépense')}
+    ${row('= Dépense estimée', fmt(r.tdee) + ' kcal', '', 'tot')}
+    ${row('× Calibration', (cal.factor >= 1 ? '+' : '−') + Math.round(Math.abs(cal.factor - 1) * 100) + ' %', cal.ok ? `apports réels vs évolution du poids sur ${cal.days} jours` : 'en apprentissage (repas + pesées sur 10 jours minimum)')}
+    ${row(G.delta < 0 ? '− Déficit visé' : G.delta > 0 ? '+ Surplus visé' : 'Rythme', (G.delta ? fmt(Math.abs(G.delta)) + ' kcal' : '0'), kgw(G.rate) + ' · ' + rateLabel(G.rate).toLowerCase())}
+    ${row('= Objectif', fmt(G.kcal) + ' kcal', G.floored ? 'limité au plancher de sécurité' : '', 'goal')}
+    <div class="wmac">
+      <div style="--mc:${MAC.p.c}"><b>${G.p} g</b><small>PROTÉINES</small><i>${G.rate < 0 ? 2 : 1.8} g / kg</i></div>
+      <div style="--mc:${MAC.f.c}"><b>${G.f} g</b><small>LIPIDES</small><i>27 % des kcal</i></div>
+      <div style="--mc:${MAC.c.c}"><b>${G.c} g</b><small>GLUCIDES</small><i>le reste</i></div>
+    </div>
+    <p class="note">Le matin, l'activité prévue est votre moyenne des 7 derniers jours. Si vous bougez davantage, l'objectif augmente au fil de la journée. Avec vos repas et vos pesées, Jarvis mesure votre dépense réelle et corrige le calcul.</p>`;
+  J.openSheet(fq('#nWhy'));
+}
+function openWeigh(){
+  const lw = latestWeight();
+  fq('#wKg').value = lw ? g1(lw.kg) : ''; fq('#wDate').value = today();
+  const ks = Object.keys(S().weights).sort().reverse().slice(0, 6);
+  fq('#wList').innerHTML = ks.length ? '<p class="note" style="margin-top:14px">Dernières pesées manuelles</p>' + ks.map(k => `<div class="wl"><span>${esc(dayLabel(k))}</span><b>${g1(S().weights[k])} kg</b><button data-wdel="${k}">✕</button></div>`).join('') : '';
+  J.openSheet(fq('#nWeigh'));
+  setTimeout(() => fq('#wKg').select(), 320);
+}
+
 /* ============================================================
    Calculateur de besoins
    ============================================================ */
@@ -485,7 +680,21 @@ function bind(){
     const sx = e.target.closest('#cSex button'); if (sx) { $$('#cSex button', root).forEach(b => b.classList.toggle('on', b === sx)); return; }
     const ap = e.target.closest('[data-apply]');
     if (ap) { const [kcal, p, c, f] = ap.dataset.apply.split(',').map(Number); S().goals = {kcal, p, c, f}; save(); render(); J.toast('Objectifs mis à jour'); J.say(`Objectifs enregistrés : ${fmt(kcal)} kcal, ${p} grammes de protéines.`); return; }
+    const md = e.target.closest('[data-mode]'); if (md) { S().mode = md.dataset.mode; save(); J.haptic(); render(); return; }
+    const rt = e.target.closest('[data-rate]'); if (rt) { S().plan.rate = +rt.dataset.rate; save(); J.haptic(); render(); J.say(`Rythme : ${rateLabel(S().plan.rate).toLowerCase()}. Objectif du jour : ${fmt(goalK(today()))} kcal.`); return; }
+    const ps = e.target.closest('#pSex button'); if (ps) { $$('#pSex button', root).forEach(b => b.classList.toggle('on', b === ps)); if (profileOk()) { S().profile.sex = ps.dataset.v; save(); render(); } return; }
     const a = e.target.closest('[data-a]');
+    if (a && a.dataset.a === 'why') return openWhy();
+    if (a && a.dataset.a === 'weigh') return openWeigh();
+    if (a && a.dataset.a === 'guide') return J.openGuide();
+    if (a && a.dataset.a === 'goadapt') { tab = 'obj'; S().mode = 'adaptive'; save(); render(); window.scrollTo(0, 0); return; }
+    if (a && a.dataset.a === 'saveprofile') {
+      const age = num(q('#pAge').value), cm = num(q('#pCm').value), kg = num(q('#pKg').value);
+      if (!(age > 10 && cm > 120 && kg > 30)) { J.toast('Renseignez âge, taille et poids'); return; }
+      S().profile = {sex:$('#pSex button.on', root).dataset.v, age, cm, kg, act:+q('#pAct').value};
+      if (!latestWeight()) S().weights[today()] = kg;
+      save(); render(); J.say(`Objectif adaptatif activé : ${fmt(goalK(today()))} kcal aujourd'hui.`); return;
+    }
     if (a && a.dataset.a === 'calc') return calc();
     if (a && a.dataset.a === 'fitkcal') { const G = S().goals; G.kcal = G.p * 4 + G.c * 4 + G.f * 9; save(); render(); return; }
     const row = e.target.closest('.srow');
@@ -495,6 +704,15 @@ function bind(){
     const G = S().goals, map = {oKcal:'kcal', oP:'p', oC:'c', oF:'f'};
     if (map[e.target.id]) { const n = Math.round(num(e.target.value)); if (n >= 0) { G[map[e.target.id]] = n; save(); render(); } }
     if (e.target.id === 'oActive') { S().addActive = e.target.checked; save(); }
+    /* profil modifié directement depuis l'onglet (mode adaptatif actif) */
+    if (['pAge', 'pCm', 'pKg', 'pAct'].includes(e.target.id) && profileOk()) {
+      const p = S().profile, v = num(e.target.value);
+      if (e.target.id === 'pAge' && v > 10) p.age = v;
+      if (e.target.id === 'pCm' && v > 120) p.cm = v;
+      if (e.target.id === 'pAct') p.act = +e.target.value;
+      if (e.target.id === 'pKg' && v > 30) { p.kg = v; S().weights[today()] = v; }
+      save(); render();
+    }
   });
 
   /* glisser un aliment vers la gauche = supprimer */
@@ -551,13 +769,23 @@ function bind(){
     openQty(f);
   });
 
+  /* pesée */
+  fq('#wSave').addEventListener('click', () => {
+    const kg = num(fq('#wKg').value), d = fq('#wDate').value || today();
+    if (!(kg > 25 && kg < 300)) { J.toast('Poids invalide'); return; }
+    S().weights[d] = Math.round(kg * 10) / 10;
+    if (S().profile) S().profile.kg = S().weights[d];
+    J.haptic(); save(); J.closeSheet(); render(); J.toast(`Pesée enregistrée : ${g1(kg)} kg`);
+  });
+  fq('#wList').addEventListener('click', e => { const b = e.target.closest('[data-wdel]'); if (!b) return; delete S().weights[b.dataset.wdel]; save(); openWeigh(); render(); });
+
   /* scanner */
   fq('#sClose').addEventListener('click', () => { stopScanner(); openAdd(addMeal); });
   fq('#sGo').addEventListener('click', () => { const c = fq('#sCode').value.replace(/\D/g, ''); if (c.length >= 8) { scanning = true; found(c); } else J.toast('Code-barres incomplet'); });
 }
 
 function spoken(k){
-  const list = items(k), s = sums(list), goal = goalK(k), G = S().goals;
+  const list = items(k), s = sums(list), G = goalsFor(k), goal = G.kcal;
   if (!list.length) return 'Aucun repas enregistré pour le moment.';
   const left = goal - s.kcal;
   return `Vous avez consommé ${fmt(s.kcal)} calories sur ${fmt(goal)}. ` + (left >= 0 ? `Il vous en reste ${fmt(left)}. ` : `Objectif dépassé de ${fmt(-left)}. `) +
@@ -581,7 +809,7 @@ J.module({
   },
   summary(){
     const s = sums(items(today()));
-    return items(today()).length ? `<b>${fmt(s.kcal)}</b> / ${fmt(goalK(today()))} kcal<br>Prot. ${fmt(s.p)} / ${S().goals.p} g` : 'Rien de saisi aujourd\'hui';
+    return items(today()).length ? `<b>${fmt(s.kcal)}</b> / ${fmt(goalK(today()))} kcal<br>Prot. ${fmt(s.p)} / ${goalsFor(today()).p} g` : 'Rien de saisi aujourd\'hui';
   },
   brief(){
     const list = items(today()); if (!list.length) return '';
