@@ -174,7 +174,7 @@ const ICON_SPK = '<svg viewBox="0 0 24 24" fill="none" stroke="currentColor" str
 function rowHTML(t){
   const late = !t.done && t.month === thisMonth() && t.day < todayD();
   return `<div class="srow" data-id="${t.id}">
-    <div class="sbg"><span class="l">${t.done ? '↺ PRÉVU' : '✓ POINTER'}</span><span class="r">SUPPRIMER</span></div>
+    <div class="sbg"><span class="l">${t.done ? '↺ PRÉVU' : '✓ POINTER'}</span><button class="sact" type="button">Supprimer</button></div>
     <div class="row ${t.done ? '' : 'planned'}">
       ${catIcon(t.type, t.cat)}
       <div class="info"><div class="l">${esc(t.label)}${t.recId ? '<span class="rc">↻</span>' : ''}</div>
@@ -245,7 +245,7 @@ function renderMois(){
     <div class="tlist">
       ${list.length ? groupByDay(list) : `<div class="empty">${query ? 'Aucun résultat.' : T.list.length ? 'Rien pour ce filtre.' : 'Aucune opération ce mois-ci.<br>Touchez <b>+</b> pour ajouter votre salaire et vos dépenses prévues.'}</div>`}
     </div>`;
-  if (!ls_tip() && T.list.length) { J.toast('Astuce : glissez une opération → pour la pointer, ← pour la supprimer'); ls_tip(true); }
+  if (!ls_tip() && T.list.length) { J.toast('Astuce : glissez une opération ← pour la supprimer, → pour la pointer'); ls_tip(true); }
 }
 function ls_tip(set){ try { if (set) localStorage.setItem('jarvis.tip.swipe', '1'); return !!localStorage.getItem('jarvis.tip.swipe'); } catch(e) { return true; } }
 
@@ -706,42 +706,14 @@ function bind(){
     render(); const i = q('#fSearch'); i.focus(); i.setSelectionRange(pos, pos);
   });
 
-  /* gestes : glisser une ligne (pointer / supprimer) ou ailleurs (changer de mois) */
-  let sw = null;
-  root.addEventListener('touchstart', e => {
-    if (J.fromEdge() || e.target.closest('.hscroll,input,.chart')) { sw = null; return; }
-    const t = e.touches[0];
-    sw = {r:e.target.closest('.srow'), x:t.clientX, y:t.clientY, dx:0, mode:null, armed:false};
-  }, {passive:true});
-  root.addEventListener('touchmove', e => {
-    if (!sw) return;
-    const t = e.touches[0], dx = t.clientX - sw.x, dy = t.clientY - sw.y;
-    if (!sw.mode) {
-      if (Math.abs(dx) > 12 && Math.abs(dx) > Math.abs(dy) * 1.4) sw.mode = sw.r ? 'row' : 'month';
-      else if (Math.abs(dy) > 10) { sw = null; return; }
-    }
-    sw.dx = dx;
-    if (sw.mode === 'row') {
-      sw.r.querySelector('.row').style.transform = `translateX(${dx}px)`;
-      sw.r.classList.toggle('arm-l', dx > 80); sw.r.classList.toggle('arm-r', dx < -80);
-      if (Math.abs(dx) > 80 && !sw.armed) { sw.armed = true; J.haptic(); } else if (Math.abs(dx) <= 80) sw.armed = false;
-    }
-  }, {passive:true});
-  root.addEventListener('touchend', () => {
-    if (!sw) return; const s = sw; sw = null;
-    if (s.mode === 'row') {
-      const fg = s.r.querySelector('.row');
-      fg.style.transition = 'transform .22s ease'; fg.style.transform = '';
-      setTimeout(() => { fg.style.transition = ''; }, 230);
-      s.r.classList.remove('arm-l', 'arm-r');
-      const t = findTx(s.r.dataset.id);
-      if (t && s.dx > 80) toggleDone(t);
-      else if (t && s.dx < -80) {
-        if (t.recId) { openEditor(t); fq('#eDel').click(); }   // récurrente : on demande quoi supprimer
-        else removeTx(t);
-      }
-    }
-    if (s.mode === 'month' && Math.abs(s.dx) > 80 && tab !== 'fixes') goMonth(s.dx < 0 ? 1 : -1);
+  /* glisser une ligne : → pointer, ← supprimer (comme dans Mail ou Rappels) */
+  J.swipeRows(root, {
+    right: row => { const t = findTx(row.dataset.id); if (t) toggleDone(t); },
+    left: row => {
+      const t = findTx(row.dataset.id); if (!t) return;
+      if (t.recId) { render(); openEditor(t); fq('#eDel').click(); }   // récurrente : on demande quoi supprimer
+      else removeTx(t);
+    },
   });
 
   /* éditeur */

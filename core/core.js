@@ -8,7 +8,7 @@
    ============================================================ */
 'use strict';
 (() => {
-const APP_VERSION = '19';
+const APP_VERSION = '20';
 const API = location.hostname === 'localhost' ? 'http://localhost:8787' : 'https://jarvis-api.frensh-developpeur.workers.dev';
 const APP_URL = 'https://frensh-developpeur.github.io/jarvis/';
 
@@ -206,30 +206,130 @@ J.toast = (t, opts = {}) => {
    ============================================================ */
 let openSheetEl = null;
 const veil = $('#veil');
-function openSheet(el){ J.haptic && J.haptic(); openSheetEl = el; veil.classList.add('show'); el.classList.add('show'); }
-function closeSheet(){ if (!openSheetEl) return; openSheetEl.classList.remove('show'); veil.classList.remove('show'); openSheetEl = null; document.activeElement && document.activeElement.blur(); }
+/* pendant qu'une feuille est ouverte, la page derrière est figée : pas de défilement parasite,
+   et iOS ne fait plus « sauter » l'écran à l'ouverture du clavier */
+let lockY = 0;
+function lockScroll(){
+  if (document.body.classList.contains('locked')) return;
+  lockY = window.scrollY;
+  document.body.style.top = -lockY + 'px';
+  document.body.classList.add('locked');
+}
+function unlockScroll(){
+  if (!document.body.classList.contains('locked')) return;
+  document.body.classList.remove('locked');
+  document.body.style.top = '';
+  window.scrollTo(0, lockY);
+}
+function openSheet(el){
+  J.haptic && J.haptic();
+  if (openSheetEl && openSheetEl !== el) openSheetEl.classList.remove('show');
+  openSheetEl = el; el.scrollTop = 0;
+  lockScroll(); veil.classList.add('show'); el.classList.add('show');
+}
+function closeSheet(){
+  if (!openSheetEl) return;
+  if (document.activeElement && document.activeElement.blur) document.activeElement.blur();
+  openSheetEl.classList.remove('show'); veil.classList.remove('show'); openSheetEl = null;
+  unlockScroll();
+}
 J.openSheet = openSheet; J.closeSheet = closeSheet; J.sheetOpen = () => !!openSheetEl;
 veil.addEventListener('click', closeSheet);
 
-/* clavier iOS : les feuilles remontent au-dessus du clavier et le champ actif reste visible */
+/* clavier iOS : la feuille se pose juste au-dessus du clavier (sans animation parasite) */
 const vv = window.visualViewport;
+let vvRaf = 0;
 function onViewport(){
-  if (!vv) return;
-  const kb = Math.max(0, Math.round(window.innerHeight - vv.height - vv.offsetTop));
-  document.documentElement.style.setProperty('--kb', kb + 'px');
-  document.documentElement.style.setProperty('--vvh', vv.height + 'px');
-  document.body.classList.toggle('kb-open', kb > 80);
+  cancelAnimationFrame(vvRaf);
+  vvRaf = requestAnimationFrame(() => {
+    const kb = Math.max(0, Math.round(window.innerHeight - vv.height - vv.offsetTop));
+    const root = document.documentElement.style;
+    root.setProperty('--kb', kb + 'px');
+    root.setProperty('--vvh', Math.round(vv.height) + 'px');
+    document.body.classList.toggle('kb-open', kb > 80);
+  });
 }
 if (vv) { vv.addEventListener('resize', onViewport); vv.addEventListener('scroll', onViewport); onViewport(); }
+/* dans une feuille, le champ actif est ramené dans la zone visible (le reste de l'app : iOS s'en charge seul) */
 document.addEventListener('focusin', e => {
-  const el = e.target;
-  if (!el.matches || !el.matches('input,textarea,select')) return;
+  const el = e.target, sh = el.closest && el.closest('.sheet');
+  if (!sh || !el.matches('input,textarea,select')) return;
   setTimeout(() => {
-    const sh = el.closest('.sheet');
-    if (sh) { const r = el.getBoundingClientRect(), sr = sh.getBoundingClientRect(); if (r.bottom > sr.bottom - 20 || r.top < sr.top + 20) sh.scrollTop += r.top - sr.top - sr.height / 3; }
-    else el.scrollIntoView({block:'center', behavior:'smooth'});
-  }, 320);
+    const r = el.getBoundingClientRect(), sr = sh.getBoundingClientRect();
+    if (r.bottom > sr.bottom - 16) sh.scrollTop += r.bottom - sr.bottom + 24;
+    else if (r.top < sr.top + 16) sh.scrollTop -= sr.top - r.top + 24;
+  }, 350);
 });
+
+/* ============================================================
+   Lignes à glisser, façon iOS
+   - glisser ← : révèle « Supprimer » (toucher pour confirmer) ; glissement long : supprime
+   - glisser → : action secondaire (ex. pointer)
+   Pendant le geste, la page ne défile pas ; un geste n'ouvre jamais la ligne par erreur.
+   ============================================================ */
+J.swipeRows = (container, {left = null, right = null, rightLabel = ''} = {}) => {
+  const ACT = 92;
+  let s = null, opened = null, blockClick = false;
+  const fgOf = row => row.querySelector('.row');
+  const close = (row, anim = true) => {
+    if (!row) return;
+    const f = fgOf(row); f.style.transition = anim ? 'transform .28s cubic-bezier(.2,.8,.2,1)' : ''; f.style.transform = '';
+    row.classList.remove('open', 'arm-r', 'arm-full');
+    if (opened === row) opened = null;
+  };
+  /* une ligne ouverte : le premier toucher ailleurs se contente de la refermer (comme iOS) */
+  document.addEventListener('touchstart', e => {
+    if (opened && !opened.isConnected) opened = null;               // la ligne a disparu (liste redessinée)
+    if (opened && !opened.contains(e.target)) { close(opened); blockClick = true; s = null; setTimeout(() => { blockClick = false; }, 450); }
+  }, {passive:true, capture:true});
+  container.addEventListener('touchstart', e => {
+    if (blockClick) { s = null; return; }
+    const row = e.target.closest('.srow');
+    if (!row || J.fromEdge() || e.target.closest('.sact')) { s = null; return; }
+    const t = e.touches[0];
+    s = {row, x:t.clientX, y:t.clientY, dx:0, mode:null, base:row === opened ? -ACT : 0, w:row.offsetWidth, armed:false};
+  }, {passive:true});
+  container.addEventListener('touchmove', e => {
+    if (!s) return;
+    const t = e.touches[0], dx = t.clientX - s.x, dy = t.clientY - s.y;
+    if (!s.mode) {
+      if (Math.abs(dx) > 10 && Math.abs(dx) > Math.abs(dy) * 1.2) s.mode = 'h';
+      else if (Math.abs(dy) > 8) { s = null; return; }
+      else return;
+    }
+    e.preventDefault();
+    let x = s.base + dx;
+    if (x > 0 && !right) x = x / 5;
+    if (x < 0 && !left) x = x / 5;
+    s.dx = x;
+    const f = fgOf(s.row); f.style.transition = ''; f.style.transform = `translateX(${x}px)`;
+    const armR = !!right && x > 90, full = !!left && x < -s.w * 0.55;
+    s.row.classList.toggle('arm-r', armR); s.row.classList.toggle('arm-full', full);
+    if ((armR || full) !== s.armed) { s.armed = armR || full; if (s.armed) J.haptic(); }
+  }, {passive:false});
+  const end = () => {
+    if (!s) return;
+    const st = s; s = null;
+    if (st.mode !== 'h') return;
+    blockClick = true; setTimeout(() => { blockClick = false; }, 400);
+    const {row, dx, w} = st, f = fgOf(row);
+    f.style.transition = 'transform .28s cubic-bezier(.2,.8,.2,1)';
+    if (right && dx > 90) { close(row); right(row); return; }
+    if (left && dx < -w * 0.55) { if (opened === row) opened = null; f.style.transform = `translateX(${-w}px)`; row.classList.remove('arm-full'); setTimeout(() => left(row), 200); return; }
+    if (left && dx < -45) { f.style.transform = `translateX(${-ACT}px)`; row.classList.add('open'); opened = row; return; }
+    close(row);
+  };
+  container.addEventListener('touchend', end);
+  container.addEventListener('touchcancel', end);
+  document.addEventListener('click', e => { if (blockClick && !container.contains(e.target)) { e.stopPropagation(); e.preventDefault(); } }, true);
+  container.addEventListener('click', e => {
+    const b = e.target.closest('.sact');
+    if (b) { e.stopPropagation(); e.preventDefault(); const row = b.closest('.srow'); opened = null; J.haptic(); left(row); return; }
+    if (blockClick) { e.stopPropagation(); e.preventDefault(); return; }
+    if (opened) { e.stopPropagation(); e.preventDefault(); close(opened); }
+  }, true);
+  return {closeAll(){ if (opened) close(opened, false); }};
+};
 
 /* glisser une feuille vers le bas pour la fermer (comme sur iOS) */
 let drag = null;
@@ -240,9 +340,11 @@ document.addEventListener('touchstart', e => {
 }, {passive:true});
 document.addEventListener('touchmove', e => {
   if (!drag) return;
-  drag.dy = Math.max(0, e.touches[0].clientY - drag.y);
-  if (drag.dy > 6) { drag.sh.classList.add('dragging'); drag.sh.style.transform = `translateY(${drag.dy}px)`; }
-}, {passive:true});
+  const dy = e.touches[0].clientY - drag.y;
+  if (dy < 0 && !drag.active) { drag = null; return; }      // l'utilisateur fait défiler le contenu vers le haut
+  drag.dy = Math.max(0, dy);
+  if (drag.dy > 6) { drag.active = true; e.preventDefault(); drag.sh.classList.add('dragging'); drag.sh.style.transform = `translateY(${drag.dy}px)`; }
+}, {passive:false});
 document.addEventListener('touchend', () => {
   if (!drag) return;
   const {sh, dy, t} = drag; drag = null;

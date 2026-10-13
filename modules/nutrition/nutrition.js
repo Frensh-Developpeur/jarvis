@@ -189,7 +189,7 @@ function macroBar(key, v, goal){
 }
 function itemRow(it){
   return `<div class="srow" data-id="${it.id}">
-    <div class="sbg"><span class="l"></span><span class="r">SUPPRIMER</span></div>
+    <div class="sbg"><span class="l"></span><button class="sact" type="button">Supprimer</button></div>
     <div class="row">
       <div class="info"><div class="l">${esc(it.name)}</div><div class="m">${fmt(it.g)} g${it.brand ? ' · ' + esc(it.brand) : ''} · P ${g1(val(it, 'p'))} · G ${g1(val(it, 'c'))} · L ${g1(val(it, 'f'))}</div></div>
       <div class="kc">${fmt(val(it, 'kcal'))}<small>kcal</small></div>
@@ -731,27 +731,7 @@ function bind(){
   });
 
   /* glisser un aliment vers la gauche = supprimer */
-  let sw = null;
-  root.addEventListener('touchstart', e => {
-    const r = e.target.closest('.srow');
-    if (!r || J.fromEdge()) { sw = null; return; }
-    sw = {r, x:e.touches[0].clientX, y:e.touches[0].clientY, dx:0, mode:null};
-  }, {passive:true});
-  root.addEventListener('touchmove', e => {
-    if (!sw) return;
-    const dx = e.touches[0].clientX - sw.x, dy = e.touches[0].clientY - sw.y;
-    if (!sw.mode) { if (Math.abs(dx) > 12 && Math.abs(dx) > Math.abs(dy) * 1.4) sw.mode = 'row'; else if (Math.abs(dy) > 10) { sw = null; return; } }
-    sw.dx = Math.min(0, dx);
-    sw.r.querySelector('.row').style.transform = `translateX(${sw.dx}px)`;
-    sw.r.classList.toggle('arm-r', sw.dx < -80);
-  }, {passive:true});
-  root.addEventListener('touchend', () => {
-    if (!sw || sw.mode !== 'row') { sw = null; return; }
-    const s = sw; sw = null;
-    const fg = s.r.querySelector('.row'); fg.style.transition = 'transform .22s'; fg.style.transform = '';
-    setTimeout(() => fg.style.transition = '', 230); s.r.classList.remove('arm-r');
-    if (s.dx < -80) { const it = items(day).find(x => x.id === s.r.dataset.id); if (it) removeItem(it); }
-  });
+  J.swipeRows(root, {left: row => { const it = items(day).find(x => x.id === row.dataset.id); if (it) removeItem(it); }});
 
   /* feuille d'ajout */
   fq('#nAddBtn').addEventListener('click', () => { J.haptic(); openAdd(); });
