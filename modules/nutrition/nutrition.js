@@ -25,6 +25,7 @@ const addDays = (k, n) => { const d = parseDk(k); d.setDate(d.getDate() + n); re
 const today = () => dk(new Date());
 const dayLabel = k => k === today() ? "Aujourd'hui" : k === addDays(today(), -1) ? 'Hier' : parseDk(k).toLocaleDateString('fr-FR', {weekday:'long', day:'numeric', month:'long'});
 const fmt = n => Math.round(n).toLocaleString('fr-FR');
+const hhmm = d => d.toLocaleTimeString('fr-FR', {hour:'2-digit', minute:'2-digit'});
 const g1 = n => (Math.round(n * 10) / 10).toLocaleString('fr-FR');
 const defaultMeal = () => { const h = new Date().getHours() + new Date().getMinutes() / 60; return h < 10.5 ? 'pdj' : h < 15 ? 'dej' : h < 18 ? 'col' : 'din'; };
 
@@ -70,16 +71,27 @@ function rawTdee(k){
   const p = S().profile, bmr = bmrFor(k), basal = basalAvg(k), base = basal || bmr;
   const declared = Math.max(0, bmr * (0.9 * (p.act || 1.375) - 1));        // activité déduite du niveau déclaré
   const measured = appleDay(k).energy > 0 ? appleDay(k).energy : null, expected = activeExpected(k);
-  let act, src;
+  let act, src, live = null;
   if (k === today()) {
+    /* journée en cours : ce qui est déjà mesuré par Apple + ce qu'il reste à dépenser d'ici ce soir
+       (activité habituelle répartie de 7 h à 23 h). Plus la journée avance, plus le mesuré compte. */
     const ref = expected !== null ? expected : declared;
-    act = Math.max(ref, measured || 0);
-    src = measured !== null && measured >= ref ? "mesurée aujourd'hui" : expected !== null ? 'votre moyenne sur 7 jours' : 'niveau déclaré';
+    const at = appleDay(k).at ? new Date(appleDay(k).at) : null;
+    if (measured !== null && at && dk(at) === k) {
+      const h = at.getHours() + at.getMinutes() / 60, frac = Math.min(1, Math.max(0, (h - 7) / 16));
+      const remaining = ref * (1 - frac);
+      act = measured + remaining;
+      live = {measured, remaining, at, frac, ref};
+      src = frac >= 1 ? `mesurée par Apple (journée complète)` : `${fmt(measured)} kcal mesurées à ${hhmm(at)} + ${fmt(remaining)} prévues d'ici ce soir`;
+    } else {
+      act = ref;
+      src = (expected !== null ? 'votre moyenne sur 7 jours' : 'niveau déclaré') + " · pas encore de données Apple aujourd'hui";
+    }
   } else if (measured !== null) { act = measured; src = 'mesurée'; }
   else if (expected !== null) { act = expected; src = 'moyenne 7 jours'; }
   else { act = declared; src = 'niveau déclaré'; }
   const tef = (base + act) / 9;                                               // digestion ≈ 10 % de la dépense
-  return {bmr, base, basal:!!basal, act, src, apple:measured !== null || expected !== null, tef, tdee:base + act + tef};
+  return {bmr, base, basal:!!basal, act, src, live, apple:measured !== null || expected !== null, tef, tdee:base + act + tef};
 }
 /* calibration : dépense réelle = apports moyens − variation de poids × 7 700 kcal/kg */
 let calCache = null;
@@ -203,7 +215,9 @@ function renderJour(){
       </div>
     </div>
     <div class="macs">${macroBar('p', s.p, G.p)}${macroBar('c', s.c, G.c)}${macroBar('f', s.f, G.f)}</div>
-    ${G.mode === 'adaptive' ? `<button class="why" data-a="why"><span class="dot"></span>Objectif adaptatif · ${rateLabel(G.rate).toLowerCase()} · <u>comment est-il calculé ?</u></button>`
+    ${G.mode === 'adaptive' ? `<div class="live-act">${G.r.live && k === today() ? `<div class="la-bar"><i style="width:${Math.min(100, G.r.live.measured / G.r.act * 100)}%"></i></div>
+        <div class="la-txt"><span>Activité : <b>${fmt(G.r.live.measured)}</b> kcal mesurées à ${hhmm(G.r.live.at)}</span><span>prévu ${fmt(G.r.act)}</span></div>` : ''}
+        <div class="la-btns"><button class="why" data-a="why"><span class="dot"></span><u>Comment est calculé l'objectif ?</u></button>${k === today() && J.appleDoc().syncedAt ? '<button class="why" data-a="sync">↻ Actualiser</button>' : ''}</div></div>`
       : `<button class="why" data-a="goadapt">Objectif fixe · <u>passer à l'objectif adaptatif (Apple Santé)</u></button>`}
     ${MEALS.map(m => {
       const li = list.filter(it => it.meal === m.id), ms = sums(li);
@@ -626,7 +640,7 @@ function openWhy(){
       <div style="--mc:${MAC.f.c}"><b>${G.f} g</b><small>LIPIDES</small><i>27 % des kcal</i></div>
       <div style="--mc:${MAC.c.c}"><b>${G.c} g</b><small>GLUCIDES</small><i>le reste</i></div>
     </div>
-    <p class="note">Le matin, l'activité prévue est votre moyenne des 7 derniers jours. Si vous bougez davantage, l'objectif augmente au fil de la journée. Avec vos repas et vos pesées, Jarvis mesure votre dépense réelle et corrige le calcul.</p>`;
+    <p class="note">L'activité du jour = ce qu'Apple a déjà mesuré + ce qu'il vous reste habituellement à dépenser d'ici ce soir. À chaque synchronisation, l'objectif se met à jour : si vous bougez plus que d'habitude il augmente, si la journée est calme il baisse. En fin de journée, seule la mesure réelle compte. Avec vos repas et vos pesées, Jarvis corrige aussi le calcul sur la durée.</p>`;
   J.openSheet(fq('#nWhy'));
 }
 function openWeigh(){
@@ -687,6 +701,7 @@ function bind(){
     if (a && a.dataset.a === 'why') return openWhy();
     if (a && a.dataset.a === 'weigh') return openWeigh();
     if (a && a.dataset.a === 'guide') return J.openGuide();
+    if (a && a.dataset.a === 'sync') { location.href = 'shortcuts://run-shortcut?name=' + encodeURIComponent('Jarvis'); return; }
     if (a && a.dataset.a === 'goadapt') { tab = 'obj'; S().mode = 'adaptive'; save(); render(); window.scrollTo(0, 0); return; }
     if (a && a.dataset.a === 'saveprofile') {
       const age = num(q('#pAge').value), cm = num(q('#pCm').value), kg = num(q('#pKg').value);
@@ -806,6 +821,10 @@ J.module({
   init(){
     st = J.store('nutrition', DEFAULTS);
     st.onChange(() => render());
+    J.store('apple', {days:{}}).onChange(() => {   // nouvelles données Apple : l'objectif se recalcule
+      calCache = null;
+      if (root && !J.sheetOpen()) { render(); if (tab === 'jour' && S().mode === 'adaptive') J.say(`Données Apple reçues. Objectif du jour : ${fmt(goalK(day))} kcal.`); }
+    });
   },
   summary(){
     const s = sums(items(today()));

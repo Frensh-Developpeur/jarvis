@@ -70,7 +70,7 @@ async function locate(){
 async function loadWeather(force){
   if (weatherLoading) return;
   if (!force && weather && Date.now() - weather.at < 30 * 60e3 && weather.day === todayKey()) return;
-  if (!J.prefs().city && !ls.get('jarvis.geo') && !force) return;    // la position n'est demandée qu'après un toucher
+  if (!force && !(J.prefs() || {}).city && !ls.get('jarvis.geo')) return;    // la position n'est demandée qu'après un toucher
   weatherLoading = true;
   try {
     const g = await locate();
@@ -79,6 +79,7 @@ async function loadWeather(force){
       '&daily=temperature_2m_max,temperature_2m_min,precipitation_probability_max,weather_code,sunrise,sunset,uv_index_max' +
       '&hourly=precipitation_probability';
     const data = await (await fetch(url)).json();
+    if (!data || !data.current || !data.daily || !data.hourly) throw new Error('réponse météo incomplète');
     weather = {at:Date.now(), day:todayKey(), place:g.place, data};
     ls.set('jarvis.weather', weather);
   } catch(e) {
@@ -89,7 +90,10 @@ async function loadWeather(force){
 J.refreshWeather = () => loadWeather(true);
 
 function weatherInfo(){
-  if (!weather) return null;
+  if (!weather || !weather.data || !weather.data.current || !weather.data.daily || !weather.data.hourly) {
+    if (weather) { weather = null; ls.del('jarvis.weather'); setTimeout(() => loadWeather(false), 0); }   // cache abîmé : on le jette et on recharge
+    return null;
+  }
   const w = weather.data, c = w.current, d = w.daily;
   const [label, icon] = WMO(c.weather_code);
   const max = Math.round(d.temperature_2m_max[0]), min = Math.round(d.temperature_2m_min[0]);
