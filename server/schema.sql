@@ -67,3 +67,11 @@ CREATE TABLE IF NOT EXISTS usage (
   month TEXT PRIMARY KEY,
   chars INTEGER NOT NULL DEFAULT 0
 );
+
+-- Erreurs remontées par l'app (diagnostic), 200 dernières par utilisateur
+CREATE TABLE IF NOT EXISTS logs (
+  id      INTEGER PRIMARY KEY AUTOINCREMENT,
+  user_id TEXT,
+  at      INTEGER NOT NULL,
+  msg     TEXT NOT NULL
+);

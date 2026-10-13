@@ -1,5 +1,5 @@
 // Change la version à chaque mise à jour (le script bump.sh le fait pour toi)
-const CACHE = 'jarvis-v16';
+const CACHE = 'jarvis-v17';
 const ASSETS = [
   './', './index.html', './manifest.json', './icon-192.png', './icon-512.png', './apple-touch-icon.png',
   './core/core.css', './core/core.js', './core/voice.js', './core/briefing.js',

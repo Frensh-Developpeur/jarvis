@@ -432,6 +432,19 @@ const routes = {
     return { item };
   },
 
+  /* ---------- diagnostic : erreurs JavaScript remontées par l'app ---------- */
+  'POST /api/log': async (req, env) => {
+    const u = await auth(req, env);
+    await throttle(env, 'log:' + u.id, 60, 3600);
+    await recordFailure(env, 'log:' + u.id, 3600);
+    const { msg } = await body(req);
+    await env.DB.batch([
+      env.DB.prepare('INSERT INTO logs (user_id, at, msg) VALUES (?, ?, ?)').bind(u.id, Date.now(), String(msg || '').slice(0, 2000)),
+      env.DB.prepare('DELETE FROM logs WHERE user_id = ? AND id NOT IN (SELECT id FROM logs WHERE user_id = ? ORDER BY id DESC LIMIT 200)').bind(u.id, u.id),
+    ]);
+    return { ok: true };
+  },
+
   /* ---------- administration ---------- */
   'POST /api/invites': async (req, env) => {
     const u = await auth(req, env);

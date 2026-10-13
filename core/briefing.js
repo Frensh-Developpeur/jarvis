@@ -184,11 +184,14 @@ function quickTile({label, value, sub = '', ratio = null, act = '', icon = '', a
     ${ratio !== null ? `<span class="qb"><i style="width:${Math.max(0, Math.min(1, ratio)) * 100}%"></i></span>` : ''}</button>`;
 }
 J.renderBriefing = () => {
+  try { renderBriefingInner(); } catch(e) { J.report('renderBriefing : ' + (e.stack || e)); }
+};
+function renderBriefingInner(){
   const el = $('#briefing'); if (!el || !J.user()) return;
   $('#briefDate').textContent = new Date().toLocaleDateString('fr-FR', {weekday:'long', day:'numeric', month:'long'});
 
   const tiles = [];
-  const w = weatherInfo();
+  let w = null; try { w = weatherInfo(); } catch(e) { J.report('météo : ' + e); }
   tiles.push(w ? quickTile({label:'MÉTÉO' + (w.place ? ' · ' + w.place.toUpperCase() : ''), value:`${w.temp}°<small> ${w.min}°/${w.max}°</small>`, sub:w.tips[0] ? w.tips[0].charAt(0).toUpperCase() + w.tips[0].slice(1) : w.label, act:'weather', icon:I[w.icon]})
                : quickTile({label:'MÉTÉO', value:'<small>Activer</small>', sub:'Touchez pour la météo locale', act:'weather', icon:I.partly, cls:'setup'}));
   J.modules.filter(m => !m.soon && m.stat).sort((a, b) => (a.order || 50) - (b.order || 50)).forEach(m => {
@@ -213,7 +216,7 @@ J.renderBriefing = () => {
   const sl = $('#syncLink');
   sl.hidden = !synced;
   if (synced) sl.textContent = `↻ Synchroniser Apple Santé · ${J.ago(synced)}`;
-};
+}
 
 function onAct(e){
   const c = e.target.closest('[data-act]'); if (!c) return;

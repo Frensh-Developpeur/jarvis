@@ -8,7 +8,7 @@
    ============================================================ */
 'use strict';
 (() => {
-const APP_VERSION = '16';
+const APP_VERSION = '17';
 const API = location.hostname === 'localhost' ? 'http://localhost:8787' : 'https://jarvis-api.frensh-developpeur.workers.dev';
 const APP_URL = 'https://frensh-developpeur.github.io/jarvis/';
 
@@ -21,8 +21,23 @@ const ls = {
   del(k){ try { localStorage.removeItem(k); } catch(e) {} },
 };
 
+/* diagnostic : les erreurs JavaScript sont envoyées au serveur (table logs) */
+const sentErr = new Set();
+function report(msg){
+  try {
+    const m = String(msg).slice(0, 1500);
+    if (sentErr.has(m) || sentErr.size > 20) return; sentErr.add(m);
+    const s = JSON.parse(localStorage.getItem('jarvis.session') || 'null');
+    if (!s) return;
+    fetch((location.hostname === 'localhost' ? 'http://localhost:8787' : 'https://jarvis-api.frensh-developpeur.workers.dev') + '/api/log', {method:'POST', headers:{'Content-Type':'application/json', Authorization:'Bearer ' + s.token},
+      body:JSON.stringify({msg:`v${APP_VERSION} · ${navigator.userAgent.replace(/.*(iPhone OS [\d_]+|Mac OS X [\d_]+|Android [\d.]+).*/, '$1')} · ${location.hash} · ${m}`})}).catch(() => {});
+  } catch(e) {}
+}
+window.addEventListener('error', e => report((e.message || 'erreur') + ' @' + String(e.filename || '').split('/').slice(-2).join('/') + ':' + e.lineno + ':' + e.colno + (e.error && e.error.stack ? ' | ' + e.error.stack.split('\n').slice(0, 4).join(' | ') : '')));
+window.addEventListener('unhandledrejection', e => report('promesse : ' + (e.reason && (e.reason.stack || e.reason.message) || e.reason)));
+
 const J = window.J = {
-  $, $$, esc, ls, APP_URL,
+  $, $$, esc, ls, APP_URL, report,
   eur: n => n.toLocaleString('fr-FR', {style:'currency', currency:'EUR'}),
   uid: () => Date.now().toString(36) + Math.random().toString(36).slice(2, 7),
   r2: n => Math.round(n * 100) / 100,
@@ -354,6 +369,9 @@ function hubMessage(){
   return J.greeting() + ' ' + (urgent || (h < 11 ? 'Voici votre journée.' : h < 18 ? 'Tout est sous contrôle.' : 'Voici le point de la journée.'));
 }
 function renderHub(){
+  try { renderHubInner(); } catch(e) { report('renderHub : ' + (e.stack || e)); }
+}
+function renderHubInner(){
   const d = new Date();
   $('#hubTime').textContent = d.toLocaleTimeString('fr-FR', {hour:'2-digit', minute:'2-digit'});
   $('#hubDate').textContent = d.toLocaleDateString('fr-FR', {weekday:'long', day:'numeric', month:'long'});
