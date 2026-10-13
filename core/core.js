@@ -8,7 +8,7 @@
    ============================================================ */
 'use strict';
 (() => {
-const APP_VERSION = '22';
+const APP_VERSION = '23';
 const API = location.hostname === 'localhost' ? 'http://localhost:8787' : 'https://jarvis-api.frensh-developpeur.workers.dev';
 const APP_URL = 'https://frensh-developpeur.github.io/jarvis/';
 
@@ -377,7 +377,7 @@ J.swipeRows = (container, {left = null, right = null, rightLabel = ''} = {}) => 
 let drag = null;
 document.addEventListener('touchstart', e => {
   const sh = e.target.closest('.sheet.show');
-  if (!sh || sh.scrollTop > 0 || e.target.closest('input,select,textarea')) return;
+  if (!sh || sh.scrollTop > 0 || e.target.closest('input,select,textarea,.hscroll')) return;   // pas sur les barres qui défilent horizontalement
   drag = {sh, y:e.touches[0].clientY, dy:0, t:Date.now()};
 }, {passive:true});
 document.addEventListener('touchmove', e => {
@@ -809,6 +809,8 @@ J.start = () => {
     $('#boot').classList.add('done');
     if (session) {
       enter();
+      // test local uniquement : scénario automatique (jamais actif sur le site publié)
+      if (location.hostname === 'localhost' || location.hostname === '127.0.0.1') { const ds = sessionStorage.getItem('jarvis.dev'); if (ds) setTimeout(() => { try { new Function(ds)(); } catch(e) { console.error(e); } }, 2500); }
       J.api('GET', '/api/me').then(u => { session.user = u; ls.set('jarvis.session', session); }).catch(() => {});
     } else showAuth();
   }, 1250);

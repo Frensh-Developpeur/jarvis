@@ -430,3 +430,9 @@ body.sheet-open .fab,body.typing .fab{opacity:0;pointer-events:none}
 /* la feuille suit les changements de hauteur du clavier (barre de suggestions) en douceur */
 .sheet.show{transition:transform .28s cubic-bezier(.2,.8,.2,1),bottom .16s ease-out,max-height .16s ease-out}
 .sheet.dragging{transition:none}
+
+/* feuilles : jamais de débordement horizontal ; les barres de puces défilent à l'intérieur, sans entraîner la feuille */
+.sheet{overflow-x:hidden}
+.sheet .hscroll{margin-left:0!important;margin-right:0!important;padding-left:0!important;padding-right:0!important;
+  overscroll-behavior-x:contain;touch-action:pan-x;scrollbar-width:none;
+  -webkit-mask-image:linear-gradient(90deg,#000 88%,transparent);mask-image:linear-gradient(90deg,#000 88%,transparent)}
