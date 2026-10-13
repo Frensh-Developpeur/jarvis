@@ -154,9 +154,9 @@ function loadCiqual(){
     return ciqual;
   }));
 }
-function searchCiqual(q){
+function searchCiqual(q, limit = 15){
   if (!ciqual) return [];
-  const toks = norm(q).split(/[\s,]+/).filter(Boolean);
+  const toks = norm(q).split(/[\s,]+/).filter(Boolean).map(t => t.length > 3 ? t.replace(/[sx]$/, '') : t);   // singulier : « lentilles » trouve « Lentille verte »
   if (!toks.length) return [];
   const res = [];
   for (const f of ciqual) {
@@ -169,7 +169,7 @@ function searchCiqual(q){
     score -= f.n.length / 4;
     res.push({f, score});
   }
-  return res.sort((a, b) => b.score - a.score).slice(0, 15).map(r => r.f);
+  return res.sort((a, b) => b.score - a.score).slice(0, limit).map(r => r.f);
 }
 
 /* ============================================================
@@ -793,14 +793,33 @@ const ask = (msg) => Object.assign(new Error(msg), {ask:msg});
 /* score de correspondance : part des mots demandés présents dans le nom + la marque */
 const tokens = q => norm(q).split(/[^a-z0-9]+/).filter(w => w.length > 2 && !['avec', 'les', 'des', 'une', 'barre', 'barres', 'dose', 'doses'].includes(w));
 const match = (f, toks) => { const hay = norm(f.name + ' ' + (f.brand || '')); return toks.length ? toks.filter(w => hay.includes(w) || hay.includes(w.slice(0, 5))).length / toks.length : 0; };
+/* aliments dont les calories changent beaucoup selon l'état (pesé cru ou cuit) : on demande si ce n'est pas précisé */
+const STATE_RX = /(?<![\wÀ-ÿœ])(crue?s?|cuite?s?|non cuite?s?|sec|secs|s[eè]che?s?|bouillie?s?|grill[ée]e?s?|r[oô]tie?s?|po[eê]l[ée]e?s?|frite?s?|vapeur|en conserve|[ée]goutt[ée]e?s?|appertis[ée]e?s?)(?![\wÀ-ÿœ])/i;
+const NEEDS_STATE = /(?<![\wÀ-ÿœ])(riz|p[aâ]tes|spaghettis?|tagliatelles?|penne|coquillettes|macaronis?|nouilles|fusilli|quinoa|semoule|couscous|boulgour|lentilles?|pois chiches?|haricots? (?:rouges?|blancs?|secs?)|poulet|dinde|b[oœ]uf|steaks?|steak hach[ée]|porc|veau|agneau|canard|saumon|cabillaud|colin|merlu|crevettes?)(?![\wÀ-ÿœ])/i;
+const stateOf = t => { const m = String(t || '').match(STATE_RX); return m ? m[0].toLowerCase() : ''; };
+const wantsRaw = st => /cru|non cuit|sec|s[eè]ch/i.test(st);   // « sec », « sèches » : pâtes / riz pesés secs = crus
+const isRaw = n => { const t = norm(n); return /(^|[ ,])crue?s?([ ,]|$)|non cuit/.test(t) || (/(^|[ ,])(sec|secs|seche|seches)([ ,]|$)/.test(t) && !/cuit/.test(t)); };   // « Lentille verte, sèche » = crue
+const isCooked = n => !isRaw(n) && /cuit|poel|saute|grill|bouilli|roti|vapeur|four|micro/.test(norm(n));
+const sameState = (st, n) => wantsRaw(st) ? isRaw(n) : isCooked(n);
 async function findFood(name){
   const toks = tokens(name);
   // 1. ce que l'utilisateur a déjà mangé (récents, favoris, aliments perso) : le plus fiable
-  const mine = [...S().favs, ...S().recents, ...S().foods].map(f => [f, match(f, toks)]).sort((a, b) => b[1] - a[1])[0];
+  const st = stateOf(name);
+  const mine = [...S().favs, ...S().recents, ...S().foods].map(f => [f, match(f, toks)]).filter(([f]) => !st || sameState(st, f.name)).sort((a, b) => b[1] - a[1])[0];
   if (mine && mine[1] >= .99) return mine[0];
   // 2. aliments de base CIQUAL
   await loadCiqual();
-  let f = searchCiqual(String(name || ''))[0];
+  let f = searchCiqual(String(name || '').replace(/crue?s?(?![\wÀ-ÿ])/gi, 'cru').replace(/cuite?s?(?![\wÀ-ÿ])/gi, 'cuit'))[0];
+  // état précisé (cru, cuit…) : on prend la version dans cet état, en préférant le filet / nature
+  // (CIQUAL : « Poulet, filet, sans peau, sauté/poêlé », « Pâtes sèches standard, crues »…)
+  if (st) {
+    const base = String(name).replace(STATE_RX, '').trim(), first = norm(base).split(/[ ,]/)[0].replace(/s$/, '');
+    // le plus générique : nom court, version de base (blanc, standard, filet…), pas un plat préparé
+    const word = norm(base).split(/[ ,]/)[0], exact = new RegExp('(^|[ ,(])' + word + '([ ,)]|$)');   // « pâtes » ≠ « pâte sablée »
+    const cost = x => { const n = norm(x.name); return n.length + (exact.test(n) ? 0 : 25) + (n.split(/[ ,]/)[0].startsWith(first) ? 0 : 15) - (/\b(blanc|standard|filet|nature|verte)\b/.test(n) ? 20 : 0) + (/preemball|\bavec\b|\bau\b|\baux\b|\bpour\b|farci|sauce|infantile/.test(n) ? 40 : 0); };
+    const hit = [...searchCiqual(base + ' filet', 50), ...searchCiqual(base, 400)].filter(x => norm(x.name).includes(first) && sameState(st, x.name)).sort((a, b) => cost(a) - cost(b))[0];
+    if (hit) return hit;
+  }
   if (f) {   // on préfère la version cuite / nature / filet quand elle existe
     const first = norm(f.name).split(/[ ,]/)[0];
     const alt = [name + ' filet', name + ' cuit', name + ' nature'].map(q => searchCiqual(q)[0]).find(x => x && norm(x.name).split(/[ ,]/)[0] === first);
@@ -823,7 +842,29 @@ async function findFood(name){
 const brandOf = f => f.brand && !norm(f.name).includes(norm(f.brand)) ? ' (' + f.brand + ')' : '';
 J.actions.log_food = async a => {
   if (!a.food) throw ask('Quel aliment dois-je ajouter ?');
-  const f = await findFood(a.food);
+  // cru ou cuit ? (200 g de riz cru ≈ 700 kcal, cuit ≈ 280 kcal) : précisé dans l'aliment, sinon dans le message de l'utilisateur
+  let food = String(a.food).trim();
+  const need = food.match(NEEDS_STATE);
+  // l'IA ajoute parfois « cuit » d'elle-même : un état que l'utilisateur n'a pas dit ne compte pas
+  if (need && stateOf(food) && J.chatRecentText !== undefined && !stateOf(J.chatRecentText)) food = food.replace(STATE_RX, '').replace(/\s+/g, ' ').trim();
+  if (need && !stateOf(food)) {
+    const said = stateOf(J.chatRecentText || '');
+    if (said) food += ' ' + said;
+    else {
+      // habitude connue (ex. toujours « Riz blanc, cuit ») : on la suit ; aucune, ou cru ET cuit déjà saisis : on demande
+      const mine = [...S().favs, ...S().recents, ...S().foods].filter(x => match(x, tokens(food)) >= .99);
+      const habit = mine.length && mine.every(x => isRaw(x.name)) ? 'cru' : mine.length && mine.every(x => isCooked(x.name)) ? 'cuit' : '';
+      if (habit) food += ' ' + habit;
+      else {
+        await loadCiqual();
+        const kc = q => { const x = searchCiqual(q)[0]; return x && norm(x.name).includes(norm(need[0]).split(' ')[0]) ? Math.round(x.per100.kcal) : null; };
+        const cru = kc(food + ' cru'), cuit = kc(food + ' cuit');
+        const qty = parseFloat(a.grams) > 0 ? `Les ${fmt(parseFloat(a.grams))} g de ${food}` : `Pour ${/^[aeiouyhéè]/i.test(food) ? 'l\'' : 'le '}${food}`;
+        throw ask(`${qty}, c'est pesé cru ou cuit ?${cru && cuit && Math.abs(cru - cuit) > 30 ? ` Ça change beaucoup : ${cru} kcal cru contre ${cuit} cuit, pour 100 g.` : ''}${parseFloat(a.grams) > 0 || parseFloat(a.portions) > 0 ? '' : ' Et quelle quantité ?'}`);
+      }
+    }
+  }
+  const f = await findFood(food);
   if (!f) throw ask(`Je ne trouve pas « ${a.food} ». Pouvez-vous préciser le nom (ou la marque) ?`);
   let g = parseFloat(String(a.grams ?? '').replace(',', '.'));
   const portions = parseFloat(String(a.portions ?? '').replace(',', '.'));

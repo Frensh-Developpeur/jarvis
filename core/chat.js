@@ -16,6 +16,7 @@ const SUGG = [
   'Fais-moi le bilan de ma semaine',
 ];
 const WD = ['dimanche', 'lundi', 'mardi', 'mercredi', 'jeudi', 'vendredi', 'samedi'];
+const norm = s => String(s || '').toLowerCase().normalize('NFD').replace(/[\u0300-\u036f]/g, '');
 const dk = d => d.getFullYear() + '-' + String(d.getMonth()+1).padStart(2,'0') + '-' + String(d.getDate()).padStart(2,'0');
 
 let msgs = [], busy = false, viaVoice = false;
@@ -61,6 +62,7 @@ function partialReply(raw){
 }
 function finalReply(raw){
   let r = null;
+  raw = raw.replace(/\\'/g, "'");   // échappement invalide parfois produit par l'IA (C\'est)
   try { r = JSON.parse(raw); } catch(e) { try { r = JSON.parse(raw.slice(raw.indexOf('{'), raw.lastIndexOf('}') + 1)); } catch(e2) {} }
   if (!r || typeof r !== 'object') return {reply:partialReply(raw), actions:[]};
   return {reply:String(r.reply || ''), actions:Array.isArray(r.actions) ? r.actions.filter(a => a && typeof a.type === 'string').slice(0, 8) : []};
@@ -104,20 +106,31 @@ async function send(text, opts = {}){
   try {
     const now = new Date();
     const payload = {
-      messages:msgs.slice(-10).map(m => ({role:m.role, content:m.content})),
+      // les actions déjà faites sont rappelées à l'IA, sinon elle les refait en répondant à la question suivante
+      messages:msgs.slice(-10).map(m => ({role:m.role, content:m.content + ((m.acts || []).some(a => a.ok) ? ` [déjà fait : ${m.acts.filter(a => a.ok).map(a => a.text).join(' ; ')}]` : '')})),
       context:context(), name:(J.prefs() || {}).name || 'Monsieur', calendar:calendar(),
       now:`${WD[now.getDay()]} ${now.toLocaleDateString('fr-FR', {day:'numeric', month:'long', year:'numeric'})}, ${now.toLocaleTimeString('fr-FR', {hour:'2-digit', minute:'2-digit'})}`,
     };
     // la réponse s'affiche mot à mot pendant que l'IA l'écrit
     const live = t => { if (fromHub) J.say(t, true); else liveBubble(t); };
     const r = await stream(payload, live);
-    reply = r.reply || '';
+    reply = (r.reply || '').trim().length > 3 ? r.reply.trim() : '';   // l'IA renvoie parfois une réponse tronquée (« C »)
+    // ce que l'utilisateur vient de dire (dernière question + réponse) : les actions y vérifient une précision (« cuit », « cru »…)
+    J.chatRecentText = msgs.filter(m => m.role === 'user').slice(-2).map(m => m.content).join(' ');
+    // garde-fou : une action déjà faite plus haut dans la conversation n'est pas refaite,
+    // sauf si le dernier message en reparle (« encore 200 g de riz »)
+    const mainOf = a => norm(String(a.food || a.label || a.title || a.name || '')).split(/\s+/)[0];
+    const sigOf = a => [a.type, mainOf(a), a.grams || a.portions || a.amount || a.kg || '', a.due || ''].join('|');
+    const done = new Set(msgs.slice(-12).flatMap(m => (m.acts || []).filter(x => x.ok && x.sig).map(x => x.sig)));
+    const said = norm(text);
     for (const a of r.actions || []) {
+      const sig = sigOf(a), main = mainOf(a);
+      if (done.has(sig) && !(main && said.includes(main))) continue;
       if (a.type === 'briefing') { briefing = true; continue; }
       if (a.type === 'open') { if (J.modules.some(m => m.id === a.module)) acts.push({ok:true, text:'Ouvrir ' + J.modules.find(m => m.id === a.module).name, go:a.module}); continue; }
       const fn = J.actions && J.actions[a.type];
       if (!fn) continue;
-      try { const res = await fn(a); acts.push({ok:true, text:res.text || res, go:res.go}); }
+      try { const res = await fn(a); acts.push({ok:true, text:res.text || res, go:res.go, sig}); }
       catch(e) { if (e.ask) asks.push(e.ask); else acts.push({ok:false, text:e.message}); }
     }
     // une information manque : Jarvis pose la question au lieu d'annoncer une action qui n'a pas eu lieu
@@ -127,7 +140,7 @@ async function send(text, opts = {}){
   } catch(e) {
     reply = e.status === 429 ? 'Nous avons beaucoup discuté aujourd\'hui : le quota gratuit de l\'IA est atteint. Revenons-en demain.' : (e.message || 'Liaison interrompue avec le serveur.');
   }
-  busy = false;
+  busy = false; delete J.chatRecentText;
   if (briefing) { reply = J.briefingSpeech(); }
   msgs.push({role:'assistant', content:reply, acts}); persist();
   if (fromHub) {

@@ -27,8 +27,24 @@ RÈGLES :
 - Pour chaque demande d'action de l'utilisateur, ajoute une entrée dans actions (plusieurs demandes = plusieurs actions).
 - N'invente JAMAIS de chiffres : ne calcule pas de nouveaux soldes ou totaux après une action (l'application affiche les résultats). Pour une question, réponds uniquement à partir du CONTEXTE ; si l'information n'y est pas, dis-le simplement.
 - Montants en euros sous forme de nombre (12.5). Dates au format AAAA-MM-JJ, heures HH:MM.
-- INFORMATION MANQUANTE : si une donnée obligatoire manque (quantité d'un aliment, montant d'une dépense ou d'un revenu, titre d'une tâche, poids), ne crée PAS l'action et ne dis pas que c'est fait : pose une question courte dans reply. Quand l'utilisateur répond, crée l'action complète en t'appuyant sur l'historique de la conversation.
+- INFORMATION MANQUANTE : si une donnée obligatoire manque (montant ou objet d'une dépense ou d'un revenu, titre d'une tâche, poids ; pour un aliment, voir plus bas), ne crée PAS l'action et ne dis pas que c'est fait : pose une question courte dans reply. Quand l'utilisateur répond, crée l'action complète en t'appuyant sur l'historique de la conversation.
 - Pour un aliment, si l'utilisateur parle de doses, portions, scoops ou « une barre », mets "portions" (nombre) au lieu de "grams".
+- VA AU BOUT DE LA RÉFLEXION, comme un vrai majordome : avant d'agir, demande-toi ce qui changerait vraiment le résultat et que tu ne sais pas. Exemples :
+  · « rappelle-moi… » sans heure ou sans jour : demande quand ;
+  · une dépense dont le montant ou l'objet n'est pas clair : demande.
+  Regroupe tout ce qui manque en UNE seule question courte. Ne demande pas ce qui ne change rien (repas déduit de l'heure ou de « ce soir », catégorie évidente, marque).
+- Aliments : ne pose JAMAIS toi-même la question « cru ou cuit » et ne devine jamais l'état. Crée log_food en recopiant les mots de l'utilisateur dans "food" (« riz », « pâtes crues », « poulet grillé »), même si la quantité manque (grams null) : l'application vérifie et pose elle-même les questions (état, quantité).
+- Ne demande JAMAIS la date (aujourd'hui par défaut), ni le repas (déduit de l'heure ou des mots « midi », « ce soir »…), ni la catégorie d'une dépense (déduis-la de l'objet). « balles » = euros.
+- Quand l'utilisateur répond à ta question, crée l'action COMPLÈTE avec toutes les informations de la conversation (aliment + état + quantité + repas).
+- Ce qui est marqué [déjà fait : …] dans l'historique est enregistré : ne le recrée JAMAIS. N'ajoute que ce qui est demandé dans le dernier message (ou la réponse à ta dernière question).
+- Si l'utilisateur précise lui-même un détail, crois-le et agis : ne remets jamais en question une précision donnée.
+EXEMPLES :
+Utilisateur : « ajoute 200 g de riz pour ce soir » → {"reply":"C'est noté.","actions":[{"type":"log_food","food":"riz","grams":200,"portions":null,"meal":"din"}]}
+(l'application a demandé « cru ou cuit ? ») Utilisateur : « cuit » → {"reply":"C'est noté.","actions":[{"type":"log_food","food":"riz cuit","grams":200,"portions":null,"meal":"din"}]}
+Utilisateur : « 150 g de pâtes crues ce midi » → {"reply":"C'est noté.","actions":[{"type":"log_food","food":"pâtes crues","grams":150,"portions":null,"meal":"dej"}]}
+Utilisateur : « rappelle-moi d'appeler maman » → {"reply":"Entendu. Pour quand ?","actions":[]}
+Utilisateur : « j'ai dépensé 30 balles » → {"reply":"Pour quoi, Monsieur ?","actions":[]}
+Utilisateur : « essence » → {"reply":"C'est noté.","actions":[{"type":"add_expense","amount":30,"label":"Essence","category":"Transport"}]}
 TYPES D'ACTIONS :
 {"type":"add_expense","amount":12.5,"label":"Resto midi","category":"Courses|Restaurants|Transport|Loisirs|Shopping|Santé|Abonnements|Factures|Logement|Épargne|Crédit|Autre","date":"AAAA-MM-JJ (facultatif)"}
 {"type":"add_income","amount":100,"label":"...","category":"Salaire|Prime|Remboursement|Vente|Cadeau|Autre","date":"facultatif"}
@@ -608,7 +624,7 @@ const routes = {
     const stream = new URL(req.url).searchParams.has('stream');
     let out;
     try {
-      out = await env.AI.run(CHAT_MODEL, { messages: [{ role: 'system', content: system }, ...history], max_tokens: 600, temperature: 0.5, stream,
+      out = await env.AI.run(CHAT_MODEL, { messages: [{ role: 'system', content: system }, ...history], max_tokens: 600, temperature: 0.3, stream,
         response_format: { type: 'json_schema', json_schema: { type: 'object', properties: { reply: { type: 'string' }, actions: { type: 'array', items: { type: 'object' } } }, required: ['reply', 'actions'] } } });
     } catch (e) {
       console.log('chat IA', e.message);
