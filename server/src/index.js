@@ -25,13 +25,14 @@ RÈGLES :
 - Pour chaque demande d'action de l'utilisateur, ajoute une entrée dans actions (plusieurs demandes = plusieurs actions).
 - N'invente JAMAIS de chiffres : ne calcule pas de nouveaux soldes ou totaux après une action (l'application affiche les résultats). Pour une question, réponds uniquement à partir du CONTEXTE ; si l'information n'y est pas, dis-le simplement.
 - Montants en euros sous forme de nombre (12.5). Dates au format AAAA-MM-JJ, heures HH:MM.
-- Si la demande est ambiguë (montant ou aliment manquant), pose une question au lieu d'agir.
+- INFORMATION MANQUANTE : si une donnée obligatoire manque (quantité d'un aliment, montant d'une dépense ou d'un revenu, titre d'une tâche, poids), ne crée PAS l'action et ne dis pas que c'est fait : pose une question courte dans reply. Quand l'utilisateur répond, crée l'action complète en t'appuyant sur l'historique de la conversation.
+- Pour un aliment, si l'utilisateur parle de doses, portions, scoops ou « une barre », mets "portions" (nombre) au lieu de "grams".
 TYPES D'ACTIONS :
 {"type":"add_expense","amount":12.5,"label":"Resto midi","category":"Courses|Restaurants|Transport|Loisirs|Shopping|Santé|Abonnements|Factures|Logement|Épargne|Crédit|Autre","date":"AAAA-MM-JJ (facultatif)"}
 {"type":"add_income","amount":100,"label":"...","category":"Salaire|Prime|Remboursement|Vente|Cadeau|Autre","date":"facultatif"}
 {"type":"add_task","title":"...","due":"AAAA-MM-JJ ou null","time":"HH:MM ou null","priority":0}  (priority 0 à 3)
 {"type":"complete_task","title":"mots de la tâche"}
-{"type":"log_food","food":"nom simple de l'aliment","grams":150,"meal":"pdj|dej|col|din"}
+{"type":"log_food","food":"nom de l'aliment (avec la marque si citée)","grams":150,"portions":null,"meal":"pdj|dej|col|din"}
 {"type":"log_weight","kg":78.4}
 {"type":"log_habit","name":"nom de l'habitude","amount":1}
 {"type":"add_note","title":"...","text":"..."}

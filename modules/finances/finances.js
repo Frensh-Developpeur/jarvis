@@ -789,8 +789,8 @@ function bind(){
 /* ---------- Jarvis qui discute : actions et contexte ---------- */
 const nrm = s => String(s || '').toLowerCase().normalize('NFD').replace(/[\u0300-\u036f]/g, '');
 function chatAddTx(type, a){
-  const amount = r2(Math.abs(parseFloat(String(a.amount).replace(',', '.'))));
-  if (!(amount > 0)) throw new Error('montant manquant');
+  const amount = r2(Math.abs(parseFloat(String(a.amount ?? '').replace(',', '.'))));
+  if (!(amount > 0)) { const m = `Quel est le montant ${type === 'in' ? 'reçu' : 'dépensé'}${a.label ? ' pour « ' + a.label + ' »' : ''} ?`; throw Object.assign(new Error(m), {ask:m}); }
   const cats = Object.keys(CAT[type]);
   /* les mots du libellé priment sur la catégorie devinée par l'IA */
   const KW = {Transport:/essence|carbur|gasoil|diesel|peage|parking|train|sncf|uber|taxi|bus|metro|navigo|velo|trottinette/, Restaurants:/resto|restaurant|mcdo|burger|kebab|pizza|sushi|cafe|bar |brasserie|livraison|deliveroo|uber ?eats/,

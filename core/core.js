@@ -8,7 +8,7 @@
    ============================================================ */
 'use strict';
 (() => {
-const APP_VERSION = '30';
+const APP_VERSION = '31';
 const API = location.hostname === 'localhost' ? 'http://localhost:8787' : 'https://jarvis-api.frensh-developpeur.workers.dev';
 const APP_URL = 'https://frensh-developpeur.github.io/jarvis/';
 
@@ -281,16 +281,29 @@ new MutationObserver(muts => muts.forEach(m => m.addedNodes.forEach(n => { if (n
 /* saisie de texte : la barre d'onglets et le bouton + s'effacent (sinon iOS les fait flotter au-dessus du clavier),
    et à la fermeture du clavier on remet l'écran d'aplomb (iOS laisse parfois la vue décalée) */
 const isTextField = el => el && el.matches && el.matches('input:not([type=checkbox]):not([type=radio]):not([type=file]):not([type=range]),textarea,select');
-let typingT = 0;
-document.addEventListener('focusin', e => { if (isTextField(e.target)) { clearTimeout(typingT); document.body.classList.add('typing'); } });
+let typingT = 0, focusY = null;
+document.addEventListener('focusin', e => {
+  if (!isTextField(e.target)) return;
+  clearTimeout(typingT); document.body.classList.add('typing');
+  // champ dans la page (pas dans une feuille) : on retient où était la page avant qu'iOS la fasse remonter
+  if (!e.target.closest('.sheet') && focusY === null) focusY = window.scrollY;
+});
 document.addEventListener('focusout', () => {
   clearTimeout(typingT);
   typingT = setTimeout(() => {
     if (isTextField(document.activeElement)) return;
     document.body.classList.remove('typing');
     onViewport();
-    if (!openSheetEl) window.scrollTo(window.scrollX, window.scrollY);
-  }, 150);
+    if (!openSheetEl) {
+      // clavier fermé : la page revient exactement où elle était (iOS la laisse sinon décalée)
+      const y = focusY !== null ? focusY : window.scrollY; focusY = null;
+      window.scrollTo(0, y);
+      setTimeout(() => {   // une 2e fois, après l'animation du clavier ; en mode écran d'accueil iOS peut décaler la zone visible
+        window.scrollTo(0, y);
+        if (vv && vv.offsetTop > 0) { window.scrollTo(0, y + 1); window.scrollTo(0, y); }
+      }, 350);
+    } else focusY = null;
+  }, 120);
 });
 /* dans une feuille, le champ actif est ramené dans la zone visible (le reste de l'app : iOS s'en charge seul) */
 document.addEventListener('focusin', e => {

@@ -789,24 +789,56 @@ function spoken(k){
 
 /* ---------- Jarvis qui discute ---------- */
 J.actions = J.actions || {};
-J.actions.log_food = async a => {
-  const g = parseFloat(String(a.grams).replace(',', '.')); if (!(g > 0)) throw new Error('quantité manquante');
+const ask = (msg) => Object.assign(new Error(msg), {ask:msg});
+/* score de correspondance : part des mots demandés présents dans le nom + la marque */
+const tokens = q => norm(q).split(/[^a-z0-9]+/).filter(w => w.length > 2 && !['avec', 'les', 'des', 'une', 'barre', 'barres', 'dose', 'doses'].includes(w));
+const match = (f, toks) => { const hay = norm(f.name + ' ' + (f.brand || '')); return toks.length ? toks.filter(w => hay.includes(w) || hay.includes(w.slice(0, 5))).length / toks.length : 0; };
+async function findFood(name){
+  const toks = tokens(name);
+  // 1. ce que l'utilisateur a déjà mangé (récents, favoris, aliments perso) : le plus fiable
+  const mine = [...S().favs, ...S().recents, ...S().foods].map(f => [f, match(f, toks)]).sort((a, b) => b[1] - a[1])[0];
+  if (mine && mine[1] >= .99) return mine[0];
+  // 2. aliments de base CIQUAL
   await loadCiqual();
-  let f = searchCiqual(String(a.food || ''))[0];
-  if (f) { // on préfère la version cuite / nature quand elle existe
-    const alt = searchCiqual(a.food + ' cuit')[0] || searchCiqual(a.food + ' nature')[0];
-    if (alt && norm(alt.name).split(/[ ,]/)[0] === norm(f.name).split(/[ ,]/)[0]) f = alt;
+  let f = searchCiqual(String(name || ''))[0];
+  if (f) {   // on préfère la version cuite / nature / filet quand elle existe
+    const first = norm(f.name).split(/[ ,]/)[0];
+    const alt = [name + ' filet', name + ' cuit', name + ' nature'].map(q => searchCiqual(q)[0]).find(x => x && norm(x.name).split(/[ ,]/)[0] === first);
+    return alt || f;
   }
-  if (!f) { try { const {items: list} = await J.api('GET', '/api/food/search?q=' + encodeURIComponent(a.food)); if (list[0]) f = Object.assign(list[0], {src:'off'}); } catch(e) {} }
-  if (!f) throw new Error('aliment introuvable : ' + a.food);
+  // 3. produits de marque (Open Food Facts) : on garde le résultat qui correspond le mieux aux mots demandés
+  const words = String(name).trim().split(/\s+/);
+  const tries = [words.join(' '), toks.join(' '), [...words].reverse().join(' ')].filter((q, i, arr) => q && arr.indexOf(q) === i);
+  let best = null;
+  for (const q of tries) {
+    try {
+      const {items: list} = await J.api('GET', '/api/food/search?q=' + encodeURIComponent(q));
+      list.forEach(x => { const sc = match(x, toks) + (x.serving ? .05 : 0); if (!best || sc > best[1]) best = [Object.assign(x, {src:'off'}), sc]; });
+      if (best && best[1] >= .99) break;
+    } catch(e) {}
+  }
+  if (best && best[1] >= .5) return best[0];
+  return mine && mine[1] >= .5 ? mine[0] : null;
+}
+const brandOf = f => f.brand && !norm(f.name).includes(norm(f.brand)) ? ' (' + f.brand + ')' : '';
+J.actions.log_food = async a => {
+  if (!a.food) throw ask('Quel aliment dois-je ajouter ?');
+  const f = await findFood(a.food);
+  if (!f) throw ask(`Je ne trouve pas « ${a.food} ». Pouvez-vous préciser le nom (ou la marque) ?`);
+  let g = parseFloat(String(a.grams ?? '').replace(',', '.'));
+  const portions = parseFloat(String(a.portions ?? '').replace(',', '.'));
+  const unit = f.serving || f.lastG;   // portion de l'emballage, sinon la quantité habituelle de l'utilisateur
+  if (!(g > 0) && portions > 0 && unit) g = portions * unit;
+  if (!(g > 0) && portions > 0) throw ask(`Combien de grammes fait une dose de ${f.name.split(',')[0]}${brandOf(f)} ? (souvent 25 à 30 g pour une protéine en poudre) Je m'en souviendrai pour les prochaines fois.`);
+  if (!(g > 0)) throw ask(`Quelle quantité de ${f.name.split(',')[0]}${brandOf(f)} avez-vous prise ?${f.serving ? ` Une portion fait ${fmt(f.serving)} g.` : f.lastG ? ` D'habitude, vous en prenez ${fmt(f.lastG)} g.` : ' En grammes, s\'il vous plaît.'}`);
   const meal = ['pdj', 'dej', 'col', 'din'].includes(a.meal) ? a.meal : defaultMeal();
   const d = S().days[today()] = S().days[today()] || {items:[]};
   d.items.push({id:uid(), meal, name:f.name, brand:f.brand || '', g, per100:f.per100, src:f.src || 'ciqual', code:f.code || null});
   remember(f, g); prune(); save(); render();
-  return {text:`${f.name.split(',').slice(0, 2).join(',')} · ${fmt(g)} g · ${fmt(f.per100.kcal * g / 100)} kcal (${MEALS.find(m => m.id === meal).name.toLowerCase()})`, go:'nutrition'};
+  return {text:`${f.name.split(',').slice(0, 2).join(',')}${brandOf(f)} · ${fmt(g)} g · ${fmt(f.per100.kcal * g / 100)} kcal (${MEALS.find(m => m.id === meal).name.toLowerCase()})`, go:'nutrition'};
 };
 J.actions.log_weight = a => {
-  const kg = parseFloat(String(a.kg).replace(',', '.')); if (!(kg > 25 && kg < 300)) throw new Error('poids invalide');
+  const kg = parseFloat(String(a.kg ?? '').replace(',', '.')); if (!(kg > 25 && kg < 300)) throw ask('Quel est votre poids, en kilos ?');
   S().weights[today()] = Math.round(kg * 10) / 10; if (S().profile) S().profile.kg = S().weights[today()];
   save(); render();
   return {text:`Pesée : ${g1(kg)} kg`, go:'nutrition'};

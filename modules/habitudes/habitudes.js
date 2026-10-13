@@ -289,7 +289,7 @@ J.actions = J.actions || {};
 J.actions.log_habit = a => {
   const words = nrm(a.name).split(/\s+/).filter(w => w.length > 2);
   const h = habits().map(h => [h, words.filter(w => nrm(h.name).includes(w)).length]).filter(x => x[1]).sort((a, b) => b[1] - a[1])[0];
-  if (!h) throw new Error('habitude introuvable : ' + a.name);
+  if (!h) throw Object.assign(new Error('habitude introuvable'), {ask:`Je ne trouve pas d'habitude « ${a.name} ». Voulez-vous que je la crée dans le module Habitudes ?`});
   const hb = h[0], k = today(), add = Math.max(1, +a.amount || (hb.target > 1 ? 1 : hb.target));
   setValue(hb, k, Math.min(hb.target * 3, manual(hb, k) + add)); render();
   return {text:`${hb.icon} ${hb.name} : ${value(hb, k)}/${hb.target}${isDone(hb, k) ? ' ✓' : ''}`, go:'habitudes'};

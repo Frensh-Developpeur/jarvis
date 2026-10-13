@@ -60,7 +60,7 @@ async function send(text, opts = {}){
   if (fromHub) { $('#hubReactor').classList.add('thinking'); J.say('…'); $('#hubActs').innerHTML = ''; }
   else { render(); $('#chatIn').value = ''; autosize(); }
   let briefing = false;
-  let reply = '', acts = [];
+  let reply = '', acts = [], asks = [];
   try {
     const now = new Date();
     const r = await J.api('POST', '/api/chat', {
@@ -75,8 +75,10 @@ async function send(text, opts = {}){
       const fn = J.actions && J.actions[a.type];
       if (!fn) continue;
       try { const res = await fn(a); acts.push({ok:true, text:res.text || res, go:res.go}); }
-      catch(e) { acts.push({ok:false, text:e.message}); }
+      catch(e) { if (e.ask) asks.push(e.ask); else acts.push({ok:false, text:e.message}); }
     }
+    // une information manque : Jarvis pose la question au lieu d'annoncer une action qui n'a pas eu lieu
+    if (asks.length) reply = (acts.some(x => x.ok) ? 'C\'est noté pour le reste. ' : '') + asks.join(' ');
     if (!reply) reply = acts.length ? 'C\'est fait.' : 'Je n\'ai pas bien compris, pouvez-vous reformuler ?';
     if (acts.some(a => a.ok)) J.haptic();
   } catch(e) {

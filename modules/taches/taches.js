@@ -437,7 +437,7 @@ function openListSheet(l){
 /* ---------- Jarvis qui discute ---------- */
 J.actions = J.actions || {};
 J.actions.add_task = a => {
-  const title = String(a.title || '').trim(); if (!title) throw new Error('titre manquant');
+  const title = String(a.title || '').trim(); if (!title) throw Object.assign(new Error('Quelle tâche dois-je ajouter ?'), {ask:'Quelle tâche dois-je ajouter ?'});
   const due = /^\d{4}-\d{2}-\d{2}$/.test(a.due || '') ? a.due : null, time = /^\d{1,2}:\d{2}$/.test(a.time || '') ? a.time.padStart(5, '0') : null;
   const l = a.list && S().lists.find(x => norm(x.name) === norm(a.list));
   const t = addTask({title:title.charAt(0).toUpperCase() + title.slice(1), due:due || (time ? today() : null), time, prio:Math.max(0, Math.min(3, +a.priority || 0)), list:l ? l.id : 'perso'});
@@ -447,7 +447,7 @@ J.actions.add_task = a => {
 J.actions.complete_task = a => {
   const words = norm(a.title || '').split(/\s+/).filter(w => w.length > 2);
   const t = active().map(t => [t, words.filter(w => norm(t.title).includes(w)).length]).filter(x => x[1]).sort((a, b) => b[1] - a[1])[0];
-  if (!t) throw new Error('tâche introuvable');
+  if (!t) throw Object.assign(new Error('tâche introuvable'), {ask:`Je ne trouve pas de tâche correspondant à « ${a.title} ». Laquelle est-ce ?`});
   complete(t[0]);
   return {text:`Terminée : ${t[0].title}`, go:'taches'};
 };
