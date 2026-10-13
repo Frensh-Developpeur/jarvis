@@ -880,6 +880,7 @@ J.module({
     bind(); render();
     J.say(status(cur));
   },
+  onShow(){ render(); J.say(status(cur)); },
   unmount(){ root = null; fixed = null; },
 });
 })();

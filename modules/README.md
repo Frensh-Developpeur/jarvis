@@ -12,6 +12,7 @@ J.module({
   id: 'nutrition',              // identifiant unique (minuscules) — sert aussi de clé de stockage
   code: '02',                   // numéro affiché sur la tuile
   name: 'Nutrition',
+  short: 'Nutrition',           // libellé dans la barre d'onglets (facultatif)
   tagline: 'Compteur de calories',
   accent: '#4dffc3',            // couleur de l'icône sur le hub
   cls: 'nut',                   // classe CSS posée sur la vue (pour préfixer tes styles)
@@ -31,13 +32,19 @@ J.module({
     root.innerHTML = '…';
     J.say('Module nutrition en ligne.');
   },
-  unmount() { root = fixed = null; },
+  onShow() { render(); },       // retour sur l'onglet : l'écran est conservé, on rafraîchit seulement
+  unmount() { root = fixed = null; },   // appelé uniquement à la déconnexion
 });
 })();
 ```
 
 Modifier les données : `st.data.meals.push(…); st.save();` — c'est enregistré sur le téléphone
 et envoyé au serveur automatiquement.
+
+## Règles
+- Chaque écran de module reste en mémoire : toujours chercher les éléments dans `root` ou `fixed`
+  (`$('#id', root)`), jamais dans tout le document, et préfixer ses id (ex. `nAdd`, `mPick`).
+- Une seule source de vérité : `st.data`, modifiée puis `st.save()`.
 
 ## 2. L'enregistrer
 Dans `index.html` : ajouter `<script src="modules/<id>/<id>.js">` (et le `<link>` CSS),

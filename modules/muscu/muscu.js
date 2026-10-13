@@ -315,18 +315,18 @@ function finishSession(){
   const prs = [];
   a.ex.forEach(e => { const before = bestE1(e.id, a.start), now = Math.max(...doneSets(e).map(s => e1rm(n(s.kg), n(s.reps)))); if (before > 0 && now > before + .01) prs.push({name:e.name, from:before, to:now}); });
   a.prs = prs.length || 0;
-  fq('#fSum').innerHTML = `
+  fq('#mFSum').innerHTML = `
     <div class="fs-big"><div><b>${dur(a)}</b><small>MINUTES</small></div><div><b>${a.ex.reduce((x, e) => x + e.sets.length, 0)}</b><small>SÉRIES</small></div><div><b>${fmt(volume(a))}</b><small>KG SOULEVÉS</small></div></div>
     ${prs.length ? `<div class="fs-pr"><b>🏆 ${prs.length} nouveau${prs.length > 1 ? 'x' : ''} record${prs.length > 1 ? 's' : ''}</b>${prs.map(p => `<span>${esc(p.name)} : ${fmt(p.from)} → <b>${fmt(p.to)} kg</b> (1RM estimé)</span>`).join('')}</div>` : ''}`;
-  fq('#fRoutine').checked = false; fq('#fRoutineF').hidden = true;
-  fq('#fRoutineName').value = a.name;
+  fq('#mFRoutine').checked = false; fq('#mFRoutineF').hidden = true;
+  fq('#mFRoutineName').value = a.name;
   pendingFinish = a;
   J.openSheet(fq('#mFinish'));
 }
 let pendingFinish = null;
 function confirmFinish(){
   const a = pendingFinish; if (!a) return;
-  if (fq('#fRoutine').checked) S().routines.push({id:uid(), name:fq('#fRoutineName').value.trim() || a.name, ex:a.ex.map(e => ({id:e.id, name:e.name, sets:e.sets.length}))});
+  if (fq('#mFRoutine').checked) S().routines.push({id:uid(), name:fq('#mFRoutineName').value.trim() || a.name, ex:a.ex.map(e => ({id:e.id, name:e.name, sets:e.sets.length}))});
   S().sessions.push(a); S().active = null; pendingFinish = null;
   stopRest(); clearInterval(tick);
   save(); J.closeSheet(); J.haptic(); render();
@@ -424,11 +424,11 @@ const FIXED = `
   <div class="sheet mus" id="mFinish" role="dialog" aria-label="Fin de séance">
     <div class="grab"></div>
     <h2>SÉANCE TERMINÉE</h2>
-    <div id="fSum"></div>
-    <div class="toggle"><span>Enregistrer comme routine<small>Pour la relancer en un geste</small></span><label class="sw"><input type="checkbox" id="fRoutine"><i></i></label></div>
-    <div class="field" id="fRoutineF"><input id="fRoutineName" maxlength="30" autocomplete="off" placeholder="Nom de la routine"></div>
-    <button class="btn primary" id="fSave">ENREGISTRER LA SÉANCE</button>
-    <button class="btn ghost" id="fBack">CONTINUER LA SÉANCE</button>
+    <div id="mFSum"></div>
+    <div class="toggle"><span>Enregistrer comme routine<small>Pour la relancer en un geste</small></span><label class="sw"><input type="checkbox" id="mFRoutine"><i></i></label></div>
+    <div class="field" id="mFRoutineF"><input id="mFRoutineName" maxlength="30" autocomplete="off" placeholder="Nom de la routine"></div>
+    <button class="btn primary" id="mFSave">ENREGISTRER LA SÉANCE</button>
+    <button class="btn ghost" id="mFBack">CONTINUER LA SÉANCE</button>
   </div>
 
   <div class="sheet mus" id="mMenu" role="dialog" aria-label="Options">
@@ -541,9 +541,9 @@ function bind(){
   });
 
   /* fin de séance */
-  fq('#fRoutine').addEventListener('change', e => { fq('#fRoutineF').hidden = !e.target.checked; });
-  fq('#fSave').addEventListener('click', confirmFinish);
-  fq('#fBack').addEventListener('click', () => { pendingFinish = null; J.closeSheet(); });
+  fq('#mFRoutine').addEventListener('change', e => { fq('#mFRoutineF').hidden = !e.target.checked; });
+  fq('#mFSave').addEventListener('click', confirmFinish);
+  fq('#mFBack').addEventListener('click', () => { pendingFinish = null; J.closeSheet(); });
 
   /* menus */
   fq('#mMenuB').addEventListener('click', e => {
@@ -576,6 +576,7 @@ J.module({
   code: '04',
   order: 18,
   name: 'Musculation',
+  short: 'Muscu',
   tagline: 'Séances, charges et progression',
   accent: '#ffb347',
   cls: 'mus',
@@ -611,6 +612,7 @@ J.module({
     J.say(status());
     loadLib();
   },
+  onShow(){ render(); if (S().active) startTick(); J.say(status()); },
   unmount(){ clearInterval(tick); stopRest(); root = null; fixed = null; },
 });
 })();

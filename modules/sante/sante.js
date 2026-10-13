@@ -120,6 +120,7 @@ J.module({
       if (e.target.id === 'gEnergy') { G().energyGoal = Math.max(50, parseInt(e.target.value) || 400); goals.save(); render(); }
     });
   },
+  onShow(){ render(); J.say(message()); },
   unmount(){ root = null; },
 });
 })();

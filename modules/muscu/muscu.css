@@ -67,7 +67,7 @@
 .mus .cancel{display:block;margin:18px auto 0;background:none;border:none;color:#ff8a7e;font-size:13.5px}
 
 /* minuteur de repos */
-.restbar{position:fixed;left:12px;right:12px;bottom:calc(var(--safe-b) + 14px);z-index:9;max-width:516px;margin:0 auto;border-radius:18px;background:rgba(8,22,33,.92);border:1px solid rgba(255,179,71,.35);box-shadow:0 10px 30px rgba(0,0,0,.6),0 0 20px rgba(255,179,71,.15);backdrop-filter:blur(12px);-webkit-backdrop-filter:blur(12px);overflow:hidden}
+.restbar{position:fixed;left:12px;right:12px;bottom:calc(var(--safe-b) + 72px);z-index:9;max-width:516px;margin:0 auto;border-radius:18px;background:rgba(8,22,33,.92);border:1px solid rgba(255,179,71,.35);box-shadow:0 10px 30px rgba(0,0,0,.6),0 0 20px rgba(255,179,71,.15);backdrop-filter:blur(12px);-webkit-backdrop-filter:blur(12px);overflow:hidden}
 .rb-bar{height:3px;background:rgba(255,179,71,.12)}
 .rb-bar i{display:block;height:100%;background:var(--gold);box-shadow:0 0 8px var(--gold);transition:width .25s linear}
 .rb-row{display:flex;align-items:center;gap:8px;padding:10px 12px 10px 16px}

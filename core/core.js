@@ -8,7 +8,7 @@
    ============================================================ */
 'use strict';
 (() => {
-const APP_VERSION = '18';
+const APP_VERSION = '19';
 const API = location.hostname === 'localhost' ? 'http://localhost:8787' : 'https://jarvis-api.frensh-developpeur.workers.dev';
 const APP_URL = 'https://frensh-developpeur.github.io/jarvis/';
 
@@ -75,6 +75,7 @@ function setSession(s){
 function logout(expired){
   if (session) J.api('POST', '/api/logout').catch(() => {});
   session = null; ls.del('jarvis.session');
+  resetViews();
   stores.clear();
   closeSheet();
   showAuth();
@@ -307,42 +308,66 @@ J.module = (def) => { J.modules.push(Object.assign({soon:false, accent:'#3fe0ff'
 J.soon = (def) => J.module(Object.assign({soon:true}, def));
 
 let current = null;   // module ouvert, ou null pour le hub
-function showView(el, back){
-  $$('.view').forEach(v => v.classList.remove('active', 'back'));
-  el.classList.toggle('back', !!back);
+const scrollMem = {};  // position de défilement mémorisée par écran (comme les onglets iOS)
+function showView(el){
+  $$('.view').forEach(v => v.classList.remove('active'));
   el.classList.add('active');
-  window.scrollTo(0, 0);
 }
+function setTabbar(id){
+  $$('#tabbar [data-go]').forEach(b => b.classList.toggle('on', b.dataset.go === (id || '')));
+}
+function renderTabbar(){
+  const mods = J.modules.filter(m => !m.soon).sort((a, b) => a.code.localeCompare(b.code));
+  $('#tabbar').innerHTML = `<button data-go="" style="--acc:#3fe0ff"><svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.8"><circle cx="12" cy="12" r="8.5"/><circle cx="12" cy="12" r="3.5"/><path d="M12 3.5v3M12 17.5v3M3.5 12h3M17.5 12h3"/></svg><span>Accueil</span></button>` +
+    mods.map(m => `<button data-go="${m.id}" style="--acc:${m.accent}">${m.icon}<span>${esc(m.short || m.name)}</span></button>`).join('');
+  setTabbar(current ? current.id : '');
+}
+/* Navigation : chaque module garde son écran (état, onglet, défilement) d'une visite à l'autre */
 J.go = (id) => {
   closeSheet();
-  const mod = id && J.modules.find(m => m.id === id && !m.soon);
-  if (current && current.unmount) current.unmount();
+  const mod = id && J.modules.find(m => m.id === id && !m.soon) || null;
+  const from = current ? current.id : 'hub';
+  scrollMem[from] = window.scrollY;
+  if (mod === current && id) { window.scrollTo({top:0, behavior:'smooth'}); return; }   // toucher l'onglet actif = remonter en haut
+  current = mod;
+  history.replaceState(null, '', '#/' + (mod ? mod.id : ''));
+  setTabbar(mod ? mod.id : '');
   if (!mod) {
-    current = null;
-    history.replaceState(null, '', '#/');
-    showView($('#hub'), true);
+    showView($('#hub'));
     renderHub();
     J.say(hubMessage());
+    window.scrollTo(0, scrollMem.hub || 0);
+    if (updatePending) applyUpdate();
     return;
   }
-  current = mod;
-  history.replaceState(null, '', '#/' + mod.id);
-  const view = $('#modview');
-  view.className = 'view ' + (mod.cls || '');
-  view.innerHTML = `
-    <div class="wrap">
-      <header class="top">
-        <button class="back-btn" data-back>${ICON_BACK}JARVIS</button>
-        <div class="mod-title">${esc(mod.name.toUpperCase())}<small>MODULE ${esc(mod.code)}</small></div>
-      </header>
-      <div class="msg"></div>
-      <div class="mod-body"></div>
-    </div>
-    <div class="mod-fixed"></div>`;
-  showView(view);
-  mod.mount($('.mod-body', view), $('.mod-fixed', view));
+  let view = $('#mv-' + mod.id);
+  if (!view) {
+    view = document.createElement('section');
+    view.className = 'view ' + (mod.cls || '');
+    view.id = 'mv-' + mod.id;
+    view.innerHTML = `
+      <div class="wrap">
+        <header class="mhead"><span class="mh-ic" style="--acc:${mod.accent}">${mod.icon || ''}</span><div><h1>${esc(mod.name)}</h1><small>${esc(mod.tagline || '')}</small></div></header>
+        <div class="msg"></div>
+        <div class="mod-body"></div>
+      </div>
+      <div class="mod-fixed"></div>`;
+    $('#modviews').appendChild(view);
+    showView(view);
+    try { mod.mount($('.mod-body', view), $('.mod-fixed', view)); } catch(e) { report(mod.id + '.mount : ' + (e.stack || e)); }
+    window.scrollTo(0, 0);
+  } else {
+    showView(view);
+    try { if (mod.onShow) mod.onShow(); } catch(e) { report(mod.id + '.onShow : ' + (e.stack || e)); }
+    window.scrollTo(0, scrollMem[mod.id] || 0);
+  }
 };
-$('#modview').addEventListener('click', e => { if (e.target.closest('[data-back]')) { J.haptic(); J.go(null); } });
+function resetViews(){
+  J.modules.forEach(m => { if (m.unmount && $('#mv-' + m.id)) { try { m.unmount(); } catch(e) {} } });
+  $('#modviews').innerHTML = '';
+  current = null;
+}
+$('#tabbar').addEventListener('click', e => { const b = e.target.closest('[data-go]'); if (!b) return; J.haptic(); J.go(b.dataset.go || null); });
 
 /* glisser depuis le bord gauche = retour au hub */
 let edge = null;
@@ -551,6 +576,7 @@ let regUser = null;
 function authStep(name){ $$('#auth [data-step]').forEach(s => s.hidden = s.dataset.step !== name); A$('.auth-err').textContent = ''; }
 function authErr(t){ A$('.auth-err').textContent = t; }
 async function showAuth(){
+  document.body.classList.remove('in-app');
   showView($('#auth'));
   A$('#lUser').value = ls.get('jarvis.lastUser') || '';
   A$('#lCode').value = '';
@@ -623,7 +649,9 @@ function loadQR(){
    ============================================================ */
 async function enter(isNew){
   prefs = J.store('core', {name:'Monsieur', voice:true, voiceMode:'jarvis', voiceName:'george'});
-  J.modules.forEach(m => { if (!m.soon && m.init) m.init(); });
+  J.modules.forEach(m => { if (!m.soon && m.init) { try { m.init(); } catch(e) { report(m.id + '.init : ' + (e.stack || e)); } } });
+  renderTabbar();
+  document.body.classList.add('in-app');
   J.go(null);
   if (isNew) J.say(`Bienvenue ${session.user.username}. Compte activé${session.user.isAdmin ? ' avec les droits administrateur' : ''}. Où souhaitez-vous aller ?`);
   await J.sync();
@@ -656,9 +684,11 @@ async function checkUpdate(){
     if (v && v !== APP_VERSION) applyUpdate();
   } catch(e) {}
 }
-let updatePending = false;
+let updatePending = false, hiddenAt = 0;
+/* une nouvelle version ne recharge l'app qu'à un moment neutre : sur l'accueil, sans feuille ouverte */
 function applyUpdate(){
-  if (openSheetEl) { updatePending = true; return; }   // on n'interrompt pas une saisie
+  updatePending = true;
+  if (openSheetEl || current || document.querySelector('input:focus,textarea:focus')) return;
   const last = +sessionStorage.getItem('jarvis.reloadAt') || 0;
   if (Date.now() - last < 30000) return;               // évite une boucle si GitHub sert encore l'ancienne version
   sessionStorage.setItem('jarvis.reloadAt', Date.now());
@@ -668,13 +698,15 @@ if ('serviceWorker' in navigator && location.protocol.startsWith('http')) {
   navigator.serviceWorker.register('sw.js', {updateViaCache:'none'}).then(r => { swReg = r; }).catch(() => {});
 }
 document.addEventListener('visibilitychange', () => {
-  if (document.visibilityState !== 'visible') return;
+  if (document.visibilityState !== 'visible') { hiddenAt = Date.now(); return; }
+  // après une longue absence, on revient sur l'accueil (comme une app qui a été fermée)
+  if (session && current && hiddenAt && Date.now() - hiddenAt > 30 * 60e3 && !openSheetEl) J.go(null);
   checkUpdate();
   if (session) J.sync().then(() => { if (!current) renderHub(); });
 });
 window.addEventListener('pageshow', e => { if (e.persisted) checkUpdate(); });
 window.addEventListener('online', () => { if (session) J.sync(); });
-veil.addEventListener('transitionend', () => { if (updatePending && !openSheetEl) { updatePending = false; applyUpdate(); } });
+veil.addEventListener('transitionend', () => { if (updatePending && !openSheetEl && !current) applyUpdate(); });
 try {
   const prev = localStorage.getItem('jarvis.version');
   if (prev && prev !== APP_VERSION) setTimeout(() => J.toast('Jarvis mis à jour'), 1600);

@@ -855,6 +855,7 @@ J.module({
     J.say(status(day));
     loadCiqual();
   },
+  onShow(){ render(); J.say(status(day)); },
   unmount(){ stopScanner(); root = null; fixed = null; },
 });
 })();
