@@ -56,9 +56,14 @@ function nextWeekday(wd, strictlyAfter = true){
   const d = new Date(); let n = (wd - d.getDay() + 7) % 7; if (n === 0 && strictlyAfter) n = 7;
   d.setDate(d.getDate() + n); return dk(d);
 }
+/* rappel avant une tâche : null = réglage par défaut, 0 = à l'heure, -1 = aucun, sinon minutes avant */
+const LEADS = [[0, 'À l\'heure'], [5, '5 min'], [15, '15 min'], [30, '30 min'], [60, '1 h'], [1440, 'La veille'], [-1, 'Aucun']];
+const leadName = m => m === 0 ? 'à l\'heure' : m === -1 ? 'aucun rappel' : m === 1440 ? 'la veille' : m >= 60 ? (m / 60) + ' h avant' : m + ' min avant';
+const defaultLead = () => { const n = (J.prefs() || {}).notif || {}; return typeof n.taskLead === 'number' ? n.taskLead : 15; };
+const leadOf = t => typeof t.lead === 'number' ? t.lead : defaultLead();
 function parseQuick(input){
   let t = ' ' + input.trim() + ' ';
-  const out = {title:'', due:null, time:null, prio:0, list:null, repeat:null, tags:[]};
+  const out = {title:'', due:null, time:null, prio:0, list:null, repeat:null, tags:[], lead:null};
   const cut = re => { const m = t.match(re); if (m) t = t.replace(m[0], ' '); return m; };
   let m;
   if ((m = cut(/\s(!{1,3})(?=\s)/))) out.prio = m[1].length;
@@ -73,6 +78,9 @@ function parseQuick(input){
   else if ((m = cut(/\s(toutes les semaines|chaque semaine|hebdo(?:madaire)?)(?=\s)/i))) out.repeat = 'weekly';
   else if ((m = cut(/\s(tous les mois|chaque mois|mensuel(?:lement)?)(?=\s)/i))) out.repeat = 'monthly';
   else if ((m = cut(/\s(tous les ans|chaque ann[ée]e)(?=\s)/i))) out.repeat = 'yearly';
+  // rappel : « rappel 10 min avant », « 1 h avant », « la veille »
+  if ((m = cut(/\s(?:(?:avec\s)?(?:un\s)?rappel\s)?(\d{1,3})\s?(min|minutes?|h|heures?)\savant(?=\s)/i))) out.lead = +m[1] * (/^h/i.test(m[2]) ? 60 : 1);
+  else if ((m = cut(/\s(?:(?:avec\s)?(?:un\s)?rappel\s)?la veille(?=\s)/i))) out.lead = 1440;
   // heure : « à 18h », « 18h30 », « 9:15 »
   if ((m = cut(/\s(?:[àa]\s)?(\d{1,2})\s?(?:h|:)\s?(\d{2})?(?=\s)/i))) { const h = +m[1], mi = +(m[2] || 0); if (h < 24 && mi < 60) out.time = String(h).padStart(2, '0') + ':' + String(mi).padStart(2, '0'); }
   if ((m = cut(/\s(ce soir)(?=\s)/i))) { out.due = today(); if (!out.time) out.time = '19:00'; }
@@ -127,7 +135,7 @@ function complete(t){
     t.done = true; t.doneAt = Date.now();
     let msg = 'Tâche terminée';
     if (t.repeat) { // la suivante est créée automatiquement
-      addTask({title:t.title, note:t.note, due:nextDue(t.due, t.repeat), time:t.time, prio:t.prio, list:t.list, repeat:t.repeat, sub:(t.sub || []).map(s => ({id:uid(), title:s.title, done:false}))});
+      addTask({title:t.title, note:t.note, due:nextDue(t.due, t.repeat), time:t.time, prio:t.prio, list:t.list, repeat:t.repeat, lead:t.lead, sub:(t.sub || []).map(s => ({id:uid(), title:s.title, done:false}))});
       msg = `Terminée · prochaine : ${dueLabel(nextDue(t.due, t.repeat)).toLowerCase()}`;
     }
     J.haptic(); save(); render();
@@ -265,6 +273,7 @@ function updatePreview(){
   if (p.time) chips.push(`⏰ ${p.time.replace(':', 'h')}`);
   if (p.prio) chips.push(`${'!'.repeat(p.prio)} ${PRIO[p.prio].n.toLowerCase()}`);
   if (p.repeat) chips.push(`↻ ${REPEAT[p.repeat].toLowerCase()}`);
+  if (p.lead !== null && p.lead !== undefined) chips.push(`🔔 ${leadName(p.lead)}`);
   if (p.list || p.newList) chips.push(`● ${p.list ? listOf(p.list).name : p.newList + ' (nouvelle)'}`);
   el.hidden = !chips.length;
   el.innerHTML = chips.map(c => `<span>${esc(c)}</span>`).join('') + (chips.length ? '<em>↵ pour ajouter</em>' : '');
@@ -276,7 +285,7 @@ function quickAdd(){
   if (p.newList) { const nl = {id:uid(), name:p.newList.charAt(0).toUpperCase() + p.newList.slice(1), color:LIST_COLORS[S().lists.length % LIST_COLORS.length]}; S().lists.push(nl); p.list = nl.id; }
   if (!p.list) p.list = openList || 'perso';
   if (!p.due && tab === 'today' && !openList) p.due = today();
-  const t = addTask({title:p.title, due:p.due, time:p.time, prio:p.prio, list:p.list, repeat:p.repeat});
+  const t = addTask({title:p.title, due:p.due, time:p.time, prio:p.prio, list:p.list, repeat:p.repeat, lead:p.lead});
   q('#tQuick').value = ''; updatePreview(); J.haptic(); render();
   J.toast(`Ajoutée${t.due ? ' · ' + dueLabel(t.due).toLowerCase() : ''}${t.time ? ' à ' + t.time.replace(':', 'h') : ''}`);
 }
@@ -306,6 +315,7 @@ const FIXED = `
     <div class="field"><label>ÉCHÉANCE</label>
       <div class="chips" id="tkDueChips"><button data-due="0">Aujourd'hui</button><button data-due="1">Demain</button><button data-due="we">Week-end</button><button data-due="nw">Lundi</button><button data-due="none">Aucune</button></div>
       <div class="two"><input id="tkDue" type="date"><input id="tkTime" type="time"></div></div>
+    <div class="field" id="tkLeadF"><label>RAPPEL</label><div class="chips" id="tkLead"></div></div>
     <div class="field"><label>PRIORITÉ</label><div class="seg" id="tkPrio">${PRIO.map((p, i) => `<button data-v="${i}">${i ? '!'.repeat(i) + ' ' : ''}${p.n.toUpperCase()}</button>`).join('')}</div></div>
     <div class="field"><label>LISTE</label><div class="chips" id="tkList"></div></div>
     <div class="field"><label>RÉPÉTITION</label><div class="chips" id="tkRep"><button data-v="">Aucune</button>${Object.entries(REPEAT).map(([k, v]) => `<button data-v="${k}">${v}</button>`).join('')}</div></div>
@@ -322,10 +332,15 @@ const FIXED = `
     <button class="btn danger" id="tlDel">SUPPRIMER LA LISTE</button>
   </div>`;
 
-let editing = null, eSubs = [], ePrio = 0, eListId = 'perso', eRep = '';
+let editing = null, eSubs = [], ePrio = 0, eListId = 'perso', eRep = '', eLead = null;
 function seg(sel, v, attr = 'v'){ $$(sel + ' button', fixed).forEach(b => b.classList.toggle('on', b.dataset[attr] === String(v))); }
 function renderSubs(){
   fq('#tkSubs').innerHTML = eSubs.map((s, i) => `<div class="sub ${s.done ? 'done' : ''}"><button class="tck sm" data-si="${i}"></button><span>${esc(s.title)}</span><button class="sx" data-sx="${i}">✕</button></div>`).join('');
+}
+function renderLead(){   // le rappel n'a de sens qu'avec une heure
+  const hasTime = !!fq('#tkTime').value;
+  fq('#tkLead').innerHTML = hasTime ? [[null, `Par défaut (${leadName(defaultLead())})`], ...LEADS].map(([v, n]) => `<button data-lead="${v}" class="${v === eLead ? 'on' : ''}">${n}</button>`).join('')
+    : '<span class="lead-hint">Ajoutez une heure pour être prévenu.</span>';
 }
 function autosize(el){ el.style.height = 'auto'; el.style.height = el.scrollHeight + 'px'; }
 function openEditor(t, preset = {}){
@@ -336,6 +351,7 @@ function openEditor(t, preset = {}){
   ePrio = d.prio || 0; seg('#tkPrio', ePrio);
   eListId = d.list; fq('#tkList').innerHTML = S().lists.map(l => `<button data-l="${l.id}" style="--lc:${l.color}" class="${l.id === eListId ? 'on' : ''}"><i></i>${esc(l.name)}</button>`).join('');
   eRep = d.repeat || ''; seg('#tkRep', eRep);
+  eLead = typeof d.lead === 'number' ? d.lead : null; renderLead();
   eSubs = JSON.parse(JSON.stringify(d.sub || [])); renderSubs();
   fq('#tkCk').hidden = !t; fq('#tkCk').classList.toggle('on', !!(t && t.done));
   fq('#tkMore').hidden = !t;
@@ -347,7 +363,7 @@ function openEditor(t, preset = {}){
 function saveEditor(){
   const title = fq('#tkTitle').value.trim();
   if (!title) { J.toast('Donnez un titre à la tâche'); return; }
-  const data = {title, note:fq('#tkNote').value.trim(), due:fq('#tkDue').value || null, time:fq('#tkTime').value || null, prio:ePrio, list:eListId, repeat:eRep || null, sub:eSubs};
+  const data = {title, note:fq('#tkNote').value.trim(), due:fq('#tkDue').value || null, time:fq('#tkTime').value || null, prio:ePrio, list:eListId, repeat:eRep || null, sub:eSubs, lead:eLead};
   if (data.repeat && !data.due) data.due = today();
   if (editing) Object.assign(editing, data); else addTask(data);
   J.haptic(); save(); J.closeSheet(); render();
@@ -395,6 +411,8 @@ function bind(){
   fq('#tkPrio').addEventListener('click', e => { const b = e.target.closest('[data-v]'); if (b) { ePrio = +b.dataset.v; seg('#tkPrio', ePrio); } });
   fq('#tkList').addEventListener('click', e => { const b = e.target.closest('[data-l]'); if (b) { eListId = b.dataset.l; $$('#tkList button', fixed).forEach(x => x.classList.toggle('on', x === b)); } });
   fq('#tkRep').addEventListener('click', e => { const b = e.target.closest('[data-v]'); if (b) { eRep = b.dataset.v; seg('#tkRep', eRep); } });
+  fq('#tkLead').addEventListener('click', e => { const b = e.target.closest('[data-lead]'); if (!b) return; eLead = b.dataset.lead === 'null' ? null : +b.dataset.lead; J.haptic(); renderLead(); });
+  fq('#tkTime').addEventListener('change', renderLead);
   fq('#tkSubIn').addEventListener('keydown', e => {
     if (e.key !== 'Enter') return; e.preventDefault();
     const v = e.target.value.trim(); if (!v) return;
@@ -406,7 +424,7 @@ function bind(){
   });
   fq('#tkCk').addEventListener('click', () => { if (!editing) return; saveEditor(); complete(editing); });
   fq('#tkSave').addEventListener('click', saveEditor);
-  fq('#tkDup').addEventListener('click', () => { const t = editing; J.closeSheet(); setTimeout(() => openEditor(null, {title:t.title, note:t.note, due:t.due, time:t.time, prio:t.prio, list:t.list, repeat:t.repeat, sub:(t.sub || []).map(s => ({id:uid(), title:s.title, done:false}))}), 320); });
+  fq('#tkDup').addEventListener('click', () => { const t = editing; J.closeSheet(); setTimeout(() => openEditor(null, {title:t.title, note:t.note, due:t.due, time:t.time, prio:t.prio, list:t.list, repeat:t.repeat, lead:t.lead, sub:(t.sub || []).map(s => ({id:uid(), title:s.title, done:false}))}), 320); });
   fq('#tkDel').addEventListener('click', () => { const t = editing; J.closeSheet(); removeTask(t); });
 
   /* listes */
@@ -442,9 +460,10 @@ J.actions.add_task = a => {
   const title = String(a.title || '').trim(); if (!title) throw Object.assign(new Error('Quelle tâche dois-je ajouter ?'), {ask:'Quelle tâche dois-je ajouter ?'});
   const due = /^\d{4}-\d{2}-\d{2}$/.test(a.due || '') ? a.due : null, time = /^\d{1,2}:\d{2}$/.test(a.time || '') ? a.time.padStart(5, '0') : null;
   const l = a.list && S().lists.find(x => norm(x.name) === norm(a.list));
-  const t = addTask({title:title.charAt(0).toUpperCase() + title.slice(1), due:due || (time ? today() : null), time, prio:Math.max(0, Math.min(3, +a.priority || 0)), list:l ? l.id : 'perso'});
+  const lead = a.lead === null || a.lead === undefined || a.lead === '' || !isFinite(+a.lead) ? null : Math.max(-1, Math.min(10080, Math.round(+a.lead)));
+  const t = addTask({title:title.charAt(0).toUpperCase() + title.slice(1), due:due || (time ? today() : null), time, prio:Math.max(0, Math.min(3, +a.priority || 0)), list:l ? l.id : 'perso', lead});
   render();
-  return {text:`Tâche : ${t.title}${t.due ? ' · ' + dueLabel(t.due).toLowerCase() : ''}${t.time ? ' à ' + t.time.replace(':', 'h') : ''}`, go:'taches'};
+  return {text:`Tâche : ${t.title}${t.due ? ' · ' + dueLabel(t.due).toLowerCase() : ''}${t.time ? ' à ' + t.time.replace(':', 'h') + ' · 🔔 ' + leadName(leadOf(t)) : ''}`, go:'taches'};
 };
 J.actions.complete_task = a => {
   const words = norm(a.title || '').split(/\s+/).filter(w => w.length > 2);
@@ -483,8 +502,13 @@ J.module({
   },
   /* notifications : chaque tâche datée avec une heure */
   reminders(){
-    return active().filter(t => t.due && t.time).map(t => ({id:'task-' + t.id + '-' + t.due + '-' + t.time, kind:'tasks', date:t.due, time:t.time,
-      title:'⏰ ' + t.title, body:[t.prio >= 2 ? 'Priorité ' + PRIO[t.prio].n.toLowerCase() : '', listOf(t.list).name, (t.sub || []).length ? `${t.sub.filter(x => x.done).length}/${t.sub.length} étapes` : ''].filter(Boolean).join(' · '), url:'#/taches'}));
+    const atOf = (d, t) => { const [y, m, dd] = d.split('-').map(Number), [h, mi] = t.split(':').map(Number); return new Date(y, m - 1, dd, h, mi).getTime(); };
+    return active().filter(t => t.due && t.time && leadOf(t) !== -1).map(t => {
+      const lead = leadOf(t), at = atOf(t.due, t.time) - lead * 60000;
+      const when = lead === 0 ? 'Maintenant' : lead === 1440 ? `Demain à ${t.time.replace(':', 'h')}` : `Dans ${lead >= 60 ? lead / 60 + ' h' : lead + ' min'} · à ${t.time.replace(':', 'h')}`;
+      return {id:'task-' + t.id + '-' + t.due + '-' + t.time + '-' + lead, kind:'tasks', at, title:'⏰ ' + t.title,
+        body:[when, t.prio >= 2 ? 'priorité ' + PRIO[t.prio].n.toLowerCase() : '', (t.sub || []).length ? `${t.sub.filter(x => x.done).length}/${t.sub.length} étapes` : ''].filter(Boolean).join(' · '), url:'#/taches'};
+    });
   },
   briefing(){
     const list = [...overdue(), ...dueToday()].sort(sortTasks).slice(0, 5);

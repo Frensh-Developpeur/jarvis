@@ -90,3 +90,5 @@ body .tsk .srow .sbg .l{color:#b98cff}
 .tsk .colors{display:flex;gap:10px}
 .tsk .colors button{width:32px;height:32px;border-radius:50%;border:2px solid transparent;background:var(--cc);box-shadow:0 0 8px var(--cc);opacity:.6}
 .tsk .colors button.on{opacity:1;border-color:#fff}
+
+.tsk .lead-hint{font-size:13px;color:var(--muted)}

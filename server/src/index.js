@@ -48,7 +48,7 @@ Utilisateur : « essence » → {"reply":"C'est noté.","actions":[{"type":"add_
 TYPES D'ACTIONS :
 {"type":"add_expense","amount":12.5,"label":"Resto midi","category":"Courses|Restaurants|Transport|Loisirs|Shopping|Santé|Abonnements|Factures|Logement|Épargne|Crédit|Autre","date":"AAAA-MM-JJ (facultatif)"}
 {"type":"add_income","amount":100,"label":"...","category":"Salaire|Prime|Remboursement|Vente|Cadeau|Autre","date":"facultatif"}
-{"type":"add_task","title":"...","due":"AAAA-MM-JJ ou null","time":"HH:MM ou null","priority":0}  (priority 0 à 3)
+{"type":"add_task","title":"...","due":"AAAA-MM-JJ ou null","time":"HH:MM ou null","priority":0,"lead":null}  (priority 0 à 3 ; lead = minutes de rappel avant l'heure si l'utilisateur le précise, ex. « 10 min avant » → 10, « la veille » → 1440, « pas de rappel » → -1, sinon null)
 {"type":"complete_task","title":"mots de la tâche"}
 {"type":"log_food","food":"nom de l'aliment (avec la marque si citée)","grams":150,"portions":null,"meal":"pdj|dej|col|din"}
 {"type":"log_weight","kg":78.4}

@@ -8,7 +8,7 @@
 'use strict';
 (() => {
 const {$, $$, esc, ls} = J;
-const DEFAULT_PREFS = {tasks:true, habits:true, journal:true, morning:'08:00', weigh:true, social:true};
+const DEFAULT_PREFS = {tasks:true, habits:true, journal:true, morning:'08:00', weigh:true, social:true, taskLead:15};
 const prefsN = () => Object.assign({}, DEFAULT_PREFS, (J.prefs() || {}).notif || {});
 const supported = () => 'serviceWorker' in navigator && 'PushManager' in window && 'Notification' in window;
 const standalone = () => window.navigator.standalone === true || matchMedia('(display-mode: standalone)').matches;
@@ -87,7 +87,8 @@ async function renderSettings(){
   box.innerHTML = !supported() ? `<p class="note">${standalone() ? 'Votre version d\'iOS ne permet pas les notifications web (iOS 16.4 minimum).' : 'Pour recevoir des notifications, ouvrez Jarvis depuis son icône sur l\'écran d\'accueil.'}</p>`
     : !on ? `<p class="note">Rappels de tâches à l'heure, habitudes, journal du soir, briefing du matin… même quand Jarvis est fermé.</p><button class="btn primary" id="nEnable">ACTIVER LES NOTIFICATIONS</button>`
     : `<p class="note">✓ Notifications activées sur cet appareil.</p>
-      ${row('tasks', 'Tâches', 'À l\'heure prévue')}
+      ${row('tasks', 'Tâches', 'Pour les tâches avec une heure')}
+      <div class="toggle"><span>Rappel des tâches<small>Par défaut ; modifiable tâche par tâche</small></span><select class="ntime" id="nTaskLead">${[[0, 'À l\'heure'], [5, '5 min avant'], [10, '10 min avant'], [15, '15 min avant'], [30, '30 min avant'], [60, '1 h avant'], [1440, 'La veille']].map(([v, n]) => `<option value="${v}" ${(typeof p.taskLead === 'number' ? p.taskLead : 15) === v ? 'selected' : ''}>${n}</option>`).join('')}</select></div>
       ${row('habits', 'Habitudes', 'À l\'heure de rappel de chaque habitude')}
       ${row('journal', 'Journal du soir', 'À 21 h 30 si pas encore rempli')}
       <div class="toggle"><span>Briefing du matin<small>Résumé de la journée</small></span><input type="time" class="ntime" id="nMorning" value="${p.morning || ''}"></div>
@@ -102,6 +103,7 @@ document.addEventListener('click', async e => {
 });
 document.addEventListener('change', e => {
   const k = e.target.dataset && e.target.dataset.np;
+  if (e.target.id === 'nTaskLead') { const pr = J.prefs(); pr.notif = Object.assign({}, DEFAULT_PREFS, pr.notif || {}); pr.notif.taskLead = +e.target.value; J.store('core', {}).save(); schedule(true); return; }
   if (k || e.target.id === 'nMorning') {
     const pr = J.prefs(); pr.notif = Object.assign({}, DEFAULT_PREFS, pr.notif || {});
     if (k) pr.notif[k] = e.target.checked; else pr.notif.morning = e.target.value || null;
