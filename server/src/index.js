@@ -66,11 +66,14 @@ const VOICE_SETTINGS = { stability: 0.6, similarity_boost: 0.85, style: 0.05, us
 const now = () => Math.floor(Date.now() / 1000);
 
 /* ---------- IA du chat : Cloudflare d'abord, puis fournisseurs de secours quand le quota gratuit est épuisé ----------
-   Secrets facultatifs : MISTRAL_API_KEY (offre gratuite « Experiment »), GROQ_API_KEY. Mêmes consignes, même format JSON. */
+   Secrets facultatifs : GROQ_API_KEY, GEMINI_API_KEY, MISTRAL_API_KEY (essayés dans cet ordre). Mêmes consignes, même format JSON. */
 const CHAT_SCHEMA = { type: 'object', properties: { reply: { type: 'string' }, actions: { type: 'array', items: { type: 'object' } } }, required: ['reply', 'actions'] };
 const FALLBACKS = [
-  { name: 'mistral', key: 'MISTRAL_API_KEY', url: env => env.MISTRAL_URL || 'https://api.mistral.ai/v1/chat/completions', model: env => env.MISTRAL_MODEL || 'mistral-medium-latest' },
+  // Groq : gratuit sans carte, même modèle Llama 3.3 70B que Cloudflare (mêmes réponses), très rapide
   { name: 'groq', key: 'GROQ_API_KEY', url: env => env.GROQ_URL || 'https://api.groq.com/openai/v1/chat/completions', model: env => env.GROQ_MODEL || 'llama-3.3-70b-versatile' },
+  // Gemini (Google AI Studio) : offre gratuite Flash, point d'accès compatible OpenAI
+  { name: 'gemini', key: 'GEMINI_API_KEY', url: env => env.GEMINI_URL || 'https://generativelanguage.googleapis.com/v1beta/openai/chat/completions', model: env => env.GEMINI_MODEL || 'gemini-flash-latest' },
+  { name: 'mistral', key: 'MISTRAL_API_KEY', url: env => env.MISTRAL_URL || 'https://api.mistral.ai/v1/chat/completions', model: env => env.MISTRAL_MODEL || 'mistral-medium-latest' },
 ];
 let cfOutUntil = 0;   // quota Cloudflare épuisé : on ne le retente qu'après minuit UTC (remise à zéro du quota)
 const nextUtcMidnight = () => { const d = new Date(); d.setUTCHours(24, 0, 0, 0); return d.getTime(); };
