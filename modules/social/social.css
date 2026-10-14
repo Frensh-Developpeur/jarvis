@@ -1,0 +1,54 @@
+/* ============================================================
+   Module Défis entre amis
+   ============================================================ */
+.so .utabs button.on{color:#ffd23f}
+.so .utabs button.on::after{background:#ffd23f;box-shadow:0 0 8px #ffd23f}
+.so .fab{border-color:#ffd23f;color:#ffd23f;background:radial-gradient(circle,#3a3008 0%,#120f03 70%);box-shadow:0 0 22px rgba(255,210,63,.4),inset 0 0 18px rgba(255,210,63,.25)}
+.so .fab::before{border-color:rgba(255,210,63,.45)}
+.so .btn.primary{background:#ffd23f;border-color:#ffd23f;color:#1a1400;box-shadow:0 0 18px rgba(255,210,63,.3)}
+.so .btn.sm{padding:9px 12px;font-size:10px;margin-top:10px}
+.so .seg button.on{background:rgba(255,210,63,.16);color:#ffd23f}
+.so .somuted{color:var(--muted);font-size:12.5px;margin:12px 2px 4px}
+.so .soshare{display:block;margin:18px auto 0;font-size:12.5px;color:var(--muted)}
+/* avatar */
+.so .sav{flex:none;width:32px;height:32px;border-radius:50%;display:grid;place-items:center;font-family:var(--hud);font-size:13px;font-weight:700;color:#041019;background:var(--c);box-shadow:0 0 10px color-mix(in srgb,var(--c) 45%,transparent)}
+/* consentement */
+.so .soconsent{display:flex;flex-direction:column;gap:9px;margin:14px 0 4px;padding:14px;border-radius:16px;background:linear-gradient(150deg,rgba(255,210,63,.12),rgba(255,210,63,.02) 60%),rgba(9,28,42,.6);border:1px solid rgba(255,210,63,.25)}
+.so .soconsent b{font-family:var(--hud);font-size:13px;letter-spacing:.08em;color:#ffd23f}
+.so .soconsent span{font-size:13.5px;line-height:1.4;color:var(--muted)}
+.so .sochk{display:flex;align-items:center;gap:10px;font-size:14.5px}
+.so .sochk input{width:20px;height:20px;accent-color:#ffd23f}
+.so .soconsent .two{margin-top:4px}
+/* fil */
+.so .sopost{margin-top:12px;padding:12px 13px;border-radius:16px;background:rgba(9,28,42,.55);border:1px solid rgba(63,224,255,.08)}
+.so .sp-h{display:flex;align-items:center;gap:10px;font-size:14.5px}
+.so .sp-h small{display:block;font-size:12px;color:var(--muted);margin-top:1px}
+.so .sp-st{display:flex;flex-wrap:wrap;gap:6px 12px;margin:9px 0 6px;font-size:12.5px;color:var(--muted)}
+.so .sp-st .pr{color:#ffb347}
+.so .sp-ex{display:flex;flex-wrap:wrap;gap:5px}
+.so .sp-ex span{font-size:12px;padding:3px 8px;border-radius:8px;background:rgba(63,224,255,.06);color:var(--text)}
+.so .sp-ex b{color:#ffd23f;font-weight:600}
+.so .sofire{display:flex;align-items:center;gap:8px;margin-top:10px;padding:6px 12px;border-radius:20px;border:1px solid rgba(255,140,60,.25);background:rgba(255,140,60,.05);color:var(--text);font-size:14px}
+.so .sofire small{font-size:12px;color:var(--muted)}
+.so .sofire.on{background:rgba(255,140,60,.18);border-color:rgba(255,140,60,.6)}
+.so .sofire:disabled{opacity:.7}
+/* classement + défis */
+.so .sorow,.so .sc-m{display:flex;align-items:center;gap:9px;padding:7px 0;font-size:14px}
+.so .sorow.me .sr-n{color:#ffd23f;font-weight:700}
+.so .sr-r{width:24px;text-align:center;font-family:var(--hud);font-size:12px;color:var(--muted)}
+.so .sr-n,.so .sc-n{width:74px;overflow:hidden;text-overflow:ellipsis;white-space:nowrap}
+.so .sr-b{flex:1;height:7px;border-radius:4px;background:rgba(63,224,255,.07);overflow:hidden}
+.so .sr-b i{display:block;height:100%;border-radius:4px;transition:width .4s}
+.so .sorow b,.so .sc-m b{min-width:70px;text-align:right;font-size:13px}
+.so .sorow b small,.so .sc-m b small{color:var(--muted);font-weight:400}
+.so .sochal{margin-top:12px;padding:12px 13px;border-radius:16px;background:rgba(9,28,42,.55);border:1px solid rgba(255,210,63,.18)}
+.so .sochal.over{opacity:.75;border-color:rgba(63,224,255,.08)}
+.so .sc-h{display:flex;align-items:flex-start;gap:8px;margin-bottom:6px}
+.so .sc-h>div{flex:1}
+.so .sc-h b{font-size:15px}
+.so .sc-h small{display:block;font-size:12px;color:var(--muted);margin-top:2px}
+.so .sc-w{margin:8px 0 0;font-size:13.5px;color:#4dffc3}
+.so .sotpl{display:flex;flex-wrap:wrap;gap:6px;margin-top:14px}
+.so .sotpl button{padding:7px 11px;border-radius:16px;border:1px dashed rgba(255,210,63,.4);background:none;color:#ffd23f;font-size:12.5px}
+.so .rmore{flex:none;width:34px;height:30px;border:none;border-radius:10px;background:rgba(63,224,255,.06);color:var(--muted);font-size:16px;padding:0}
+.so .lnk{background:none;border:none;color:var(--muted);padding:6px}

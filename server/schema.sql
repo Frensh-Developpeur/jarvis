@@ -96,3 +96,34 @@ CREATE TABLE IF NOT EXISTS notifs (
   PRIMARY KEY (user_id, nid)
 );
 CREATE INDEX IF NOT EXISTS notifs_due ON notifs(sent, at);
+
+-- Défis entre amis : ce que chacun choisit de partager (résumé calculé sur son téléphone), réactions, défis
+CREATE TABLE IF NOT EXISTS social (
+  user_id    TEXT PRIMARY KEY REFERENCES users(id) ON DELETE CASCADE,
+  share      TEXT NOT NULL,                 -- {"muscu":true,"steps":true}
+  summary    TEXT NOT NULL,                 -- jours (séances, tonnage, pas) + dernières séances
+  updated_at INTEGER NOT NULL
+);
+CREATE TABLE IF NOT EXISTS kudos (
+  user_id    TEXT NOT NULL REFERENCES users(id) ON DELETE CASCADE,
+  target     TEXT NOT NULL,                 -- nom d'utilisateur qui reçoit
+  item       TEXT NOT NULL,                 -- identifiant de la séance
+  created_at INTEGER NOT NULL,
+  PRIMARY KEY (user_id, target, item)
+);
+CREATE TABLE IF NOT EXISTS challenges (
+  id         TEXT PRIMARY KEY,
+  creator    TEXT NOT NULL REFERENCES users(id) ON DELETE CASCADE,
+  title      TEXT NOT NULL,
+  metric     TEXT NOT NULL,                 -- sessions | volume | steps
+  target     REAL NOT NULL,
+  start      TEXT NOT NULL,                 -- AAAA-MM-JJ
+  end        TEXT NOT NULL,
+  created_at INTEGER NOT NULL
+);
+CREATE TABLE IF NOT EXISTS challenge_members (
+  challenge_id TEXT NOT NULL REFERENCES challenges(id) ON DELETE CASCADE,
+  user_id      TEXT NOT NULL REFERENCES users(id) ON DELETE CASCADE,
+  joined_at    INTEGER NOT NULL,
+  PRIMARY KEY (challenge_id, user_id)
+);

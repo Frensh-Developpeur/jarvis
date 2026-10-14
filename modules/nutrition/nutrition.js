@@ -15,6 +15,7 @@ const MEALS = [
   {id:'din', name:'Dîner', short:'DÎNER', icon:'<svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.8" stroke-linecap="round"><path d="M21 12.8A9 9 0 1 1 11.2 3a7 7 0 0 0 9.8 9.8z"/></svg>'},
 ];
 const MAC = {p:{name:'Protéines', short:'PROT', c:'#4dffc3'}, c:{name:'Glucides', short:'GLUC', c:'#ffb347'}, f:{name:'Lipides', short:'LIP', c:'#ff5f8f'}};
+const ICON_CAM = '<svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.8" stroke-linecap="round" stroke-linejoin="round"><path d="M4 8h3l2-3h6l2 3h3a1 1 0 0 1 1 1v10a1 1 0 0 1-1 1H4a1 1 0 0 1-1-1V9a1 1 0 0 1 1-1z"/><circle cx="12" cy="13.5" r="3.5"/></svg>';
 const ICON_SCAN = '<svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.8" stroke-linecap="round"><path d="M3 7V5a2 2 0 0 1 2-2h2M17 3h2a2 2 0 0 1 2 2v2M21 17v2a2 2 0 0 1-2 2h-2M7 21H5a2 2 0 0 1-2-2v-2"/><path d="M7 8v8M10 8v8M13 8v8M17 8v8"/></svg>';
 const ICON_STAR = '<svg viewBox="0 0 24 24" fill="currentColor"><path d="M12 3l2.7 5.6 6.1.9-4.4 4.3 1 6.1L12 17l-5.4 2.9 1-6.1-4.4-4.3 6.1-.9z"/></svg>';
 
@@ -154,9 +155,10 @@ function loadCiqual(){
     return ciqual;
   }));
 }
+const STOP = new Set(['avec', 'de', 'du', 'des', 'la', 'le', 'les', 'et', 'au', 'aux', 'en', 'un', 'une']);
 function searchCiqual(q, limit = 15){
   if (!ciqual) return [];
-  const toks = norm(q).split(/[\s,]+/).filter(Boolean).map(t => t.length > 3 ? t.replace(/[sx]$/, '') : t);   // singulier : « lentilles » trouve « Lentille verte »
+  const toks = norm(q).split(/[\s,]+/).filter(t => t && !STOP.has(t)).map(t => t.length > 3 ? t.replace(/[sx]$/, '') : t);   // sans les petits mots (« avec », « de »…)   // singulier : « lentilles » trouve « Lentille verte »
   if (!toks.length) return [];
   const res = [];
   for (const f of ciqual) {
@@ -394,7 +396,8 @@ const FIXED = `
     <div id="nStepSearch">
       <h2>AJOUTER UN ALIMENT</h2>
       <div class="seg meals" id="aMeal">${MEALS.map(m => `<button data-v="${m.id}">${m.short}</button>`).join('')}</div>
-      <div class="sbar"><input id="aQ" placeholder="Rechercher : riz, poulet, skyr…" autocomplete="off" enterkeyhint="search"><button class="scan" id="aScan" aria-label="Scanner un code-barres">${ICON_SCAN}</button></div>
+      <div class="sbar"><input id="aQ" placeholder="Rechercher : riz, poulet, skyr…" autocomplete="off" enterkeyhint="search"><button class="scan" id="aPhoto" aria-label="Photo du repas">${ICON_CAM}</button><button class="scan" id="aScan" aria-label="Scanner un code-barres">${ICON_SCAN}</button></div>
+      <input type="file" id="aPhotoIn" accept="image/*" hidden>
       <div id="aRes"></div>
       <button class="btn ghost" id="aCustom">+ CRÉER UN ALIMENT</button>
     </div>
@@ -408,6 +411,17 @@ const FIXED = `
       <div class="seg meals" id="qMeal">${MEALS.map(m => `<button data-v="${m.id}">${m.short}</button>`).join('')}</div>
       <button class="btn primary" id="qSave">AJOUTER</button>
       <button class="btn danger" id="qDel" hidden>SUPPRIMER</button>
+    </div>
+
+    <div id="nStepPhoto" hidden>
+      <button class="back" id="phBack">‹ Retour</button>
+      <div class="phwrap"><img id="phImg" alt=""><div class="phscan" id="phScan"><span></span></div></div>
+      <h3 class="phtitle" id="phTitle"></h3>
+      <div id="phList"></div>
+      <div class="phtot" id="phTot"></div>
+      <div class="seg meals" id="phMeal">${MEALS.map(m => `<button data-v="${m.id}">${m.short}</button>`).join('')}</div>
+      <button class="btn primary" id="phSave" disabled>AJOUTER</button>
+      <p class="note center">Estimation de l'IA à partir de la photo : vérifiez les quantités.</p>
     </div>
 
     <div id="nStepCustom" hidden>
@@ -454,6 +468,7 @@ const foodKey = f => f.code || (f.src + ':' + f.name);
 
 function setSeg(sel, v){ $$(sel + ' button', fixed).forEach(b => b.classList.toggle('on', b.dataset.v === v)); }
 function openAdd(meal){
+  photoReplace = null;
   addMeal = meal || (day === today() ? defaultMeal() : 'dej');
   setSeg('#aMeal', addMeal);
   fq('#aQ').value = '';
@@ -465,6 +480,7 @@ function step(name){
   fq('#nStepSearch').hidden = name !== 'search';
   fq('#nStepQty').hidden = name !== 'qty';
   fq('#nStepCustom').hidden = name !== 'custom';
+  fq('#nStepPhoto').hidden = name !== 'photo';
   fq('#nAdd').scrollTop = 0;
 }
 
@@ -544,6 +560,64 @@ function remember(food, g){
   const clean = {name:food.name, brand:food.brand || '', per100:food.per100, src:food.src, code:food.code || null, serving:food.serving || null, img:food.img || null};
   S().recents = [Object.assign({}, clean, {lastG:g}), ...S().recents.filter(r => foodKey(r) !== foodKey(food))].slice(0, 40);
 }
+/* ---------- photo du repas : l'IA reconnaît les aliments, on vérifie puis on ajoute ---------- */
+let photoItems = [], photoSeq = 0, photoReplace = null;
+function shrink(file, max = 1024){   // photo réduite (~150 Ko) : envoi rapide, l'IA n'a pas besoin de plus
+  return new Promise((res, rej) => {
+    const img = new Image();
+    img.onload = () => {
+      const k = Math.min(1, max / Math.max(img.width, img.height)), c = document.createElement('canvas');
+      c.width = Math.round(img.width * k); c.height = Math.round(img.height * k);
+      c.getContext('2d').drawImage(img, 0, 0, c.width, c.height);
+      URL.revokeObjectURL(img.src); res(c.toDataURL('image/jpeg', .8));
+    };
+    img.onerror = () => rej(new Error('Image illisible'));
+    img.src = URL.createObjectURL(file);
+  });
+}
+async function photoChosen(file){
+  const my = ++photoSeq;
+  step('photo'); photoItems = [];
+  fq('#phImg').src = URL.createObjectURL(file);
+  fq('#phScan').hidden = false; fq('#phTitle').textContent = 'Jarvis analyse votre assiette…';
+  fq('#phList').innerHTML = ''; fq('#phTot').textContent = ''; fq('#phSave').disabled = true;
+  setSeg('#phMeal', addMeal);
+  let r;
+  try { r = await J.api('POST', '/api/food/photo', {image:await shrink(file)}); }
+  catch(e) { if (my !== photoSeq) return; fq('#phScan').hidden = true; fq('#phTitle').textContent = e.message; return; }
+  await loadCiqual();
+  const found = await Promise.all(r.items.map(it => findFood(it.food).catch(() => null)));
+  if (my !== photoSeq) return;
+  photoItems = r.items.map((it, i) => ({ask:it.food, g:it.grams, f:found[i], on:!!found[i]}));
+  fq('#phScan').hidden = true;
+  fq('#phTitle').textContent = photoItems.length ? (r.title || 'Voici ce que je vois') : (r.note || 'Je ne vois pas de nourriture sur cette photo.');
+  renderPhoto(); J.haptic();
+}
+const shortName = f => f.name.split(',').slice(0, 2).join(',') + (f.brand ? ' · ' + f.brand : '');
+function renderPhoto(){
+  fq('#phList').innerHTML = photoItems.map((x, i) => `
+    <div class="phrow ${x.on ? '' : 'off'}" data-i="${i}">
+      <button class="phck ${x.on ? 'on' : ''}" data-a="phck" ${x.f ? '' : 'disabled'} aria-label="Inclure"></button>
+      <div class="phn" data-a="phrep"><b>${x.f ? esc(shortName(x.f)) : esc(x.ask)} <i>›</i></b><small>${x.f ? `<span class="phk">${fmt(x.f.per100.kcal * x.g / 100)}</span> kcal · vu : ${esc(x.ask)}` : 'introuvable : toucher pour chercher'}</small></div>
+      <div class="phg"><input inputmode="decimal" autocomplete="off" value="${x.g}" ${x.f ? '' : 'disabled'}><span>g</span></div>
+    </div>`).join('');
+  photoTotals();
+}
+function photoTotals(){
+  const on = photoItems.filter(x => x.on && x.f), k = on.reduce((a, x) => a + x.f.per100.kcal * x.g / 100, 0), p = on.reduce((a, x) => a + (x.f.per100.p || 0) * x.g / 100, 0);
+  fq('#phTot').innerHTML = on.length ? `Total : <b>${fmt(k)} kcal</b> · ${fmt(p)} g de protéines` : '';
+  fq('#phSave').disabled = !on.length;
+  fq('#phSave').textContent = on.length ? `AJOUTER ${on.length} ALIMENT${on.length > 1 ? 'S' : ''}` : 'AJOUTER';
+}
+function savePhoto(){
+  const on = photoItems.filter(x => x.on && x.f && x.g > 0); if (!on.length) return;
+  const meal = $('#phMeal button.on', fixed).dataset.v, d = S().days[day] = S().days[day] || {items:[]};
+  on.forEach(x => { d.items.push({id:uid(), meal, name:x.f.name, brand:x.f.brand || '', g:x.g, per100:x.f.per100, src:x.f.src || 'ciqual', code:x.f.code || null}); remember(x.f, x.g); });
+  prune(); save(); J.closeSheet(); render(); J.haptic();
+  J.toast(`${on.length} aliment${on.length > 1 ? 's' : ''} ajouté${on.length > 1 ? 's' : ''} · ${fmt(on.reduce((a, x) => a + x.f.per100.kcal * x.g / 100, 0))} kcal`);
+  J.say(status(day));
+}
+
 function saveQty(){
   const g = num(fq('#qG').value);
   if (!(g > 0)) { J.toast('Quantité invalide'); return; }
@@ -740,9 +814,29 @@ function bind(){
   fq('#aRes').addEventListener('click', e => {
     const b = e.target.closest('.fres'); if (!b) return;
     const f = groups[b.dataset.g][+b.dataset.i];
-    J.haptic(); openQty(f);
+    J.haptic();
+    if (photoReplace !== null) { const x = photoItems[photoReplace]; x.f = f; x.on = true; photoReplace = null; step('photo'); renderPhoto(); return; }   // remplacement depuis la photo
+    openQty(f);
   });
   fq('#aScan').addEventListener('click', openScanner);
+  fq('#aPhoto').addEventListener('click', () => { J.haptic(); fq('#aPhotoIn').value = ''; fq('#aPhotoIn').click(); });
+  fq('#aPhotoIn').addEventListener('change', e => { const f = e.target.files && e.target.files[0]; if (f) photoChosen(f); });
+  fq('#phBack').addEventListener('click', () => { photoSeq++; photoReplace = null; step('search'); });
+  fq('#phMeal').addEventListener('click', e => { const b = e.target.closest('[data-v]'); if (b) setSeg('#phMeal', b.dataset.v); });
+  fq('#phSave').addEventListener('click', savePhoto);
+  fq('#phList').addEventListener('click', e => {
+    const rep = e.target.closest('[data-a=phrep]');
+    if (rep) { photoReplace = +rep.closest('.phrow').dataset.i; step('search'); fq('#aQ').value = photoItems[photoReplace].ask; renderResults(); J.haptic(); return; }   // remplacer l'aliment proposé
+    const b = e.target.closest('[data-a=phck]'); if (!b) return;
+    const row = b.closest('.phrow'), x = photoItems[+row.dataset.i]; x.on = !x.on;
+    row.classList.toggle('off', !x.on); b.classList.toggle('on', x.on); J.haptic(); photoTotals();
+  });
+  fq('#phList').addEventListener('input', e => {   // quantité modifiée : on recalcule sans redessiner (le clavier reste ouvert)
+    const row = e.target.closest('.phrow'); if (!row) return;
+    const x = photoItems[+row.dataset.i]; x.g = Math.max(0, num(e.target.value) || 0);
+    const k = row.querySelector('.phk'); if (k) k.textContent = fmt(x.f.per100.kcal * x.g / 100);
+    photoTotals();
+  });
   fq('#aCustom').addEventListener('click', () => { ['fName', 'fK', 'fS', 'fP', 'fC', 'fF'].forEach(id => fq('#' + id).value = ''); fq('#fName').value = fq('#aQ').value.trim(); step('custom'); });
   fq('#cBack').addEventListener('click', () => step('search'));
   fq('#qBack').addEventListener('click', () => { step('search'); renderResults(); });
@@ -816,7 +910,8 @@ async function findFood(name){
     const base = String(name).replace(STATE_RX, '').trim(), first = norm(base).split(/[ ,]/)[0].replace(/s$/, '');
     // le plus générique : nom court, version de base (blanc, standard, filet…), pas un plat préparé
     const word = norm(base).split(/[ ,]/)[0], exact = new RegExp('(^|[ ,(])' + word + '([ ,)]|$)');   // « pâtes » ≠ « pâte sablée »
-    const cost = x => { const n = norm(x.name); return n.length + (exact.test(n) ? 0 : 25) + (n.split(/[ ,]/)[0].startsWith(first) ? 0 : 15) - (/\b(blanc|standard|filet|nature|verte)\b/.test(n) ? 20 : 0) + (/preemball|\bavec\b|\bau\b|\baux\b|\bpour\b|farci|sauce|infantile/.test(n) ? 40 : 0); };
+    const stem = norm(st).slice(0, 4);   // « rôtie » préfère « rôtie/cuite au four » à « vapeur »
+    const cost = x => { const n = norm(x.name); return n.length + (exact.test(n) ? 0 : 25) - (n.includes(stem) ? 15 : 0) + (n.split(/[ ,]/)[0].startsWith(first) ? 0 : 15) - (/\b(blanc|standard|filet|nature|verte)\b/.test(n) ? 20 : 0) + (/preemball|\bavec\b|\bau\b|\baux\b|\bpour\b|farci|sauce|infantile/.test(n) ? 40 : 0); };
     const hit = [...searchCiqual(base + ' filet', 50), ...searchCiqual(base, 400)].filter(x => norm(x.name).includes(first) && sameState(st, x.name)).sort((a, b) => cost(a) - cost(b))[0];
     if (hit) return hit;
   }

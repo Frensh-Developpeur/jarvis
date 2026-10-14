@@ -106,6 +106,64 @@ function bestE1(exId, before = Infinity){
   return best;
 }
 
+/* ---------- coach : surcharge progressive (double progression) ----------
+   - toutes les séries de travail en haut de la fourchette de répétitions → on monte la charge d'un palier (et on repart 2 reps plus bas, sauf en force)
+   - sinon même charge, une répétition de plus par série
+   - 3 séances sans battre son record estimé → on allège de 10 % pour repartir (décharge) */
+const BIG = /squat|soulev|terre|presse|hip thrust|fente|leg press/i;
+function incOf(exId, name){
+  const e = exById(exId) || {}, q = (e.q || []).join(' ');
+  if (/Haltères|Kettlebell/.test(q)) return 2;
+  if (e.c === 'Jambes' || BIG.test(name || e.n || '')) return 5;
+  return 2.5;
+}
+const repRange = r => r <= 5 ? [3, 5] : r <= 8 ? [6, 8] : r <= 12 ? [8, 12] : [12, 20];
+const median = a => { const b = [...a].sort((x, y) => x - y); return b.length ? b[Math.floor((b.length - 1) / 2)] : 0; };
+function histFor(exId, before = Infinity){
+  return [...S().sessions].filter(s => s.start < before).sort((a, b) => b.start - a.start)
+    .map(s => s.ex.find(e => e.id === exId)).filter(e => e && doneSets(e).length).map(doneSets);
+}
+const bestOf = sets => Math.max(...sets.map(x => e1rm(n(x.kg), n(x.reps))));
+function coach(exId, name, before = Infinity){
+  const hist = histFor(exId, before);
+  if (!hist.length) return null;
+  const last = hist[0], inc = incOf(exId, name), round = v => Math.max(inc, Math.round(v / inc) * inc);
+  const work = Math.max(...last.map(x => n(x.kg)));
+  const ws = last.filter(x => n(x.kg) === work), reps = ws.map(x => n(x.reps));
+  const [lo, hi] = repRange(median(reps)), sets = ws.length;
+  if (!work) {   // poids du corps : on progresse en répétitions
+    const r = Math.min(...reps) + 1;
+    return {kg:0, reps:r, sets, why:`une répétition de plus que la dernière fois`, kind:'reps'};
+  }
+  const e1s = hist.map(bestOf), recent = Math.max(...e1s.slice(0, 3)), before3 = e1s.length > 3 ? Math.max(...e1s.slice(3)) : Infinity;
+  if (e1s.length >= 4 && recent <= before3 + .01)
+    return {kg:round(work * .9), reps:hi, sets, why:`3 séances sans progrès : on allège de 10 % pour repartir plus fort`, kind:'deload', stalled:true};
+  if (reps.every(r => r >= hi))
+    return {kg:work + inc, reps:hi <= 5 ? hi : Math.max(lo, hi - 2), sets, why:`toutes vos séries à ${hi} répétitions la dernière fois : +${fmt(inc)} kg`, kind:'up'};
+  const r = Math.min(Math.min(...reps) + 1, hi);
+  return {kg:work, reps:r, sets, why:`même charge, visez ${r} répétitions sur chaque série`, kind:'reps'};
+}
+/* disques par côté pour une barre de 20 kg */
+/* objectifs de tous les exercices pratiqués récemment */
+function coachAll(){
+  const seen = new Map();
+  [...S().sessions].sort((a, b) => b.start - a.start).slice(0, 12).forEach(s => s.ex.forEach(e => { if (!seen.has(e.id)) seen.set(e.id, e.name); }));
+  return [...seen].map(([id, name]) => ({id, name, c:coach(id, name)})).filter(x => x.c);
+}
+function plates(total, bar = 20){
+  let side = (total - bar) / 2; if (side < 0) return null;
+  const out = [];
+  for (const p of [25, 20, 15, 10, 5, 2.5, 1.25]) while (side >= p - 1e-9) { out.push(p); side -= p; }
+  return {list:out, rest:Math.round(side * 2 * 100) / 100};
+}
+const isBarbell = exId => /Barre(?! de traction)/.test(((exById(exId) || {}).q || []).join(' '));
+/* prochaine routine conseillée : celle qu'on n'a pas faite depuis le plus longtemps */
+function nextRoutine(){
+  if (S().routines.length < 2) return null;
+  const lastOf = r => Math.max(0, ...S().sessions.filter(s => s.name === r.name).map(s => s.start));
+  return [...S().routines].sort((a, b) => lastOf(a) - lastOf(b)).map(r => ({r, last:lastOf(r)}))[0];
+}
+
 /* ---------- messages ---------- */
 function status(){
   const a = S().active;
@@ -139,6 +197,8 @@ function renderIdle(){
       <div class="mh-stats"><div><b>${w.length}</b><small>séance${w.length > 1 ? 's' : ''}</small></div><div><b>${fmt(vol / 1000)}</b><small>tonnes soulevées</small></div><div><b>${w.reduce((a, s) => a + dur(s), 0)}</b><small>minutes</small></div></div>
       <button class="btn primary" data-a="start">DÉMARRER UNE SÉANCE</button>
     </div>
+    ${(() => { const nr = nextRoutine(); return nr ? `<div class="slabel"><span>CONSEILLÉE AUJOURD'HUI</span></div>
+      <div class="rcard next" data-r="${nr.r.id}"><div class="ri"><b>${esc(nr.r.name)}</b><small>${nr.last ? 'Dernière fois ' + ago(nr.last) : 'Pas encore faite'} · ${nr.r.ex.length} exercices</small></div><button class="rgo" data-a="startr">GO</button></div>` : ''; })()}
     <div class="slabel"><span>MES ROUTINES</span><button class="lnk" data-a="newroutine">+ Nouvelle</button></div>
     ${S().routines.length ? S().routines.map(r => `
       <div class="rcard" data-r="${r.id}">
@@ -154,13 +214,13 @@ function sessCard(s){
     <div class="sc-ex">${s.ex.map(e => esc(e.name)).join(' · ')}</div>
     <div class="sc-st"><span>⏱ ${dur(s)} min</span><span>${nb} séries</span><span>${fmt(volume(s))} kg</span>${s.prs ? `<span class="pr">🏆 ${s.prs}</span>` : ''}</div></button>`;
 }
-function setRow(ex, s, i, prev){
-  const p = prev[i];
+function setRow(ex, s, i, prev, c){
+  const p = prev[i], t = c ? {kg:c.kg, reps:c.reps} : p ? {kg:n(p.kg), reps:n(p.reps)} : null;   // valeur proposée : l'objectif du coach, sinon la dernière fois
   return `<div class="set ${s.done ? 'done' : ''}" data-s="${i}">
     <span class="sn">${i + 1}</span>
     <span class="pv">${p ? fmt(n(p.kg)) + '×' + n(p.reps) : '—'}</span>
-    <input class="kg" inputmode="decimal" autocomplete="off" autocorrect="off" spellcheck="false" enterkeyhint="next" placeholder="${p ? fmt(n(p.kg)) : 'kg'}" value="${esc(s.kg)}">
-    <input class="rp" inputmode="numeric" autocomplete="off" autocorrect="off" spellcheck="false" enterkeyhint="done" placeholder="${p ? n(p.reps) : 'reps'}" value="${esc(s.reps)}">
+    <input class="kg" inputmode="decimal" autocomplete="off" autocorrect="off" spellcheck="false" enterkeyhint="next" placeholder="${t ? fmt(t.kg) : 'kg'}" value="${esc(s.kg)}">
+    <input class="rp" inputmode="numeric" autocomplete="off" autocorrect="off" spellcheck="false" enterkeyhint="done" placeholder="${t ? t.reps : 'reps'}" value="${esc(s.reps)}">
     <button class="sck" data-a="check" aria-label="Série terminée"></button></div>`;
 }
 function renderActive(){
@@ -170,12 +230,13 @@ function renderActive(){
       <input class="lname" id="mName" value="${esc(a.name)}" autocomplete="off" autocorrect="off" spellcheck="false" aria-label="Nom de la séance">
       <div class="lrow"><span class="ltime" id="mElapsed">${hms(Date.now() - a.start)}</span><span class="lvol" id="mVol">${fmt(volume(a))} kg</span><button class="btn primary lfin" data-a="finish">TERMINER</button></div>
     </div>
-    ${a.ex.map(ex => { const e = exById(ex.id), prev = prevFor(ex.id, a.start);
+    ${a.ex.map(ex => { const e = exById(ex.id), prev = prevFor(ex.id, a.start), c = coach(ex.id, ex.name, a.start);
       return `<div class="exc" data-x="${ex.uid}">
         <div class="exh">${exThumb(e)}<div class="exn"><b>${esc(ex.name)}</b><small>${e ? esc([(e.m || []).slice(0, 2).join(', '), (e.q || [])[0]].filter(Boolean).join(' · ')) : ''}</small></div>
           <button class="rmore" data-a="exmenu" aria-label="Options">⋯</button></div>
+        ${c ? `<button class="coach ${c.kind}" data-a="coach" data-kg="${c.kg}"><span class="ct">🎯 ${c.sets} × ${c.reps}${c.kg ? ` à <b>${fmt(c.kg)} kg</b>` : ' reps'}${c.kind === 'up' ? ' <em>↑</em>' : c.kind === 'deload' ? ' <em>↓</em>' : ''}</span><small>${esc(c.why)}${c.kg && isBarbell(ex.id) ? ' · toucher pour les disques' : ''}</small></button>` : ''}
         <div class="sets"><div class="sh"><span>SÉRIE</span><span>PRÉC.</span><span>KG</span><span>REPS</span><span></span></div>
-          ${ex.sets.map((s, i) => setRow(ex, s, i, prev)).join('')}</div>
+          ${ex.sets.map((s, i) => setRow(ex, s, i, prev, c)).join('')}</div>
         <button class="addset" data-a="addset">+ AJOUTER UNE SÉRIE</button>
       </div>`; }).join('')}
     <button class="btn" data-a="addex">+ AJOUTER UN EXERCICE</button>
@@ -215,7 +276,9 @@ function renderProg(){
   if (!all.length) { q('#mTab').innerHTML = '<div class="empty" style="margin-top:30px">Terminez quelques séances pour voir votre progression.</div>'; return; }
   if (progEx && !all.some(x => x.id === progEx)) progEx = null;
   if (!progEx) {
-    q('#mTab').innerHTML = `<div class="slabel"><span>VOS EXERCICES</span><span>1RM estimé</span></div><div class="plist">${all.map(x => {
+    const stalled = coachAll().filter(x => x.c.stalled);
+    q('#mTab').innerHTML = (stalled.length ? `<div class="stall"><b>⚠ ${stalled.length === 1 ? 'Un exercice stagne' : stalled.length + ' exercices stagnent'}</b><span>${stalled.map(x => esc(x.name)).join(', ')} : 3 séances sans battre votre record. Le coach propose d'alléger de 10 % à la prochaine séance, puis de remonter : c'est souvent ce qui débloque.</span></div>` : '') +
+      `<div class="slabel"><span>VOS EXERCICES</span><span>1RM estimé</span></div><div class="plist">${all.map(x => {
       const lastE = x.points[x.points.length - 1].e1, ref = x.points.find(p => p.t >= Date.now() - 30 * 864e5) || x.points[0], diff = lastE - ref.e1;
       return `<button class="prow" data-prog="${x.id}">${exThumb(exById(x.id))}<span class="pn"><b>${esc(x.name)}</b><small>${x.points.length} séance${x.points.length > 1 ? 's' : ''}</small></span>
         <span class="pe"><b>${fmt(lastE)} kg</b><small class="${diff > 0 ? 'up' : diff < 0 ? 'down' : ''}">${diff > 0 ? '▲ +' + fmt(diff) : diff < 0 ? '▼ ' + fmt(diff) : '='} sur 30 j</small></span></button>`; }).join('')}</div>`;
@@ -229,6 +292,7 @@ function renderProg(){
   q('#mTab').innerHTML = `
     <button class="lnk back" data-prog="">‹ Tous les exercices</button>
     <div class="ptitle">${exThumb(exById(x.id))}<b>${esc(x.name)}</b></div>
+    ${(() => { const c = coach(x.id, x.name); return c ? `<div class="coach ${c.kind} static"><span class="ct">🎯 Prochaine séance : ${c.sets} × ${c.reps}${c.kg ? ` à <b>${fmt(c.kg)} kg</b>` : ' reps'}</span><small>${esc(c.why)}</small></div>` : ''; })()}
     <div class="kpis3">
       <div><small>1RM ESTIMÉ</small><b>${fmt(best.e1)} kg</b></div>
       <div><small>CHARGE MAX</small><b>${fmt(n(heavy.top.kg))} kg</b><span>× ${n(heavy.top.reps)}</span></div>
@@ -269,7 +333,7 @@ function render(){
 function startSession(fromEx, name){
   S().active = {id:uid(), name:name || defaultName(), start:Date.now(), ex:(fromEx || []).map(e => ({uid:uid(), id:e.id, name:e.name, sets:Array.from({length:Math.max(1, e.sets || 3)}, () => ({kg:'', reps:'', done:false}))}))};
   save(); tab = 'seance'; J.haptic(); render(); startTick();
-  J.say(fromEx && fromEx.length ? `Séance ${S().active.name} lancée. ${fromEx.length} exercices au programme.` : 'Séance lancée. Ajoutez votre premier exercice.');
+  J.say(fromEx && fromEx.length ? `Séance ${S().active.name} lancée. ${fromEx.length} exercice${fromEx.length > 1 ? "s" : ""} au programme.` : 'Séance lancée. Ajoutez votre premier exercice.');
   if (!fromEx || !fromEx.length) setTimeout(() => openPicker('session'), 350);
 }
 function defaultName(){ const h = new Date().getHours(); return 'Séance du ' + (h < 12 ? 'matin' : h < 18 ? 'midi' : 'soir'); }
@@ -386,6 +450,15 @@ function confirmPick(){
 }
 
 /* ---------- petites feuilles d'actions ---------- */
+function openPlates(kg){
+  const p = plates(kg);
+  menuCtx = null;
+  fq('#mMenuT').textContent = `DISQUES · ${fmt(kg)} KG`;
+  fq('#mMenuB').innerHTML = !p ? '<p class="note">Moins lourd que la barre seule (20 kg).</p>' : `
+    <div class="plates"><span class="pbar">BARRE<br>20</span>${p.list.map(x => `<i class="pl p${String(x).replace('.', '_')}">${fmt(x)}</i>`).join('')}</div>
+    <p class="note">De chaque côté : <b>${p.list.length ? p.list.map(fmt).join(' + ') + ' kg' : 'rien, la barre seule'}</b>${p.rest ? `<br>Il manque ${fmt(p.rest)} kg (pas de disque assez petit).` : ''}</p>`;
+  J.openSheet(fq('#mMenu'));
+}
 let menuCtx = null;
 function openMenu(title, actions, ctx){
   menuCtx = ctx;
@@ -464,6 +537,7 @@ function bind(){
     if (act === 'weekgoal') return openMenu('OBJECTIF HEBDOMADAIRE', [2, 3, 4, 5, 6].map(v => ['wg' + v, `${v} séances par semaine`, v === S().weekGoal ? '' : 'ghost']), {});
     if (act === 'startr') { const r = S().routines.find(x => x.id === a.closest('[data-r]').dataset.r); if (S().active) { J.toast('Une séance est déjà en cours'); return; } return startSession(r.ex, r.name); }
     if (act === 'rmenu') { const r = S().routines.find(x => x.id === a.closest('[data-r]').dataset.r); return openMenu(r.name.toUpperCase(), [['rdel', 'SUPPRIMER LA ROUTINE', 'danger']], {r}); }
+    if (act === 'coach') { const ex = activeEx(a.closest('[data-x]').dataset.x); if (isBarbell(ex.id) && +a.dataset.kg) openPlates(+a.dataset.kg); return; }
     if (act === 'finish') return finishSession();
     if (act === 'addex') return openPicker('session');
     if (act === 'cancel') {
@@ -471,7 +545,7 @@ function bind(){
       a.dataset.armed = '1'; a.textContent = 'Toucher encore pour confirmer'; setTimeout(() => { if (a.isConnected) { delete a.dataset.armed; a.textContent = 'Abandonner la séance'; } }, 3000); return;
     }
     if (act === 'addset') { const ex = activeEx(a.closest('[data-x]').dataset.x); const last = ex.sets[ex.sets.length - 1]; ex.sets.push({kg:last ? last.kg : '', reps:last ? last.reps : '', done:false}); save(); J.haptic(); render(); return; }
-    if (act === 'exmenu') { const ex = activeEx(a.closest('[data-x]').dataset.x); return openMenu(ex.name.toUpperCase(), [['lastset', 'SUPPRIMER LA DERNIÈRE SÉRIE'], ['up', 'MONTER L\'EXERCICE'], ['prog', 'VOIR LA PROGRESSION'], ['rmex', 'RETIRER L\'EXERCICE', 'danger']], {ex}); }
+    if (act === 'exmenu') { const ex = activeEx(a.closest('[data-x]').dataset.x); return openMenu(ex.name.toUpperCase(), [['lastset', 'SUPPRIMER LA DERNIÈRE SÉRIE'], ['up', 'MONTER L\'EXERCICE'], ...(isBarbell(ex.id) ? [['plates', 'CALCUL DES DISQUES']] : []), ['prog', 'VOIR LA PROGRESSION'], ['rmex', 'RETIRER L\'EXERCICE', 'danger']], {ex}); }
     if (act === 'check') {
       const row = a.closest('.set'), ex = activeEx(a.closest('[data-x]').dataset.x), s = ex.sets[+row.dataset.s];
       const kgI = row.querySelector('.kg'), rpI = row.querySelector('.rp');
@@ -557,6 +631,7 @@ function bind(){
     if (m === 'up') { const i = a.ex.indexOf(c.ex); if (i > 0) { a.ex.splice(i, 1); a.ex.splice(i - 1, 0, c.ex); } }
     if (m === 'rmex') a.ex = a.ex.filter(x => x !== c.ex);
     if (m === 'prog') { progEx = c.ex.id; tab = 'prog'; }
+    if (m === 'plates') { const done = c.ex.sets.filter(x => n(x.kg)), kg = done.length ? n(done[done.length - 1].kg) : (coach(c.ex.id, c.ex.name, a.start) || {}).kg; setTimeout(() => openPlates(kg || 20), 320); return; }
     save(); render();
   });
 
@@ -596,7 +671,7 @@ J.module({
   },
   brief(){ return S().active ? 'Une séance de musculation est en cours.' : ''; },
   report(){ return status(); },
-  chat(){ const ses = [...S().sessions].sort((a, b) => b.start - a.start).slice(0, 4); return `MUSCULATION : ${thisWeek().length}/${S().weekGoal} séances cette semaine. ${S().active ? 'Séance en cours : ' + S().active.name + '. ' : ''}Dernières séances : ${ses.map(x => `${x.name} ${ago(x.start)} (${x.ex.map(e => e.name).join(', ')})`).join(' ; ') || 'aucune'}. Routines : ${S().routines.map(r => r.name).join(', ') || 'aucune'}.`; },
+  chat(){ const ses = [...S().sessions].sort((a, b) => b.start - a.start).slice(0, 4); return `MUSCULATION : ${thisWeek().length}/${S().weekGoal} séances cette semaine. ${S().active ? 'Séance en cours : ' + S().active.name + '. ' : ''}Dernières séances : ${ses.map(x => `${x.name} ${ago(x.start)} (${x.ex.map(e => e.name).join(', ')})`).join(' ; ') || 'aucune'}. Routines : ${S().routines.map(r => r.name).join(', ') || 'aucune'}.${(() => { const nr = nextRoutine(), st = coachAll().filter(x => x.c.stalled).map(x => x.name); return (nr ? ` Routine conseillée aujourd'hui : ${nr.r.name}.` : '') + (st.length ? ` En stagnation : ${st.join(', ')}.` : ''); })()}`; },
   briefingSpeech(){
     const last = [...S().sessions].sort((x, y) => y.start - x.start)[0];
     if (!last) return '';

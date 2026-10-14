@@ -33,6 +33,7 @@ const TOPICS = {
   taches: /t[âa]che|rappel|faire|todo|agenda|rdv|rendez|r[ée]union|appel|demain|planning|deadline|terminer|fini/i,
   habitudes: /habitude|s[ée]rie|streak|m[ée]dit|lecture|\beau\b|valid/i,
   notes: /note|journal|humeur|id[ée]e|liste|gratitude|[ée]cri/i,
+  social: /d[ée]fi|classement|amis?\b|potes?|copains?|qui (a|est)|premier|gagn|battu|concours/i,
   sante: /\bpas\b|marche|march[ée]|[ée]nergie|activit|sant[ée]|bouger|apple/i,
 };
 const GENERAL = /aujourd'?hui|journ[ée]e|bilan|r[ée]sum|quoi de neuf|programme|le point|semaine|conseil|qu'?est-ce que j'?ai|briefing|tout\b|pr[ée]vu/i;

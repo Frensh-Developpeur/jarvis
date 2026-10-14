@@ -681,6 +681,122 @@ const routes = {
     return { reply: String(r.reply || '').slice(0, 1500), actions };
   },
 
+  /* ---------- photo du repas : l'IA reconnaît les aliments et estime les quantités ----------
+     Gemini d'abord (gratuit, bon en vision), Workers AI (Llama 4 Scout, multimodal) en secours. */
+  'POST /api/food/photo': async (req, env) => {
+    const u = await auth(req, env);
+    await throttle(env, 'photo:' + u.id, 40, 86400);
+    await recordFailure(env, 'photo:' + u.id, 86400);
+    const { image } = await body(req);
+    if (!/^data:image\/(jpeg|png|webp);base64,/.test(String(image || '')) || image.length > 2_500_000) fail(400, 'Image invalide');
+    const prompt = `Tu analyses la photo d'un repas pour un journal alimentaire français.
+Liste chaque aliment visible, avec une estimation réaliste de son poids en grammes TEL QUE SERVI dans l'assiette (donc cuit s'il est cuisiné).
+Utilise des noms simples comme dans la table CIQUAL : « riz blanc cuit », « poulet filet sauté », « pâtes cuites », « haricots verts cuits », « frites », « salade verte », « pain baguette », « sauce tomate », « fromage emmental »…
+Indique toujours l'état (cuit, cru, frit, grillé, rôti) pour les féculents, viandes et poissons, et le morceau pour une viande (« poulet cuisse rôtie avec peau », « poulet filet grillé », « bœuf steak haché cuit »). Sépare les composants d'un plat (ex. burger : pain, steak haché cuit, fromage, sauce).
+Réponds UNIQUEMENT en JSON : {"items":[{"food":"riz blanc cuit","grams":180}],"title":"nom court du plat","note":"remarque éventuelle"}.
+Si la photo ne montre pas de nourriture : {"items":[],"note":"explication"}.`;
+    const messages = [{ role: 'user', content: [{ type: 'text', text: prompt }, { type: 'image_url', image_url: { url: image } }] }];
+    const errors = [];
+    const clean = r => {
+      const items = (Array.isArray(r && r.items) ? r.items : []).map(x => ({ food: String(x.food || '').slice(0, 60).trim(), grams: Math.round(+x.grams || 0) }))
+        .filter(x => x.food && x.grams > 0 && x.grams < 2000).slice(0, 12);
+      return { items, title: String((r && r.title) || '').slice(0, 60), note: String((r && r.note) || '').slice(0, 200) };
+    };
+    if (env.GEMINI_API_KEY) for (const model of ['gemini-flash-lite-latest', 'gemini-3.5-flash', 'gemini-3.5-flash-lite']) {
+      try {
+        const ctl = new AbortController(), timer = setTimeout(() => ctl.abort(), 20000);
+        const r = await fetch('https://generativelanguage.googleapis.com/v1beta/openai/chat/completions', {
+          method: 'POST', signal: ctl.signal,
+          headers: { Authorization: 'Bearer ' + env.GEMINI_API_KEY, 'Content-Type': 'application/json' },
+          body: JSON.stringify({ model, messages, max_tokens: 800, temperature: 0.2, response_format: { type: 'json_object' }, reasoning_effort: 'low' }),
+        });
+        clearTimeout(timer);
+        if (!r.ok) throw new Error(r.status + ' ' + (await r.text()).slice(0, 160));
+        const j = await r.json();
+        return { ...clean(parseChat(j.choices[0].message.content)), provider: 'gemini:' + model };
+      } catch (e) { console.log('photo ' + model, e.message.slice(0, 160)); errors.push(e.message); }
+    }
+    try {
+      const out = await env.AI.run('@cf/meta/llama-4-scout-17b-16e-instruct', { messages, max_tokens: 800, temperature: 0.2 });
+      return { ...clean(parseChat(out.response ?? out)), provider: 'cloudflare' };
+    } catch (e) { console.log('photo cloudflare', e.message); errors.push(e.message); }
+    fail(503, errors.some(m => /quota|limit|429|neuron/i.test(m)) ? 'Quota d\'analyse photo atteint, réessayez plus tard.' : 'Analyse de la photo indisponible pour le moment.');
+  },
+
+  /* ---------- défis entre amis ----------
+     Chacun choisit ce qu'il partage ; le résumé est calculé sur son téléphone (jamais les données brutes). */
+  'PUT /api/social/me': async (req, env) => {
+    const u = await auth(req, env);
+    const { share, summary } = await body(req);
+    const sh = { muscu: !!(share && share.muscu), steps: !!(share && share.steps) };
+    const sum = JSON.stringify(sh.muscu || sh.steps ? summary || {} : {});
+    if (sum.length > 30000) fail(413, 'Résumé trop volumineux');
+    await env.DB.prepare('INSERT INTO social (user_id, share, summary, updated_at) VALUES (?, ?, ?, ?) ON CONFLICT(user_id) DO UPDATE SET share = excluded.share, summary = excluded.summary, updated_at = excluded.updated_at')
+      .bind(u.id, JSON.stringify(sh), sum, Date.now()).run();
+    return { ok: true };
+  },
+
+  'GET /api/social': async (req, env) => {
+    const u = await auth(req, env);
+    const [friends, kudos, chal, members] = await Promise.all([
+      env.DB.prepare('SELECT u.username, s.share, s.summary, s.updated_at FROM social s JOIN users u ON u.id = s.user_id').all(),
+      env.DB.prepare('SELECT u.username AS from_user, k.target, k.item FROM kudos k JOIN users u ON u.id = k.user_id WHERE k.created_at > ?').bind(Date.now() - 60 * 864e5).all(),
+      env.DB.prepare('SELECT c.id, c.title, c.metric, c.target, c.start, c.end, u.username AS creator FROM challenges c JOIN users u ON u.id = c.creator WHERE c.end >= ? ORDER BY c.end').bind(new Date(Date.now() - 14 * 864e5).toISOString().slice(0, 10)).all(),
+      env.DB.prepare('SELECT m.challenge_id, u.username FROM challenge_members m JOIN users u ON u.id = m.user_id').all(),
+    ]);
+    return {
+      me: u.username,
+      friends: friends.results.map(r => ({ username: r.username, share: JSON.parse(r.share), summary: JSON.parse(r.summary), updatedAt: r.updated_at })),
+      kudos: kudos.results.map(k => ({ from: k.from_user, target: k.target, item: k.item })),
+      challenges: chal.results.map(c => ({ ...c, members: members.results.filter(m => m.challenge_id === c.id).map(m => m.username) })),
+    };
+  },
+
+  'POST /api/social/kudos': async (req, env) => {
+    const u = await auth(req, env);
+    const { target, item } = await body(req);
+    if (!target || !item || String(item).length > 40) fail(400, 'Réaction invalide');
+    const had = await env.DB.prepare('DELETE FROM kudos WHERE user_id = ? AND target = ? AND item = ?').bind(u.id, String(target), String(item)).run();
+    if (!had.meta.changes) await env.DB.prepare('INSERT INTO kudos (user_id, target, item, created_at) VALUES (?, ?, ?, ?)').bind(u.id, String(target), String(item), Date.now()).run();
+    return { on: !had.meta.changes };
+  },
+
+  'POST /api/challenges': async (req, env) => {
+    const u = await auth(req, env);
+    const { title, metric, target, start, end } = await body(req);
+    const day = /^\d{4}-\d{2}-\d{2}$/;
+    if (!String(title || '').trim() || !['sessions', 'volume', 'steps'].includes(metric) || !(+target > 0) || !day.test(start) || !day.test(end) || end < start) fail(400, 'Défi invalide');
+    if ((Date.parse(end) - Date.parse(start)) / 864e5 > 92) fail(400, 'Un défi dure 3 mois au maximum');
+    const id = base32(randomBytes(8)).toLowerCase(), t = Date.now();
+    await env.DB.batch([
+      env.DB.prepare('INSERT INTO challenges (id, creator, title, metric, target, start, end, created_at) VALUES (?, ?, ?, ?, ?, ?, ?, ?)').bind(id, u.id, String(title).trim().slice(0, 50), metric, +target, start, end, t),
+      env.DB.prepare('INSERT INTO challenge_members (challenge_id, user_id, joined_at) VALUES (?, ?, ?)').bind(id, u.id, t),
+    ]);
+    return { id };
+  },
+
+  'POST /api/challenges/:id/join': async (req, env, { id }) => {
+    const u = await auth(req, env);
+    if (!await env.DB.prepare('SELECT id FROM challenges WHERE id = ?').bind(id).first()) fail(404, 'Défi introuvable');
+    await env.DB.prepare('INSERT OR IGNORE INTO challenge_members (challenge_id, user_id, joined_at) VALUES (?, ?, ?)').bind(id, u.id, Date.now()).run();
+    return { ok: true };
+  },
+
+  'POST /api/challenges/:id/leave': async (req, env, { id }) => {
+    const u = await auth(req, env);
+    await env.DB.prepare('DELETE FROM challenge_members WHERE challenge_id = ? AND user_id = ?').bind(id, u.id).run();
+    return { ok: true };
+  },
+
+  'DELETE /api/challenges/:id': async (req, env, { id }) => {
+    const u = await auth(req, env);
+    const c = await env.DB.prepare('SELECT creator FROM challenges WHERE id = ?').bind(id).first();
+    if (!c) fail(404, 'Défi introuvable');
+    if (c.creator !== u.id && !u.isAdmin) fail(403, 'Seul le créateur peut supprimer ce défi');
+    await env.DB.batch([env.DB.prepare('DELETE FROM challenge_members WHERE challenge_id = ?').bind(id), env.DB.prepare('DELETE FROM challenges WHERE id = ?').bind(id)]);
+    return { ok: true };
+  },
+
   /* ---------- administration ---------- */
   'POST /api/invites': async (req, env) => {
     const u = await auth(req, env);

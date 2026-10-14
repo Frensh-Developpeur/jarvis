@@ -234,3 +234,27 @@
 .nut .la-txt b{font-family:var(--hud);font-size:11.5px;color:#ff5f8f}
 .nut .la-btns{display:flex;justify-content:center;gap:16px}
 .nut .la-btns .why{width:auto;margin:6px 0 0}
+
+/* ---------- photo du repas ---------- */
+.nut .sbar .scan{width:46px}
+.nut .phwrap{position:relative;margin:6px 0 12px;border-radius:16px;overflow:hidden;max-height:220px;background:#041019}
+.nut .phwrap img{display:block;width:100%;max-height:220px;object-fit:cover}
+.nut .phscan{position:absolute;inset:0;background:linear-gradient(rgba(77,255,195,.0),rgba(77,255,195,.08))}
+.nut .phscan span{position:absolute;left:0;right:0;height:3px;background:var(--green);box-shadow:0 0 14px var(--green);animation:phline 1.6s ease-in-out infinite alternate}
+@keyframes phline{from{top:4%}to{top:94%}}
+.nut .phtitle{margin:0 0 8px;font-size:16px}
+.nut .phrow{display:flex;align-items:center;gap:10px;padding:9px 0;border-top:1px solid rgba(63,224,255,.06)}
+.nut .phrow.off .phn,.nut .phrow.off .phg{opacity:.4}
+.nut .phck{flex:none;width:26px;height:26px;border-radius:8px;border:1.5px solid var(--green);background:none;padding:0}
+.nut .phck.on{background:var(--green);box-shadow:0 0 10px rgba(77,255,195,.5)}
+.nut .phck.on::after{content:"✓";color:#041019;font-weight:800;font-size:15px}
+.nut .phck:disabled{border-color:var(--muted);opacity:.4}
+.nut .phn{flex:1;min-width:0}
+.nut .phn b{display:block;font-size:14.5px;font-weight:600;overflow:hidden;text-overflow:ellipsis;white-space:nowrap}
+.nut .phn small{font-size:12px;color:var(--muted)}
+.nut .phg{display:flex;align-items:center;gap:4px}
+.nut .phg input{width:64px;text-align:right;background:rgba(63,224,255,.05);border:1px solid var(--line);border-radius:10px;padding:8px;font-size:16px}
+.nut .phg span{color:var(--muted);font-size:13px}
+.nut .phtot{margin:10px 0 12px;font-size:14px;color:var(--muted)}
+.nut .phtot b{color:var(--green)}
+.nut .phn b i{font-style:normal;color:var(--muted);font-weight:400}
