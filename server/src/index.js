@@ -65,6 +65,42 @@ const VOICE_SETTINGS = { stability: 0.6, similarity_boost: 0.85, style: 0.05, us
 
 const now = () => Math.floor(Date.now() / 1000);
 
+/* ---------- IA du chat : Cloudflare d'abord, puis fournisseurs de secours quand le quota gratuit est épuisé ----------
+   Secrets facultatifs : MISTRAL_API_KEY (offre gratuite « Experiment »), GROQ_API_KEY. Mêmes consignes, même format JSON. */
+const CHAT_SCHEMA = { type: 'object', properties: { reply: { type: 'string' }, actions: { type: 'array', items: { type: 'object' } } }, required: ['reply', 'actions'] };
+const FALLBACKS = [
+  { name: 'mistral', key: 'MISTRAL_API_KEY', url: env => env.MISTRAL_URL || 'https://api.mistral.ai/v1/chat/completions', model: env => env.MISTRAL_MODEL || 'mistral-medium-latest' },
+  { name: 'groq', key: 'GROQ_API_KEY', url: env => env.GROQ_URL || 'https://api.groq.com/openai/v1/chat/completions', model: env => env.GROQ_MODEL || 'llama-3.3-70b-versatile' },
+];
+let cfOutUntil = 0;   // quota Cloudflare épuisé : on ne le retente qu'après minuit UTC (remise à zéro du quota)
+const nextUtcMidnight = () => { const d = new Date(); d.setUTCHours(24, 0, 0, 0); return d.getTime(); };
+const parseChat = t => { if (t && typeof t === 'object') return t; try { return JSON.parse(t); } catch { const m = String(t || '').match(/\{[\s\S]*\}/); try { return JSON.parse(m[0]); } catch { return { reply: String(t || ''), actions: [] }; } } };
+async function runChat(env, messages, stream) {
+  const errors = [];
+  if (Date.now() > cfOutUntil) {
+    try {
+      const out = await env.AI.run(CHAT_MODEL, { messages, max_tokens: 600, temperature: 0.3, stream, response_format: { type: 'json_schema', json_schema: CHAT_SCHEMA } });
+      return { out: stream ? out : parseChat(out.response ?? out), provider: 'cloudflare' };
+    } catch (e) {
+      console.log('chat cloudflare', e.message); errors.push(e.message);
+      if (/quota|limit|neuron|allocation|4006/i.test(e.message)) cfOutUntil = nextUtcMidnight();
+    }
+  }
+  for (const p of FALLBACKS) {
+    if (!env[p.key]) continue;
+    try {
+      const r = await fetch(p.url(env), {
+        method: 'POST',
+        headers: { Authorization: 'Bearer ' + env[p.key], 'Content-Type': 'application/json' },
+        body: JSON.stringify({ model: p.model(env), messages, max_tokens: 600, temperature: 0.3, stream, response_format: { type: 'json_object' } }),
+      });
+      if (!r.ok) throw new Error(r.status + ' ' + (await r.text()).slice(0, 200));
+      return { out: stream ? r.body : parseChat((await r.json()).choices[0].message.content), provider: p.name };
+    } catch (e) { console.log('chat ' + p.name, e.message); errors.push(p.name + ' : ' + e.message); }
+  }
+  fail(503, errors.some(m => /quota|limit|neuron|allocation|4006|429/i.test(m)) ? 'Quota quotidien de l\'IA atteint, réessayez demain.' : 'IA momentanément indisponible');
+}
+
 /* flux SSE de Workers AI → texte brut (seulement les morceaux de réponse) */
 function sseToText() {
   const dec = new TextDecoder(), enc = new TextEncoder();
@@ -622,17 +658,11 @@ const routes = {
     const system = CHAT_SYSTEM(String(name || 'Monsieur').slice(0, 30), String(clientNow || '').slice(0, 80), String(calendar || '').slice(0, 600)) +
       '\n\nCONTEXTE ACTUEL DE L\'UTILISATEUR (données réelles de ses modules) :\n' + String(context || '').slice(0, 7000);
     const stream = new URL(req.url).searchParams.has('stream');
-    let out;
-    try {
-      out = await env.AI.run(CHAT_MODEL, { messages: [{ role: 'system', content: system }, ...history], max_tokens: 600, temperature: 0.3, stream,
-        response_format: { type: 'json_schema', json_schema: { type: 'object', properties: { reply: { type: 'string' }, actions: { type: 'array', items: { type: 'object' } } }, required: ['reply', 'actions'] } } });
-    } catch (e) {
-      console.log('chat IA', e.message);
-      fail(503, /quota|limit|neuron/i.test(e.message) ? 'Quota quotidien de l\'IA atteint, réessayez demain.' : 'IA momentanément indisponible');
-    }
+    const { out, provider } = await runChat(env, [{ role: 'system', content: system }, ...history], stream);
     // streaming : on renvoie le JSON au fil de l'eau, en texte brut (le client affiche la réponse mot à mot)
-    if (stream) return new Response(out.pipeThrough(sseToText()), { headers: { 'Content-Type': 'text/plain; charset=utf-8', 'Cache-Control': 'no-store' } });
-    let r = out && (out.response ?? out);
+    const hdr = { 'Content-Type': 'text/plain; charset=utf-8', 'Cache-Control': 'no-store', 'X-AI-Provider': provider, 'Access-Control-Expose-Headers': 'X-AI-Provider' };
+    if (stream) return new Response(out.pipeThrough(sseToText()), { headers: hdr });
+    let r = out;
     if (typeof r === 'string') { try { r = JSON.parse(r); } catch { r = { reply: r, actions: [] }; } }
     const actions = Array.isArray(r.actions) ? r.actions.filter(a => a && typeof a.type === 'string').slice(0, 8) : [];
     return { reply: String(r.reply || '').slice(0, 1500), actions };
