@@ -146,10 +146,10 @@ async function send(text, opts = {}){
     const mainOf = a => norm(String(a.food || a.label || a.title || a.name || '')).split(/\s+/)[0];
     const sigOf = a => [a.type, mainOf(a), a.grams || a.portions || a.amount || a.kg || '', a.due || ''].join('|');
     const done = new Set(msgs.slice(-12).flatMap(m => (m.acts || []).filter(x => x.ok && x.sig).map(x => x.sig)));
-    const said = norm(text);
+    const said = norm(text); let skipped = 0;
     for (const a of r.actions || []) {
       const sig = sigOf(a), main = mainOf(a);
-      if (done.has(sig) && !(main && said.includes(main))) continue;
+      if (done.has(sig) && !(main && said.includes(main))) { skipped++; continue; }
       if (a.type === 'briefing') { briefing = true; continue; }
       if (a.type === 'open') { if (J.modules.some(m => m.id === a.module)) acts.push({ok:true, text:'Ouvrir ' + J.modules.find(m => m.id === a.module).name, go:a.module}); continue; }
       const fn = J.actions && J.actions[a.type];
@@ -160,6 +160,9 @@ async function send(text, opts = {}){
     // une information manque : Jarvis pose la question au lieu d'annoncer une action qui n'a pas eu lieu
     if (asks.length) reply = (acts.some(x => x.ok) ? 'C\'est noté pour le reste. ' : '') + asks.join(' ');
     if (!reply) reply = acts.length ? 'C\'est fait.' : 'Je n\'ai pas bien compris, pouvez-vous reformuler ?';
+    // garde-fou : jamais « c'est noté » si rien n'a été enregistré (l'IA de secours l'annonce parfois sans créer l'action)
+    else if (!acts.some(a => a.ok) && !asks.length && !briefing && !skipped && /c'est not[ée]|c'est fait|\bfait\.|ajout[ée]|enregistr[ée]|programm[ée]|je vous rappellerai/i.test(reply))
+      reply = 'Je n\'ai rien pu enregistrer cette fois. Pouvez-vous me redire la demande en une phrase complète ?';
     if (acts.some(a => a.ok)) J.haptic();
   } catch(e) {
     reply = e.status === 429 ? 'Nous avons beaucoup discuté aujourd\'hui : le quota gratuit de l\'IA est atteint. Revenons-en demain.' : (e.message || 'Liaison interrompue avec le serveur.');

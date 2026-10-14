@@ -73,7 +73,7 @@ const FALLBACKS = [
   // limites gratuites PAR MODÈLE (1 000 messages / jour, 8 000 jetons / minute) : on passe au suivant quand l'un sature
   { name: 'groq', key: 'GROQ_API_KEY', url: env => env.GROQ_URL || 'https://api.groq.com/openai/v1/chat/completions', model: env => env.GROQ_MODEL || ['openai/gpt-oss-120b', 'qwen/qwen3.8-27b', 'openai/gpt-oss-20b'] },
   // Gemini (Google AI Studio) : offre gratuite Flash, point d'accès compatible OpenAI
-  { name: 'gemini', key: 'GEMINI_API_KEY', url: env => env.GEMINI_URL || 'https://generativelanguage.googleapis.com/v1beta/openai/chat/completions', model: env => env.GEMINI_MODEL || 'gemini-flash-latest' },
+  { name: 'gemini', key: 'GEMINI_API_KEY', url: env => env.GEMINI_URL || 'https://generativelanguage.googleapis.com/v1beta/openai/chat/completions', model: env => env.GEMINI_MODEL || ['gemini-flash-lite-latest', 'gemini-3.5-flash-lite', 'gemini-3.5-flash'] },
   { name: 'mistral', key: 'MISTRAL_API_KEY', url: env => env.MISTRAL_URL || 'https://api.mistral.ai/v1/chat/completions', model: env => env.MISTRAL_MODEL || 'mistral-medium-latest' },
 ];
 let cfOutUntil = 0;   // quota Cloudflare épuisé : on ne le retente qu'après minuit UTC (remise à zéro du quota)
@@ -94,14 +94,20 @@ async function runChat(env, messages, stream) {
     if (!env[p.key]) continue;
     for (const model of [].concat(p.model(env))) {
       try {
+        // un fournisseur saturé peut ne jamais répondre : sans réponse en 9 s, on passe au suivant
+        const ctl = new AbortController(), timer = setTimeout(() => ctl.abort(), 9000);
         const r = await fetch(p.url(env), {
-          method: 'POST',
+          method: 'POST', signal: ctl.signal,
           headers: { Authorization: 'Bearer ' + env[p.key], 'Content-Type': 'application/json' },
           body: JSON.stringify(Object.assign({ model, messages, max_tokens: 700, temperature: 0.3, stream, response_format: { type: 'json_object' } },
-            /gpt-oss/.test(model) ? { reasoning_effort: 'low' } : /qwen3/.test(model) ? { reasoning_effort: 'none' } : {})),   // réflexion courte : réponse rapide
+            /gpt-oss|gemini/.test(model) ? { reasoning_effort: 'low' } : /qwen3/.test(model) ? { reasoning_effort: 'none' } : {})),   // réflexion courte : réponse rapide
         });
+        clearTimeout(timer);   // en-têtes reçus : le flux peut ensuite durer le temps qu'il faut
         if (!r.ok) throw new Error(r.status + ' ' + (await r.text()).slice(0, 200));
-        return { out: stream ? r.body : parseChat((await r.json()).choices[0].message.content), provider: p.name + ':' + model };
+        if (stream) return { out: r.body, provider: p.name + ':' + model };
+        const j = await r.json(), c = j && j.choices && j.choices[0] && j.choices[0].message && j.choices[0].message.content;
+        if (!c) throw new Error('réponse vide');
+        return { out: parseChat(c), provider: p.name + ':' + model };
       } catch (e) { console.log('chat ' + p.name + ' ' + model, e.message.slice(0, 160)); errors.push(p.name + ' : ' + e.message); }
     }
   }
