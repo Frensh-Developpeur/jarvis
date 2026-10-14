@@ -208,6 +208,7 @@ function syncNew(){
 }
 async function setShare(sh){
   S().share = sh; st.save(); lastSig = '';
+  if (sh.muscu || sh.steps) J.notifPrompt && J.notifPrompt('Soyez prévenu quand un ami vous dépasse ou vous 🔥.');
   try { await J.api('PUT', '/api/social/me', {share:sh, summary:summary()}); lastSig = JSON.stringify({share:sh, summary:summary()}); } catch(e) { J.toast('Partage non envoyé : ' + e.message); }
   load();
 }
@@ -231,7 +232,7 @@ function bind(){
     const c = a.closest('[data-c]') && data.challenges.find(x => x.id === a.closest('[data-c]').dataset.c);
     if (!c) return;
     if (act === 'join' || act === 'leave') {
-      try { await J.api('POST', `/api/challenges/${c.id}/${act}`); J.toast(act === 'join' ? `Défi rejoint : ${c.title}` : 'Vous avez quitté le défi'); } catch(err) { J.toast(err.message); }
+      try { await J.api('POST', `/api/challenges/${c.id}/${act}`); J.toast(act === 'join' ? `Défi rejoint : ${c.title}` : 'Vous avez quitté le défi'); if (act === 'join') J.notifPrompt && J.notifPrompt('Soyez prévenu quand un ami vous dépasse ou vous 🔥.'); } catch(err) { J.toast(err.message); }
       if (act === 'join' && !(S().share || {})[METRICS[c.metric].share]) J.toast('Activez le partage ' + (c.metric === 'steps' ? 'des pas' : 'des séances') + ' pour que votre progression compte');
       return load();
     }
@@ -244,7 +245,7 @@ function bind(){
     const target = num($('#soV', fixed).value), [start, end] = period(newP);
     const title = $('#soT', fixed).value.trim() || `${METRICS[newM].unit(target)} ${{week:'cette semaine', month:'ce mois-ci'}[newP] || 'en ' + newP + ' jours'}`;
     if (!(target > 0)) { J.toast('Indiquez un objectif'); return; }
-    try { await J.api('POST', '/api/challenges', {title, metric:newM, target, start, end}); J.closeSheet(); J.toast('Défi lancé : vos amis peuvent le rejoindre'); tab = 'defis'; load(); }
+    try { await J.api('POST', '/api/challenges', {title, metric:newM, target, start, end}); J.closeSheet(); J.toast('Défi lancé : vos amis peuvent le rejoindre'); tab = 'defis'; load(); J.notifPrompt && J.notifPrompt('Soyez prévenu quand un ami vous dépasse ou vous 🔥.'); }
     catch(err) { J.toast(err.message); }
   });
   $('#soShareSave', fixed).addEventListener('click', () => { J.closeSheet(); setShare({muscu:$('#soSM', fixed).checked, steps:$('#soSS', fixed).checked}); J.toast('Partage mis à jour'); });

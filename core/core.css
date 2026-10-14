@@ -527,3 +527,6 @@ body{overflow-x:clip;max-width:100%}
 body{position:relative}
 .askbar,.chat-in{max-width:100%;box-sizing:border-box}
 .askbar input,.chat-in textarea{width:100%}
+/* carte « activer les notifications » */
+.bcard .bbtns{display:flex;gap:8px;margin-top:10px}
+.bcard .bbtns .btn{flex:1;padding:11px 8px;font-size:10px;margin:0}

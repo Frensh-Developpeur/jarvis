@@ -251,6 +251,42 @@ async function pushUser(env, userId, msg) {
   }
   return sent;
 }
+/* ---------- notifications des défis entre amis (désactivables : réglage « Défis entre amis ») ---------- */
+async function pushSocial(env, userId, payload) {
+  const row = await env.DB.prepare("SELECT json FROM data WHERE user_id = ? AND module = 'core'").bind(userId).first();
+  try { const p = JSON.parse(row.json); if (p && p.notif && p.notif.social === false) return 0; } catch {}
+  console.log('push social', userId.slice(0, 8), payload.title);
+  return pushUser(env, userId, Object.assign({ url: '#/social' }, payload));
+}
+const SOCIAL_METRIC = { sessions: d => d.s || 0, volume: d => (d.v || 0) / 1000, steps: d => d.st || 0 };
+const socialTotal = (sum, metric, from, to) => Object.entries((sum && sum.days) || {}).reduce((a, [k, d]) => k >= from && k <= to ? a + SOCIAL_METRIC[metric](d) : a, 0);
+const parisDay = () => new Intl.DateTimeFormat('fr-CA', { timeZone: 'Europe/Paris' }).format(new Date());
+/* après la mise à jour du résumé d'un utilisateur : séance terminée → ses amis ; dépassement dans un défi → celui qui est dépassé */
+async function socialEvents(env, u, oldSum, newSum, share) {
+  const others = (await env.DB.prepare('SELECT s.user_id, u.username, s.share, s.summary FROM social s JOIN users u ON u.id = s.user_id WHERE s.user_id != ?').bind(u.id).all()).results;
+  // nouvelle séance (terminée il y a moins de 6 h, pas encore annoncée)
+  const seen = new Set(((oldSum && oldSum.sessions) || []).map(x => x.id));
+  const fresh = share.muscu ? ((newSum && newSum.sessions) || []).filter(x => !seen.has(x.id) && Date.now() - x.start < 6 * 3600e3) : [];
+  if (fresh.length && oldSum && oldSum.sessions) for (const o of others) {
+    const x = fresh[0];
+    await pushSocial(env, o.user_id, { title: `💪 ${u.username} a terminé « ${x.name} »`, body: `${x.dur} min · ${(x.vol / 1000).toLocaleString('fr-FR', { maximumFractionDigits: 1 })} t soulevées${x.prs ? ` · 🏆 ${x.prs} record${x.prs > 1 ? 's' : ''}` : ''}. Un 🔥 ?`, tag: 'sess-' + x.id });
+  }
+  // dépassements dans les défis en cours
+  const today = parisDay();
+  const chal = (await env.DB.prepare('SELECT c.id, c.title, c.metric, c.start, c.end FROM challenges c JOIN challenge_members m ON m.challenge_id = c.id WHERE m.user_id = ? AND c.start <= ? AND c.end >= ?').bind(u.id, today, today).all()).results;
+  for (const c of chal) {
+    const key = c.metric === 'steps' ? 'steps' : 'muscu'; if (!share[key]) continue;
+    const before = socialTotal(oldSum, c.metric, c.start, today), after = socialTotal(newSum, c.metric, c.start, today);
+    if (after <= before) continue;
+    const members = new Set((await env.DB.prepare('SELECT user_id FROM challenge_members WHERE challenge_id = ?').bind(c.id).all()).results.map(r => r.user_id));
+    for (const o of others) {
+      if (!members.has(o.user_id) || !JSON.parse(o.share)[key]) continue;
+      const theirs = socialTotal(JSON.parse(o.summary), c.metric, c.start, today);
+      if (before <= theirs && after > theirs) await pushSocial(env, o.user_id, { title: `⚡ ${u.username} vient de vous dépasser`, body: `Défi « ${c.title} ». À vous de jouer.`, tag: 'over-' + c.id });
+    }
+  }
+}
+
 async function sendDueNotifications(env) {
   const t = Date.now();
   const { results } = await env.DB.prepare('SELECT user_id, nid, title, body, url FROM notifs WHERE sent = 0 AND at <= ? AND at > ? ORDER BY at LIMIT 100').bind(t, t - 3600e3).all();
@@ -725,14 +761,16 @@ Si la photo ne montre pas de nourriture : {"items":[],"note":"explication"}.`;
 
   /* ---------- défis entre amis ----------
      Chacun choisit ce qu'il partage ; le résumé est calculé sur son téléphone (jamais les données brutes). */
-  'PUT /api/social/me': async (req, env) => {
+  'PUT /api/social/me': async (req, env, params, ctx) => {
     const u = await auth(req, env);
     const { share, summary } = await body(req);
+    const prev = await env.DB.prepare('SELECT summary FROM social WHERE user_id = ?').bind(u.id).first();
     const sh = { muscu: !!(share && share.muscu), steps: !!(share && share.steps) };
     const sum = JSON.stringify(sh.muscu || sh.steps ? summary || {} : {});
     if (sum.length > 30000) fail(413, 'Résumé trop volumineux');
     await env.DB.prepare('INSERT INTO social (user_id, share, summary, updated_at) VALUES (?, ?, ?, ?) ON CONFLICT(user_id) DO UPDATE SET share = excluded.share, summary = excluded.summary, updated_at = excluded.updated_at')
       .bind(u.id, JSON.stringify(sh), sum, Date.now()).run();
+    if (prev) ctx.waitUntil(socialEvents(env, u, JSON.parse(prev.summary), JSON.parse(sum), sh).catch(e => console.log('social events', e.message)));
     return { ok: true };
   },
 
@@ -752,16 +790,24 @@ Si la photo ne montre pas de nourriture : {"items":[],"note":"explication"}.`;
     };
   },
 
-  'POST /api/social/kudos': async (req, env) => {
+  'POST /api/social/kudos': async (req, env, params, ctx) => {
     const u = await auth(req, env);
     const { target, item } = await body(req);
     if (!target || !item || String(item).length > 40) fail(400, 'Réaction invalide');
     const had = await env.DB.prepare('DELETE FROM kudos WHERE user_id = ? AND target = ? AND item = ?').bind(u.id, String(target), String(item)).run();
-    if (!had.meta.changes) await env.DB.prepare('INSERT INTO kudos (user_id, target, item, created_at) VALUES (?, ?, ?, ?)').bind(u.id, String(target), String(item), Date.now()).run();
+    if (!had.meta.changes) {
+      await env.DB.prepare('INSERT INTO kudos (user_id, target, item, created_at) VALUES (?, ?, ?, ?)').bind(u.id, String(target), String(item), Date.now()).run();
+      ctx.waitUntil((async () => {
+        const t = await env.DB.prepare('SELECT u.id, s.summary FROM users u LEFT JOIN social s ON s.user_id = u.id WHERE u.username = ?').bind(String(target)).first();
+        if (!t || t.id === u.id) return;
+        const sess = (((t.summary && JSON.parse(t.summary)) || {}).sessions || []).find(x => x.id === String(item));
+        await pushSocial(env, t.id, { title: `🔥 ${u.username} vous félicite`, body: sess ? `Pour votre séance « ${sess.name} ».` : 'Pour votre séance.', tag: 'kudos-' + item });
+      })().catch(e => console.log('kudos push', e.message)));
+    }
     return { on: !had.meta.changes };
   },
 
-  'POST /api/challenges': async (req, env) => {
+  'POST /api/challenges': async (req, env, params, ctx) => {
     const u = await auth(req, env);
     const { title, metric, target, start, end } = await body(req);
     const day = /^\d{4}-\d{2}-\d{2}$/;
@@ -772,13 +818,19 @@ Si la photo ne montre pas de nourriture : {"items":[],"note":"explication"}.`;
       env.DB.prepare('INSERT INTO challenges (id, creator, title, metric, target, start, end, created_at) VALUES (?, ?, ?, ?, ?, ?, ?, ?)').bind(id, u.id, String(title).trim().slice(0, 50), metric, +target, start, end, t),
       env.DB.prepare('INSERT INTO challenge_members (challenge_id, user_id, joined_at) VALUES (?, ?, ?)').bind(id, u.id, t),
     ]);
+    ctx.waitUntil((async () => {
+      const others = (await env.DB.prepare('SELECT id FROM users WHERE id != ?').bind(u.id).all()).results;
+      for (const o of others) await pushSocial(env, o.id, { title: `🏆 ${u.username} lance un défi`, body: `« ${String(title).trim().slice(0, 50)} » : vous le relevez ?`, tag: 'chal-' + id });
+    })().catch(e => console.log('challenge push', e.message)));
     return { id };
   },
 
-  'POST /api/challenges/:id/join': async (req, env, { id }) => {
+  'POST /api/challenges/:id/join': async (req, env, { id }, ctx) => {
     const u = await auth(req, env);
-    if (!await env.DB.prepare('SELECT id FROM challenges WHERE id = ?').bind(id).first()) fail(404, 'Défi introuvable');
-    await env.DB.prepare('INSERT OR IGNORE INTO challenge_members (challenge_id, user_id, joined_at) VALUES (?, ?, ?)').bind(id, u.id, Date.now()).run();
+    const c = await env.DB.prepare('SELECT id, title, creator FROM challenges WHERE id = ?').bind(id).first();
+    if (!c) fail(404, 'Défi introuvable');
+    const r = await env.DB.prepare('INSERT OR IGNORE INTO challenge_members (challenge_id, user_id, joined_at) VALUES (?, ?, ?)').bind(id, u.id, Date.now()).run();
+    if (r.meta.changes && c.creator !== u.id) ctx.waitUntil(pushSocial(env, c.creator, { title: `🤝 ${u.username} relève votre défi`, body: `« ${c.title} »`, tag: 'join-' + id }).catch(() => {}));
     return { ok: true };
   },
 

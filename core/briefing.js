@@ -30,6 +30,7 @@ const I = {
   fog:'<svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.6"><path d="M4 10h16M3 14h18M6 18h12M7 6h10"/></svg>',
   cal:'<svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.6"><rect x="3" y="5" width="18" height="16" rx="2"/><path d="M3 10h18M8 3v4M16 3v4"/></svg>',
   check:'<svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.6"><path d="M9 11l3 3 8-8"/><path d="M20 12v7a2 2 0 0 1-2 2H6a2 2 0 0 1-2-2V5a2 2 0 0 1 2-2h9"/></svg>',
+  bell:'<svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.6" stroke-linecap="round"><path d="M6 16V11a6 6 0 0 1 12 0v5l1.5 2h-15z"/><path d="M10 20a2 2 0 0 0 4 0"/></svg>',
   link:'<svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.6"><path d="M10 13a5 5 0 0 0 7.5.5l3-3a5 5 0 0 0-7-7l-1.7 1.7"/><path d="M14 11a5 5 0 0 0-7.5-.5l-3 3a5 5 0 0 0 7 7l1.7-1.7"/></svg>',
   spark:'<svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.6"><path d="M12 3l1.8 5.2L19 10l-5.2 1.8L12 17l-1.8-5.2L5 10l5.2-1.8z"/></svg>',
 };
@@ -208,6 +209,9 @@ function renderBriefingInner(){
   const ag = agenda(), rm = reminders(), synced = appleDoc().syncedAt;
   if (!synced) html.push(card({cls:'setup', icon:I.link, title:'CONNECTER APPLE SANTÉ', act:'guide',
     body:'<p class="bs">Vos pas et calories actives dans Jarvis : 5 minutes de configuration.</p>'}));
+  // personne n'avait activé les notifications : on le propose clairement, une carte qu'on peut repousser
+  if (J.notifState && J.notifState() === 'off' && !J.notifSnoozed()) html.push(card({cls:'setup', icon:I.bell, title:'ACTIVER LES NOTIFICATIONS',
+    body:'<p class="bs">Rappels de tâches à l\'heure, briefing du matin, journal du soir… et quand un ami vous 🔥 ou vous dépasse dans un défi.</p><div class="bbtns"><button class="btn primary" data-act="notif">ACTIVER</button><button class="btn ghost" data-act="notif-later">PLUS TARD</button></div>'}));
   if (ag && ag.items.length) html.push(card({icon:I.cal, title:'AGENDA', right:ag.items.length + ' évén.', body:'<ul class="blist">' + ag.items.map(e => {
       const past = e.mins !== null && e.mins < ag.nowM - 5, isNext = e === ag.next;
       return `<li class="${past ? 'past' : ''} ${isNext ? 'next' : ''}"><span class="bt2">${e.time || '—'}</span><span>${esc(e.title)}</span>${isNext ? `<em>${e.mins > ag.nowM ? inMins(e.mins - ag.nowM) : 'maintenant'}</em>` : ''}</li>`;
@@ -229,6 +233,8 @@ function onAct(e){
   const a = c.dataset.act;
   if (a === 'weather') loadWeather(true);
   if (a === 'guide') J.openGuide();
+  if (a === 'notif') J.enableNotifs();
+  if (a === 'notif-later') { J.notifSnooze(); J.renderBriefing(); }
   if (a.startsWith('mod:')) J.go(a.slice(4));
 }
 $('#briefing').addEventListener('click', onAct);

@@ -115,7 +115,9 @@ function nextDue(due, rep){
 }
 function addTask(data){
   const t = Object.assign({id:uid(), title:'', note:'', due:null, time:null, prio:0, list:'perso', repeat:null, sub:[], done:false, created:Date.now()}, data);
-  S().tasks.push(t); save(); return t;
+  S().tasks.push(t); save();
+  if (t.due && t.time && J.notifPrompt) J.notifPrompt('Je peux vous le rappeler à l\'heure.');   // tâche avec heure : le moment idéal pour proposer les rappels
+  return t;
 }
 function snapshot(){ return JSON.stringify({tasks:S().tasks, lists:S().lists}); }
 function restore(s){ const d = JSON.parse(s); S().tasks = d.tasks; S().lists = d.lists; save(); render(); }

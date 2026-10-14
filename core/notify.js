@@ -8,7 +8,7 @@
 'use strict';
 (() => {
 const {$, $$, esc, ls} = J;
-const DEFAULT_PREFS = {tasks:true, habits:true, journal:true, morning:'08:00', weigh:true};
+const DEFAULT_PREFS = {tasks:true, habits:true, journal:true, morning:'08:00', weigh:true, social:true};
 const prefsN = () => Object.assign({}, DEFAULT_PREFS, (J.prefs() || {}).notif || {});
 const supported = () => 'serviceWorker' in navigator && 'PushManager' in window && 'Notification' in window;
 const standalone = () => window.navigator.standalone === true || matchMedia('(display-mode: standalone)').matches;
@@ -92,6 +92,7 @@ async function renderSettings(){
       ${row('journal', 'Journal du soir', 'À 21 h 30 si pas encore rempli')}
       <div class="toggle"><span>Briefing du matin<small>Résumé de la journée</small></span><input type="time" class="ntime" id="nMorning" value="${p.morning || ''}"></div>
       ${row('weigh', 'Pesée', 'Lundi et jeudi, avec l\'objectif calories adaptatif')}
+      ${row('social', 'Défis entre amis', 'Un ami vous 🔥, vous dépasse, termine une séance ou lance un défi')}
       <div class="two"><button class="btn ghost" id="nTest">TESTER</button><button class="btn ghost" id="nOff">DÉSACTIVER</button></div>`;
 }
 document.addEventListener('click', async e => {
@@ -108,6 +109,28 @@ document.addEventListener('change', e => {
   }
 });
 J.renderNotifSettings = renderSettings;
+
+/* ---------- proposer d'activer, au bon moment ----------
+   état : 'on' | 'off' (possible, pas encore activé) | 'denied' | 'install' (iPhone : ouvrir depuis l'écran d'accueil) | 'no' */
+J.notifState = () => {
+  if (!supported()) return /iPhone|iPad/.test(navigator.userAgent) && !standalone() ? 'install' : 'no';
+  if (Notification.permission === 'denied') return 'denied';
+  return Notification.permission === 'granted' && ls.get('jarvis.push') ? 'on' : 'off';
+};
+J.enableNotifs = async () => {
+  try { if (await enable()) { J.toast('Notifications activées'); J.haptic(); } }
+  catch(err) { J.toast('Activation impossible : ' + err.message); J.report('push enable : ' + (err.stack || err)); }
+  if (J.renderBriefing) J.renderBriefing();
+};
+const ASK_KEY = 'jarvis.notifAsk';
+J.notifSnoozed = () => Date.now() - (ls.get(ASK_KEY) || 0) < 3 * 864e5;
+J.notifSnooze = () => ls.set(ASK_KEY, Date.now());
+/* J.notifPrompt('Je peux vous le rappeler à l'heure.') : petite proposition après une action où ça a du sens */
+J.notifPrompt = (why) => {
+  if (J.notifState() !== 'off' || J.notifSnoozed()) return;
+  J.notifSnooze();   // une proposition tous les 3 jours au plus
+  setTimeout(() => J.toast(`${why} Activer les notifications ?`, {action:'ACTIVER', onAction:J.enableNotifs}), 2400);
+};
 
 /* ---------- ouverture depuis une notification ---------- */
 if ('serviceWorker' in navigator) navigator.serviceWorker.addEventListener('message', e => {
