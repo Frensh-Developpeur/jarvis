@@ -43,7 +43,7 @@ Utilisateur : « ajoute 200 g de riz pour ce soir » → {"reply":"C'est noté."
 (l'application a demandé « cru ou cuit ? ») Utilisateur : « cuit » → {"reply":"C'est noté.","actions":[{"type":"log_food","food":"riz cuit","grams":200,"portions":null,"meal":"din"}]}
 Utilisateur : « 150 g de pâtes crues ce midi » → {"reply":"C'est noté.","actions":[{"type":"log_food","food":"pâtes crues","grams":150,"portions":null,"meal":"dej"}]}
 Utilisateur : « rappelle-moi d'appeler maman » → {"reply":"Entendu. Pour quand ?","actions":[]}
-Utilisateur : « j'ai dépensé 30 balles » → {"reply":"Pour quoi, Monsieur ?","actions":[]}
+Utilisateur : « j'ai dépensé 30 balles » → {"reply":"Pour quoi, ${name} ?","actions":[]}
 Utilisateur : « essence » → {"reply":"C'est noté.","actions":[{"type":"add_expense","amount":30,"label":"Essence","category":"Transport"}]}
 TYPES D'ACTIONS :
 {"type":"add_expense","amount":12.5,"label":"Resto midi","category":"Courses|Restaurants|Transport|Loisirs|Shopping|Santé|Abonnements|Factures|Logement|Épargne|Crédit|Autre","date":"AAAA-MM-JJ (facultatif)"}
@@ -70,7 +70,8 @@ const now = () => Math.floor(Date.now() / 1000);
 const CHAT_SCHEMA = { type: 'object', properties: { reply: { type: 'string' }, actions: { type: 'array', items: { type: 'object' } } }, required: ['reply', 'actions'] };
 const FALLBACKS = [
   // Groq : gratuit sans carte, même modèle Llama 3.3 70B que Cloudflare (mêmes réponses), très rapide
-  { name: 'groq', key: 'GROQ_API_KEY', url: env => env.GROQ_URL || 'https://api.groq.com/openai/v1/chat/completions', model: env => env.GROQ_MODEL || 'llama-3.3-70b-versatile' },
+  // limites gratuites PAR MODÈLE (1 000 messages / jour, 8 000 jetons / minute) : on passe au suivant quand l'un sature
+  { name: 'groq', key: 'GROQ_API_KEY', url: env => env.GROQ_URL || 'https://api.groq.com/openai/v1/chat/completions', model: env => env.GROQ_MODEL || ['openai/gpt-oss-120b', 'qwen/qwen3.8-27b', 'openai/gpt-oss-20b'] },
   // Gemini (Google AI Studio) : offre gratuite Flash, point d'accès compatible OpenAI
   { name: 'gemini', key: 'GEMINI_API_KEY', url: env => env.GEMINI_URL || 'https://generativelanguage.googleapis.com/v1beta/openai/chat/completions', model: env => env.GEMINI_MODEL || 'gemini-flash-latest' },
   { name: 'mistral', key: 'MISTRAL_API_KEY', url: env => env.MISTRAL_URL || 'https://api.mistral.ai/v1/chat/completions', model: env => env.MISTRAL_MODEL || 'mistral-medium-latest' },
@@ -91,15 +92,18 @@ async function runChat(env, messages, stream) {
   }
   for (const p of FALLBACKS) {
     if (!env[p.key]) continue;
-    try {
-      const r = await fetch(p.url(env), {
-        method: 'POST',
-        headers: { Authorization: 'Bearer ' + env[p.key], 'Content-Type': 'application/json' },
-        body: JSON.stringify({ model: p.model(env), messages, max_tokens: 600, temperature: 0.3, stream, response_format: { type: 'json_object' } }),
-      });
-      if (!r.ok) throw new Error(r.status + ' ' + (await r.text()).slice(0, 200));
-      return { out: stream ? r.body : parseChat((await r.json()).choices[0].message.content), provider: p.name };
-    } catch (e) { console.log('chat ' + p.name, e.message); errors.push(p.name + ' : ' + e.message); }
+    for (const model of [].concat(p.model(env))) {
+      try {
+        const r = await fetch(p.url(env), {
+          method: 'POST',
+          headers: { Authorization: 'Bearer ' + env[p.key], 'Content-Type': 'application/json' },
+          body: JSON.stringify(Object.assign({ model, messages, max_tokens: 700, temperature: 0.3, stream, response_format: { type: 'json_object' } },
+            /gpt-oss/.test(model) ? { reasoning_effort: 'low' } : /qwen3/.test(model) ? { reasoning_effort: 'none' } : {})),   // réflexion courte : réponse rapide
+        });
+        if (!r.ok) throw new Error(r.status + ' ' + (await r.text()).slice(0, 200));
+        return { out: stream ? r.body : parseChat((await r.json()).choices[0].message.content), provider: p.name + ':' + model };
+      } catch (e) { console.log('chat ' + p.name + ' ' + model, e.message.slice(0, 160)); errors.push(p.name + ' : ' + e.message); }
+    }
   }
   fail(503, errors.some(m => /quota|limit|neuron|allocation|4006|429/i.test(m)) ? 'Quota quotidien de l\'IA atteint, réessayez demain.' : 'IA momentanément indisponible');
 }
@@ -654,7 +658,7 @@ const routes = {
     await throttle(env, 'chat:' + u.id, 200, 86400);
     await recordFailure(env, 'chat:' + u.id, 86400);
     const { messages, context, name, now: clientNow, calendar } = await body(req);
-    const history = (Array.isArray(messages) ? messages : []).slice(-10)
+    const history = (Array.isArray(messages) ? messages : []).slice(-8)
       .filter(m => m && (m.role === 'user' || m.role === 'assistant') && typeof m.content === 'string')
       .map(m => ({ role: m.role, content: m.content.slice(0, 1200) }));
     if (!history.length || history[history.length - 1].role !== 'user') fail(400, 'Message manquant');

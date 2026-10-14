@@ -24,11 +24,35 @@ const key = () => 'jarvis.chat.' + ((J.user() || {}).username || '').toLowerCase
 const load = () => { msgs = ls.get(key()) || []; };
 const persist = () => ls.set(key(), msgs.slice(-40));
 
-/* résumé de tous les modules envoyé à l'IA */
-function context(){
+/* contexte envoyé à l'IA : le détail des seuls modules concernés par la question (moins de jetons = quota qui dure
+   plus longtemps), et une ligne d'aperçu pour les autres */
+const TOPICS = {
+  finances: /€|euros?\b|reste|combien|mois\b|balles|d[ée]pens|pay[ée]|achet|budget|solde|argent|compte|salaire|revenu|virement|factur|loyer|[ée]pargn|abonnement|co[uû]t|prix|fric|thune|banque|essence|courses/i,
+  nutrition: /reste|combien|mang|repas|calor|kcal|prot[ée]in|glucide|lipide|macro|d[ée]j|d[îi]ner|go[uû]ter|collation|\d\s?g\b|grammes?|poids|pes[ée]|kilos?\b|faim|aliment|whey|riz|p[âa]tes|poulet|cuit|cru\b|bu\b|boire/i,
+  muscu: /muscu|s[ée]ance|salle|sport|entra[iî]n|exercice|d[ée]velopp|squat|pompes|halt[èe]re|record|routine|push|pull|legs?\b|s[ée]ries?\b/i,
+  taches: /t[âa]che|rappel|faire|todo|agenda|rdv|rendez|r[ée]union|appel|demain|planning|deadline|terminer|fini/i,
+  habitudes: /habitude|s[ée]rie|streak|m[ée]dit|lecture|\beau\b|valid/i,
+  notes: /note|journal|humeur|id[ée]e|liste|gratitude|[ée]cri/i,
+  sante: /\bpas\b|marche|march[ée]|[ée]nergie|activit|sant[ée]|bouger|apple/i,
+};
+const GENERAL = /aujourd'?hui|journ[ée]e|bilan|r[ée]sum|quoi de neuf|programme|le point|semaine|conseil|qu'?est-ce que j'?ai|briefing|tout\b|pr[ée]vu/i;
+const METEO = /m[ée]t[ée]o|pluie|pleu|temps qu|parapluie|froid|chaud|soleil|temp[ée]rature|sortir|v[ée]lo|veste/i;
+let lastTopics = [];
+function context(text = ''){
+  const mods = J.modules.filter(m => !m.soon && m.chat);
+  let want = GENERAL.test(text) ? mods.map(m => m.id) : mods.filter(m => TOPICS[m.id] && TOPICS[m.id].test(text)).map(m => m.id);
+  const asked = /\?\s*$/.test(((msgs.filter(m => m.role === 'assistant').slice(-1)[0]) || {}).content || '');
+  if (!want.length && asked) want = lastTopics;   // réponse à une question de Jarvis (« cuit », « demain 19h ») : même sujet qu'avant
+  lastTopics = want;
   const parts = [];
-  J.modules.filter(m => !m.soon && m.chat).forEach(m => { try { const t = m.chat(); if (t) parts.push(t); } catch(e) { J.report(m.id + '.chat : ' + e); } });
-  try { const w = J.weatherText && J.weatherText(); if (w) parts.push('MÉTÉO : ' + w); } catch(e) {}
+  mods.forEach(m => {
+    try {
+      if (want.includes(m.id)) { const t = m.chat(); if (t) parts.push(t); return; }
+      const st = m.stat && m.stat();   // aperçu : une ligne
+      if (st && st.value) parts.push(`${m.name.toUpperCase()} (aperçu) : ${String(st.label || '').toLowerCase()} ${st.value}${st.sub ? ', ' + st.sub : ''}`.replace(/<[^>]+>/g, ''));
+    } catch(e) { J.report(m.id + '.chat : ' + e); }
+  });
+  if (want.length === mods.length || METEO.test(text)) try { const w = J.weatherText && J.weatherText(); if (w) parts.push('MÉTÉO : ' + w); } catch(e) {}
   // montants à la française (sinon l'IA recopie « 2422.9 € » et la voix le lit mal)
   const eur = n => n.toLocaleString('fr-FR', {minimumFractionDigits:n % 1 ? 2 : 0, maximumFractionDigits:2}) + ' €';
   return parts.join('\n').replace(/(-?\d+(?:\.\d+)?)\s?€/g, (_, n) => eur(+n)).replace(/(\d)\.(\d)/g, '$1,$2');
@@ -108,7 +132,7 @@ async function send(text, opts = {}){
     const payload = {
       // les actions déjà faites sont rappelées à l'IA, sinon elle les refait en répondant à la question suivante
       messages:msgs.slice(-10).map(m => ({role:m.role, content:m.content + ((m.acts || []).some(a => a.ok) ? ` [déjà fait : ${m.acts.filter(a => a.ok).map(a => a.text).join(' ; ')}]` : '')})),
-      context:context(), name:(J.prefs() || {}).name || 'Monsieur', calendar:calendar(),
+      context:context(text), name:(J.prefs() || {}).name || 'Monsieur', calendar:calendar(),
       now:`${WD[now.getDay()]} ${now.toLocaleDateString('fr-FR', {day:'numeric', month:'long', year:'numeric'})}, ${now.toLocaleTimeString('fr-FR', {hour:'2-digit', minute:'2-digit'})}`,
     };
     // la réponse s'affiche mot à mot pendant que l'IA l'écrit
@@ -153,6 +177,7 @@ async function send(text, opts = {}){
   if (voice || briefing) J.speak(reply);
 }
 J.ask = send;
+J.chatContext = context;   // diagnostic : ce qui part vers l'IA
 
 /* la liste des messages reste collée en bas quand la feuille change de taille (clavier) ou qu'un message arrive,
    sauf si l'utilisateur est remonté lire l'historique */
