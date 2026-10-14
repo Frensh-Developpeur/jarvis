@@ -530,3 +530,7 @@ body{position:relative}
 /* carte « activer les notifications » */
 .bcard .bbtns{display:flex;gap:8px;margin-top:10px}
 .bcard .bbtns .btn{flex:1;padding:11px 8px;font-size:10px;margin:0}
+/* panneau fermé : il ne suit jamais le clavier et devient invisible une fois descendu
+   (sinon, clavier ouvert, le haut des panneaux fermés, dont la conversation, dépassait au-dessus du clavier) */
+.sheet:not(.show){bottom:0;visibility:hidden;transition:transform .28s cubic-bezier(.2,.8,.2,1),visibility 0s linear .28s}
+.sheet.show{visibility:visible}
