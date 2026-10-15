@@ -258,3 +258,5 @@
 .nut .phtot{margin:10px 0 12px;font-size:14px;color:var(--muted)}
 .nut .phtot b{color:var(--green)}
 .nut .phn b i{font-style:normal;color:var(--muted);font-weight:400}
+.nut .phpick{display:flex;gap:8px;margin:2px 0 10px}
+.nut .phpick button{flex:1;padding:12px 8px;border-radius:12px;border:1px solid var(--green);background:rgba(77,255,195,.08);color:var(--text);font-size:14.5px}

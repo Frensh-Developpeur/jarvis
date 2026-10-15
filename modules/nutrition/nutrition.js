@@ -397,7 +397,8 @@ const FIXED = `
       <h2>AJOUTER UN ALIMENT</h2>
       <div class="seg meals" id="aMeal">${MEALS.map(m => `<button data-v="${m.id}">${m.short}</button>`).join('')}</div>
       <div class="sbar"><input id="aQ" placeholder="Rechercher : riz, poulet, skyr…" autocomplete="off" enterkeyhint="search"><button class="scan" id="aPhoto" aria-label="Photo du repas">${ICON_CAM}</button><button class="scan" id="aScan" aria-label="Scanner un code-barres">${ICON_SCAN}</button></div>
-      <input type="file" id="aPhotoIn" accept="image/*" hidden>
+      <input type="file" id="aPhotoIn" accept="image/*" hidden><input type="file" id="aPhotoCam" accept="image/*" capture="environment" hidden>
+      <div class="phpick" id="aPhotoPick" hidden><button data-ph="cam">📸 Prendre une photo</button><button data-ph="lib">🖼 Galerie</button></div>
       <div id="aRes"></div>
       <button class="btn ghost" id="aCustom">+ CRÉER UN ALIMENT</button>
     </div>
@@ -468,7 +469,7 @@ const foodKey = f => f.code || (f.src + ':' + f.name);
 
 function setSeg(sel, v){ $$(sel + ' button', fixed).forEach(b => b.classList.toggle('on', b.dataset.v === v)); }
 function openAdd(meal){
-  photoReplace = null;
+  photoReplace = null; fq('#aPhotoPick').hidden = true;
   addMeal = meal || (day === today() ? defaultMeal() : 'dej');
   setSeg('#aMeal', addMeal);
   fq('#aQ').value = '';
@@ -819,8 +820,13 @@ function bind(){
     openQty(f);
   });
   fq('#aScan').addEventListener('click', openScanner);
-  fq('#aPhoto').addEventListener('click', () => { J.haptic(); fq('#aPhotoIn').value = ''; fq('#aPhotoIn').click(); });
-  fq('#aPhotoIn').addEventListener('change', e => { const f = e.target.files && e.target.files[0]; if (f) photoChosen(f); });
+  // iPhone : son menu propose déjà « Prendre une photo » ou « Photothèque ». Android (Samsung…) n'ouvre que la galerie :
+  // on propose les deux, l'appareil photo passant par capture="environment"
+  const IOS = /iPhone|iPad|iPod/.test(navigator.userAgent) || (navigator.platform === 'MacIntel' && navigator.maxTouchPoints > 1);
+  const pickPhoto = id => { fq('#aPhotoPick').hidden = true; const i = fq(id); i.value = ''; i.click(); };
+  fq('#aPhoto').addEventListener('click', () => { J.haptic(); if (IOS) pickPhoto('#aPhotoIn'); else fq('#aPhotoPick').hidden = !fq('#aPhotoPick').hidden; });
+  fq('#aPhotoPick').addEventListener('click', e => { const b = e.target.closest('[data-ph]'); if (b) { J.haptic(); pickPhoto(b.dataset.ph === 'cam' ? '#aPhotoCam' : '#aPhotoIn'); } });
+  ['#aPhotoIn', '#aPhotoCam'].forEach(id => fq(id).addEventListener('change', e => { const f = e.target.files && e.target.files[0]; if (f) photoChosen(f); }));
   fq('#phBack').addEventListener('click', () => { photoSeq++; photoReplace = null; step('search'); });
   fq('#phMeal').addEventListener('click', e => { const b = e.target.closest('[data-v]'); if (b) setSeg('#phMeal', b.dataset.v); });
   fq('#phSave').addEventListener('click', savePhoto);
