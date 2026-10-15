@@ -534,3 +534,7 @@ body{position:relative}
    (sinon, clavier ouvert, le haut des panneaux fermés, dont la conversation, dépassait au-dessus du clavier) */
 .sheet:not(.show){bottom:0;visibility:hidden;transition:transform .28s cubic-bezier(.2,.8,.2,1),visibility 0s linear .28s}
 .sheet.show{visibility:visible}
+/* feuille ouverte et clavier : le dessous de la feuille est plein (jamais l'app en transparence pendant que le clavier monte),
+   et pendant la saisie la feuille occupe presque toute la hauteur visible, comme une feuille native */
+body.sheet-open::before{content:"";position:fixed;left:0;right:0;bottom:0;height:var(--kb,0px);background:#06131d;z-index:11;pointer-events:none}
+body.typing .sheet.show:not(.chat){min-height:calc(var(--vvh,100dvh) - var(--safe-t) - 40px)}

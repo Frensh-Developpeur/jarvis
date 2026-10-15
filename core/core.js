@@ -8,7 +8,7 @@
    ============================================================ */
 'use strict';
 (() => {
-const APP_VERSION = '41';
+const APP_VERSION = '42';
 const API = location.hostname === 'localhost' ? 'http://localhost:8787' : 'https://jarvis-api.frensh-developpeur.workers.dev';
 const APP_URL = 'https://frensh-developpeur.github.io/jarvis/';
 
@@ -233,6 +233,9 @@ window.addEventListener('scroll', () => {
 J.focusAfterOpen = (input) => {
   const sh = input.closest('.sheet');
   if (!sh) { input.focus(); return; }
+  // pendant le geste de l'utilisateur (toucher le +) : l'iPhone n'ouvre le clavier que si le curseur est placé tout de suite.
+  // Le clavier monte alors en même temps que la feuille, comme dans une app native.
+  if (navigator.userActivation && navigator.userActivation.isActive && sh.classList.contains('show')) { kbExpected = true; input.focus({preventScroll:true}); kbExpected = false; return; }
   let done = false;
   const go = () => { if (done) return; done = true; sh.removeEventListener('transitionend', onEnd); if (sh.classList.contains('show')) input.focus({preventScroll:true}); };
   const onEnd = e => { if (e.target === sh && e.propertyName === 'transform') go(); };
@@ -296,17 +299,26 @@ const isTextField = el => el && el.matches && el.matches('input:not([type=checkb
 let typingT = 0, focusY = null;
 /* iOS n'annonce la nouvelle hauteur visible qu'à la fin de l'animation du clavier : sans anticipation,
    la feuille reste trop haute (champ caché) puis saute. On applique tout de suite la hauteur connue du clavier. */
+let predictT = 0;
 function predictKeyboard(open){
   if (!openSheetEl) return;
   const root = document.documentElement.style;
   if (open) {
     const kbh = ls.get('jarvis.kbh'); if (!kbh || parseFloat(getComputedStyle(document.documentElement).getPropertyValue('--kb')) > 50) return;
     root.setProperty('--kb', kbh + 'px'); root.setProperty('--vvh', (window.innerHeight - kbh) + 'px');
+    // un curseur placé automatiquement n'ouvre pas toujours le clavier (iPhone) : sans clavier réel, la feuille redescend
+    clearTimeout(predictT);
+    predictT = setTimeout(() => { if (vv && window.innerHeight - vv.height - vv.offsetTop < 100) onViewport(); }, 700);
   } else { root.setProperty('--kb', '0px'); root.setProperty('--vvh', window.innerHeight + 'px'); }
 }
+/* le clavier ne s'ouvre que si le champ est touché, ou reçoit le curseur pendant un geste : sinon (curseur placé par le code),
+   l'iPhone n'ouvre pas de clavier et anticiper sa hauteur laisserait la feuille suspendue au-dessus du vide */
+let touchT = 0, touchEl = null, kbExpected = false;
+document.addEventListener('touchstart', e => { touchT = Date.now(); touchEl = e.target; }, {passive:true, capture:true});
 document.addEventListener('focusin', e => {
   if (!isTextField(e.target)) return;
-  if (e.target.closest('.sheet')) predictKeyboard(true);
+  const direct = kbExpected || (Date.now() - touchT < 1000 && touchEl && (touchEl === e.target || e.target.contains(touchEl) || (touchEl.closest && touchEl.closest('label') && touchEl.closest('label').contains(e.target))));
+  if (e.target.closest('.sheet') && direct) predictKeyboard(true);
   clearTimeout(typingT); document.body.classList.add('typing');
   // champ dans la page (pas dans une feuille) : on retient où était la page avant qu'iOS la fasse remonter
   if (!e.target.closest('.sheet') && focusY === null) focusY = window.scrollY;
