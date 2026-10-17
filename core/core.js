@@ -8,7 +8,7 @@
    ============================================================ */
 'use strict';
 (() => {
-const APP_VERSION = '48';
+const APP_VERSION = '49';
 const API = location.hostname === 'localhost' ? 'http://localhost:8787' : 'https://jarvis-api.frensh-developpeur.workers.dev';
 const APP_URL = 'https://frensh-developpeur.github.io/jarvis/';
 
@@ -710,7 +710,7 @@ function openSettings(){
   S$('#sName').value = prefs.data.name;
   S$('#sVoice').checked = prefs.data.voice;
   $$('#sVoiceMode button').forEach(b => b.classList.toggle('on', b.dataset.v === (prefs.data.voiceMode || 'jarvis')));
-  $$('#sVoiceName button').forEach(b => b.classList.toggle('on', b.dataset.v === (prefs.data.voiceName || 'george')));
+  $$('#sVoiceName button').forEach(b => b.classList.toggle('on', b.dataset.v === (prefs.data.voiceName || 'franck')));
   S$('#sVoiceNameField').hidden = prefs.data.voiceMode === 'iphone';
   S$('#sCity').value = prefs.data.city || '';
   if (J.renderNotifSettings) J.renderNotifSettings();
@@ -739,7 +739,7 @@ S$('#sVoiceName').addEventListener('click', e => {
   const b = e.target.closest('button'); if (!b) return;
   prefs.data.voiceName = b.dataset.v; prefs.save();
   $$('#sVoiceName button').forEach(x => x.classList.toggle('on', x === b));
-  J.speak(`Bonjour ${prefs.data.name}. Je suis Jarvis, à votre service.`);
+  J.speak(`Bonjour ${prefs.data.name}. Tous les systèmes sont opérationnels. Je suis à votre service.`);
 });
 S$('#sCity').addEventListener('change', e => { prefs.data.city = e.target.value.trim(); prefs.save(); ls.del('jarvis.weather'); J.refreshWeather && J.refreshWeather(); });
 S$('#openGuide').addEventListener('click', () => J.openGuide());
@@ -956,7 +956,7 @@ function loadQR(){
    Démarrage
    ============================================================ */
 async function enter(isNew){
-  prefs = J.store('core', {name:'Monsieur', voice:true, voiceMode:'jarvis', voiceName:'george'});
+  prefs = J.store('core', {name:'Monsieur', voice:true, voiceMode:'jarvis', voiceName:'franck'});
   J.modules.forEach(m => { if (!m.soon && m.init) { try { m.init(); } catch(e) { report(m.id + '.init : ' + (e.stack || e)); } } });
   renderTabbar();
   document.body.classList.add('in-app');

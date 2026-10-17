@@ -12,10 +12,14 @@ const USERNAME_RE = /^[a-zA-Z0-9_.-]{3,24}$/;
 
 /* Voix ElevenLabs proposées (voix par défaut de la bibliothèque, utilisables avec le compte gratuit) */
 const VOICES = {
+  // voix françaises natives de la bibliothèque ElevenLabs (ajoutées au compte)
+  franck: 'qNJqclOgbiButMcyYv6d',   // grave, calme, narrateur
+  textorien: 'y7iM4o9Bpg1N3xVTeCg3', // parisien, posé, « classe »
+  lucas: 'odOFTFZU3DvAZ3EV3KHi',    // formel, assuré
   daniel: 'onwK4e9ZLuTAKqWW03F9',   // britannique, posé, autoritaire
   george: 'JBFqnCBsd6RMkjVDRZzb',   // britannique, chaleureux, mature
 };
-const EL_MODEL = 'eleven_turbo_v2_5';   // 0,5 s au lieu de 1,5 à 2,5 s (multilingual v2), et un demi-crédit par caractère
+const EL_MODEL = 'eleven_multilingual_v2';   // le plus naturel en français (1 crédit par caractère ; Turbo : plus rapide mais plus plat)
 const CHAT_MODEL = '@cf/meta/llama-3.3-70b-instruct-fp8-fast';   // mesuré : 1,5 à 4 s (Llama 4 Scout : 5 à 13 s)
 const CHAT_SYSTEM = (name, now, calendar) => `Tu es J.A.R.V.I.S., l'intelligence artificielle personnelle de ${name}, comme celle de Tony Stark dans Iron Man : calme, précise, élégante, d'un humour britannique discret et pince-sans-rire. Jamais servile, jamais familière, jamais d'enthousiasme forcé.
 Nous sommes le ${now}. Correspondances de dates : ${calendar}
@@ -68,9 +72,9 @@ TYPES D'ACTIONS :
 /* Diction « Jarvis » : posée, régulière, pince-sans-rire (stabilité haute, peu d'emphase, débit un peu lent).
    Changer ces réglages → changer aussi le préfixe 'el3' du cache pour régénérer les phrases. */
 const EL_BUDGET = 9500;   // crédits par mois (offre gratuite : 10 000) — au-delà, voix Cloudflare
-const elCost = text => Math.ceil(text.length / 2);   // modèles Turbo / Flash : un demi-crédit par caractère
+const elCost = text => /turbo|flash/.test(EL_MODEL) ? Math.ceil(text.length / 2) : text.length;   // Turbo / Flash : un demi-crédit par caractère
 const month = () => new Date().toISOString().slice(0, 7);
-const VOICE_SETTINGS = { stability: 0.6, similarity_boost: 0.85, style: 0.05, use_speaker_boost: true, speed: 0.98 };
+const VOICE_SETTINGS = { stability: 0.55, similarity_boost: 0.8, style: 0.15, use_speaker_boost: true, speed: 1 };
 
 const now = () => Math.floor(Date.now() / 1000);
 
@@ -534,7 +538,7 @@ const routes = {
     if (!clean) fail(400, 'Texte vide');
     const voiceId = VOICES[voice] || VOICES.george;
     const useEleven = !!env.ELEVENLABS_API_KEY;
-    const hash = await sha256((useEleven ? 'el3:' + voiceId + ':' + EL_MODEL : 'melo') + ':' + clean);
+    const hash = await sha256((useEleven ? 'el4:' + voiceId + ':' + EL_MODEL : 'melo') + ':' + clean);
     const send = (audio, engine, mime) => new Response(audio, { headers: { 'Content-Type': mime, 'X-Voice-Engine': engine, 'Access-Control-Expose-Headers': 'X-Voice-Engine' } });
 
     const hit = await env.DB.prepare('SELECT engine, mime, audio FROM tts_cache WHERE hash = ?').bind(hash).first();
