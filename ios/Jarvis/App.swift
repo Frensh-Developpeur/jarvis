@@ -29,6 +29,11 @@ class AppDelegate: UIResponder, UIApplicationDelegate, UNUserNotificationCenterD
   // jarvis://nutrition (widgets) : ouvre le module
   func application(_ app: UIApplication, open url: URL, options: [UIApplication.OpenURLOptionsKey: Any] = [:]) -> Bool {
     if url.host == "listen" { web.deliver("listen", [:]); return true }   // réacteur (widget, Centre de contrôle, bouton Action)
+    if url.host == "shortcut-error" {   // raccourci introuvable (modes Concentration)
+      let name = URLComponents(url: url, resolvingAgainstBaseURL: false)?.queryItems?.first { $0.name == "name" }?.value ?? ""
+      web.deliver("shortcut.error", ["name": name]); return true
+    }
+    if url.host == "back" { return true }
     web.open("#/" + (url.host ?? "")); return true
   }
 
@@ -75,7 +80,7 @@ class WebController: UIViewController, WKScriptMessageHandler, WKNavigationDeleg
     if #available(iOS 16.4, *) { webView.isInspectable = true }   // inspecteur Safari depuis le Mac
     #endif
     view = webView
-    bridge.web = self
+    bridge.web = self; bridge.device.web = self
     webView.load(URLRequest(url: APP_URL))
   }
   override var preferredStatusBarStyle: UIStatusBarStyle { .lightContent }
@@ -134,6 +139,7 @@ class Bridge {
   weak var web: WebController?
   let health = HKHealthStore()
   let speech = SpeechEngine()
+  let device = DeviceBridge()
 
   static func quote(_ s: String) -> String {
     let d = try! JSONSerialization.data(withJSONObject: [s]); let a = String(data: d, encoding: .utf8)!
@@ -177,7 +183,7 @@ class Bridge {
       done(true, list.compactMap { try? JSONSerialization.jsonObject(with: $0) })
     case "speech.start": speech.start(web: web, done)
     case "speech.stop": speech.stop(); done(true, nil)
-    default: done(false, "Fonction inconnue : \(name)")
+    default: if !device.handle(name, a, done) { done(false, "Fonction inconnue : \(name)") }
     }
   }
 

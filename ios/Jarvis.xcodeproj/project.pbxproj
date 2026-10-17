@@ -10,6 +10,7 @@
 		0C6B2DCC8CF1410F6EE57760 /* JarvisWidget.swift in Sources */ = {isa = PBXBuildFile; fileRef = 34A4B36C7A03225DC6A2BB10 /* JarvisWidget.swift */; };
 		1D330C190FC8E9534D401CD3 /* WidgetData.swift in Sources */ = {isa = PBXBuildFile; fileRef = 126B99BE6781EF096C85771B /* WidgetData.swift */; };
 		499D3D8ECE123B3C293E085F /* Intents.swift in Sources */ = {isa = PBXBuildFile; fileRef = 9C0875E06BEE89685C710763 /* Intents.swift */; };
+		9F9758887D7AF3F889C4D3F0 /* Device.swift in Sources */ = {isa = PBXBuildFile; fileRef = 11456A2194B33301FA5FE7D6 /* Device.swift */; };
 		BF25359AEBC82D75037D5A6B /* JarvisWidget.appex in Embed Foundation Extensions */ = {isa = PBXBuildFile; fileRef = 4614CBDB883BEB7229DE3049 /* JarvisWidget.appex */; settings = {ATTRIBUTES = (RemoveHeadersOnCopy, ); }; };
 		C343F3A867CF91369ACAD1A6 /* App.swift in Sources */ = {isa = PBXBuildFile; fileRef = 26A68668ADC68F0389772F8B /* App.swift */; };
 		C9B8CD81FF4C41AC9DDB1B8C /* Intents.swift in Sources */ = {isa = PBXBuildFile; fileRef = 9C0875E06BEE89685C710763 /* Intents.swift */; };
@@ -42,6 +43,7 @@
 /* End PBXCopyFilesBuildPhase section */
 
 /* Begin PBXFileReference section */
+		11456A2194B33301FA5FE7D6 /* Device.swift */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.swift; path = Device.swift; sourceTree = "<group>"; };
 		126B99BE6781EF096C85771B /* WidgetData.swift */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.swift; path = WidgetData.swift; sourceTree = "<group>"; };
 		26A68668ADC68F0389772F8B /* App.swift */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.swift; path = App.swift; sourceTree = "<group>"; };
 		34A4B36C7A03225DC6A2BB10 /* JarvisWidget.swift */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.swift; path = JarvisWidget.swift; sourceTree = "<group>"; };
@@ -90,6 +92,7 @@
 			children = (
 				26A68668ADC68F0389772F8B /* App.swift */,
 				61C76376F114B708AF2B9EF1 /* Assets.xcassets */,
+				11456A2194B33301FA5FE7D6 /* Device.swift */,
 				D758DDA5F42A49B6CB275DED /* Info.plist */,
 				BCD242C83ADE5623EDB958B3 /* Jarvis.entitlements */,
 			);
@@ -211,6 +214,7 @@
 			buildActionMask = 2147483647;
 			files = (
 				C343F3A867CF91369ACAD1A6 /* App.swift in Sources */,
+				9F9758887D7AF3F889C4D3F0 /* Device.swift in Sources */,
 				C9B8CD81FF4C41AC9DDB1B8C /* Intents.swift in Sources */,
 				1D330C190FC8E9534D401CD3 /* WidgetData.swift in Sources */,
 			);

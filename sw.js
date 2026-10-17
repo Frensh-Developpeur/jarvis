@@ -1,8 +1,8 @@
 // Change la version à chaque mise à jour (le script bump.sh le fait pour toi)
-const CACHE = 'jarvis-v52';
+const CACHE = 'jarvis-v53';
 const ASSETS = [
   './', './index.html', './manifest.json', './icon-192.png', './icon-512.png', './apple-touch-icon.png',
-  './core/core.css', './core/hud.css', './core/core.js', './core/native.js', './core/voice.js', './core/briefing.js', './core/notify.js', './core/chat.js',
+  './core/core.css', './core/hud.css', './core/core.js', './core/native.js', './core/device.js', './core/voice.js', './core/briefing.js', './core/notify.js', './core/chat.js',
   './modules/finances/finances.css', './modules/finances/finances.js',
   './modules/sante/sante.css', './modules/sante/sante.js',
   './modules/nutrition/nutrition.css', './modules/nutrition/nutrition.js', './modules/nutrition/ciqual.json',

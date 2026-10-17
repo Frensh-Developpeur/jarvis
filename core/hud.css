@@ -180,3 +180,11 @@ body.in-app.sheet-open .dockfade,body.in-app.kb-open .dockfade,body.in-app.typin
 .memrow{display:flex;align-items:center;gap:10px;padding:9px 0;border-top:1px solid rgba(63,224,255,.08);font-size:14.5px}
 .memrow span{flex:1}
 .memrow button{background:none;border:none;color:var(--muted);font-size:16px;padding:4px 8px}
+
+/* ---------- photos trouvées par Jarvis ---------- */
+.phsgrid{display:grid;grid-template-columns:repeat(3,1fr);gap:4px;margin-top:6px}
+.phsgrid button{position:relative;aspect-ratio:1;border:0;padding:0;border-radius:10px;background:#061520 center/cover no-repeat;overflow:hidden}
+.phsgrid button span{position:absolute;left:4px;bottom:4px;font-size:10px;padding:2px 6px;border-radius:8px;background:rgba(0,0,0,.55);color:#dff}
+.phsgrid button:active{transform:scale(.96)}
+.shlist{margin:6px 0 10px;padding-left:18px;font-size:13.5px;line-height:1.6;color:var(--muted)}
+.shlist b{color:var(--text)}

@@ -8,7 +8,7 @@
    ============================================================ */
 'use strict';
 (() => {
-const APP_VERSION = '52';
+const APP_VERSION = '53';
 const API = location.hostname === 'localhost' ? 'http://localhost:8787' : 'https://jarvis-api.frensh-developpeur.workers.dev';
 const APP_URL = 'https://frensh-developpeur.github.io/jarvis/';
 
@@ -715,6 +715,7 @@ function openSettings(){
   S$('#sCity').value = prefs.data.city || '';
   if (J.renderNotifSettings) J.renderNotifSettings();
   if (J.renderMemory) J.renderMemory();
+  if (J.renderDeviceSettings) J.renderDeviceSettings();
   renderTabPrefs();
   S$('#sUsage').textContent = '';
   J.api('GET', '/api/tts/usage').then(u => {

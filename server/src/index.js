@@ -68,7 +68,18 @@ TYPES D'ACTIONS :
 {"type":"forget","fact":"mots du fait à oublier"}
 {"type":"timer","minutes":12,"seconds":null,"label":"Pâtes"}  (minuteur, compte à rebours)
 {"type":"undo"}  (« annule », « non, enlève ce que tu viens d'ajouter »)
-{"type":"reschedule_overdue","per_day":3}  (« replanifie / répartis mes tâches en retard »)`;
+{"type":"reschedule_overdue","per_day":3}  (« replanifie / répartis mes tâches en retard »)
+TÉLÉPHONE (l'app iPhone agit directement) :
+{"type":"photo_search","labels":["beach","sunset"],"words":["carrefour"],"from":"AAAA-MM-JJ ou null","to":"AAAA-MM-JJ ou null","place":"ville ou null","title":"titre court"}  (labels : mots-clés de scène EN ANGLAIS, noms simples au singulier : dog, cat, beach, sunset, mountain, snow, food, car, document, receipt, screenshot, people, baby, party, flower, city, sea… ; words : texte écrit SUR la photo, ex. un ticket, une enseigne)
+{"type":"call","name":"nom du contact","number":null}
+{"type":"sms","name":"nom du contact","number":null,"text":"message"}
+{"type":"navigate","destination":"adresse ou lieu","mode":"driving|walking|transit"}
+{"type":"open_app","app":"nom de l'app"}
+{"type":"torch","on":true,"level":100}
+{"type":"brightness","level":40}  (0 à 100 ; « baisse » ≈ 25, « monte » ≈ 85)
+{"type":"volume","level":30}  (0 à 100 ; « coupe le son » = 0)
+{"type":"alarm","time":"07:00","date":"AAAA-MM-JJ ou null","label":"Réveil"}  (réveil, alarme)
+{"type":"focus","mode":"dnd|sleep|off"}  (ne pas déranger, mode sommeil, désactiver ; « mets en vibreur / en silencieux » → dnd)`;
 /* Diction « Jarvis » : posée, régulière, pince-sans-rire (stabilité haute, peu d'emphase, débit un peu lent).
    Changer ces réglages → changer aussi le préfixe 'el3' du cache pour régénérer les phrases. */
 const EL_BUDGET = 9500;   // crédits par mois (offre gratuite : 10 000) — au-delà, voix Cloudflare
