@@ -538,3 +538,8 @@ body{position:relative}
    et pendant la saisie la feuille occupe presque toute la hauteur visible, comme une feuille native */
 body.sheet-open::before{content:"";position:fixed;left:0;right:0;bottom:0;height:var(--kb,0px);background:#06131d;z-index:11;pointer-events:none}
 body.typing .sheet.show:not(.chat){min-height:calc(var(--vvh,100dvh) - var(--safe-t) - 40px)}
+/* identifiants proposés à la connexion */
+.usugg{display:flex;flex-wrap:wrap;gap:6px;margin-top:8px}
+.usugg:empty{display:none}
+.usugg button{padding:7px 13px;border-radius:16px;border:1px solid rgba(63,224,255,.25);background:rgba(63,224,255,.05);color:var(--text);font-size:14px}
+.usugg button.on{border-color:var(--cyan);background:rgba(63,224,255,.16);color:var(--cyan)}

@@ -460,6 +460,15 @@ const routes = {
     return { token: await createSession(env, userId), user: userOut(user) };
   },
 
+  /* identifiants proposés sur l'écran de connexion (comptes sur invitation, le code de l'authenticator reste obligatoire) */
+  'GET /api/login/users': async (req, env) => {
+    const ip = req.headers.get('CF-Connecting-IP') || 'ip';
+    await throttle(env, 'users:' + ip, 30, 3600);
+    await recordFailure(env, 'users:' + ip, 3600);
+    const { results } = await env.DB.prepare('SELECT username FROM users ORDER BY created_at LIMIT 20').all();
+    return { users: results.map(r => r.username) };
+  },
+
   'POST /api/login': async (req, env) => {
     const ip = req.headers.get('CF-Connecting-IP') || 'ip';
     const { username, code } = await body(req);

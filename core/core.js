@@ -8,7 +8,7 @@
    ============================================================ */
 'use strict';
 (() => {
-const APP_VERSION = '44';
+const APP_VERSION = '45';
 const API = location.hostname === 'localhost' ? 'http://localhost:8787' : 'https://jarvis-api.frensh-developpeur.workers.dev';
 const APP_URL = 'https://frensh-developpeur.github.io/jarvis/';
 
@@ -811,7 +811,24 @@ async function showAuth(){
     const {needsSetup} = await J.api('GET', '/api/status');
     if (needsSetup) { authStep('register'); A$('#rInviteField').hidden = true; A$('#regForm [data-tologin]').hidden = true; A$('#regTitle').textContent = 'INITIALISATION'; J.say('Premier démarrage. Créez le compte administrateur.'); }
   } catch(e) { J.say('Serveur injoignable. Vérifiez votre connexion.'); }
+  loadUserSuggestions();
 }
+/* identifiants proposés : ceux déjà utilisés sur cet appareil d'abord, puis les autres comptes */
+async function loadUserSuggestions(){
+  const known = ls.get('jarvis.knownUsers') || [];
+  let all = [];
+  try { all = (await J.api('GET', '/api/login/users')).users || []; } catch(e) {}
+  const list = [...known.filter(u => all.includes(u) || !all.length), ...all.filter(u => !known.includes(u))];
+  const cur = () => A$('#lUser').value.trim().toLowerCase();
+  A$('#lUsers').innerHTML = list.map(u => `<button type="button" data-u="${esc(u)}" class="${u.toLowerCase() === cur() ? 'on' : ''}">${esc(u)}</button>`).join('');
+}
+A$('#lUsers').addEventListener('click', e => {
+  const b = e.target.closest('[data-u]'); if (!b) return;
+  J.haptic(); A$('#lUser').value = b.dataset.u;
+  $$('#lUsers button').forEach(x => x.classList.toggle('on', x === b));
+  A$('#lCode').focus();   // pendant le toucher : le clavier numérique s'ouvre pour le code
+});
+A$('#lUser').addEventListener('input', () => { const v = A$('#lUser').value.trim().toLowerCase(); $$('#lUsers button').forEach(x => x.classList.toggle('on', x.dataset.u.toLowerCase() === v)); });
 function busy(btn, on){ btn.disabled = on; btn.style.opacity = on ? .5 : 1; }
 
 A$('#toRegister').addEventListener('click', () => { authStep('register'); A$('#rInviteField').hidden = false; A$('#regForm [data-tologin]').hidden = false; A$('#regTitle').textContent = 'NOUVEL UTILISATEUR'; A$('#rInvite').focus(); });
@@ -822,7 +839,9 @@ A$('#loginForm').addEventListener('submit', async e => {
   const btn = A$('#loginForm button[type=submit]'); busy(btn, true);
   try {
     const r = await J.api('POST', '/api/login', {username:A$('#lUser').value.trim(), code:A$('#lCode').value.replace(/\s/g, '')});
-    setSession(r); await enter();
+    setSession(r);
+    const known = (ls.get('jarvis.knownUsers') || []).filter(u => u !== r.user.username); ls.set('jarvis.knownUsers', [r.user.username, ...known].slice(0, 8));
+    await enter();
   } catch(err) { authErr(err.message); A$('#lCode').value = ''; }
   busy(btn, false);
 });
