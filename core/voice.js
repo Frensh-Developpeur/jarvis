@@ -266,7 +266,7 @@ async function speakNow(text, p){
   const my = ++seq;
   J.$$('.view.active .reactor').forEach(el => el.classList.add('thinking'));
   try {
-    const {buf, engine} = await render(spoken, p.voiceName || 'franck');
+    const {buf, engine} = await render(spoken, p.voiceName || 'george');
     if (my !== seq) return;        // une autre phrase a été demandée entre-temps (stop() a déjà conclu)
     const fx = setFx(engine);
     const src = ctx.createBufferSource();
