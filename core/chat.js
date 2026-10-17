@@ -53,6 +53,8 @@ function context(text = ''){
       if (st && st.value) parts.push(`${m.name.toUpperCase()} (aperçu) : ${String(st.label || '').toLowerCase()} ${st.value}${st.sub ? ', ' + st.sub : ''}`.replace(/<[^>]+>/g, ''));
     } catch(e) { J.report(m.id + '.chat : ' + e); }
   });
+  try { const m = J.memoryText ? J.memoryText() : ''; if (m) parts.unshift('MÉMOIRE (ce que l\'utilisateur t\'a demandé de retenir, à utiliser pour personnaliser) : ' + m); } catch(e) {}
+  try { const ins = J.insights ? J.insights().slice(0, 6) : []; if (ins.length) parts.push('OBSERVATIONS DE JARVIS (à mentionner si pertinent) : ' + ins.map(x => x.text).join(' | ')); } catch(e) {}
   if (want.length === mods.length || METEO.test(text)) try { const w = J.weatherText && J.weatherText(); if (w) parts.push('MÉTÉO : ' + w); } catch(e) {}
   // montants à la française (sinon l'IA recopie « 2422.9 € » et la voix le lit mal)
   const eur = n => n.toLocaleString('fr-FR', {minimumFractionDigits:n % 1 ? 2 : 0, maximumFractionDigits:2}) + ' €';
@@ -148,6 +150,9 @@ async function send(text, opts = {}){
     const sigOf = a => [a.type, mainOf(a), a.grams || a.portions || a.amount || a.kg || '', a.due || ''].join('|');
     const done = new Set(msgs.slice(-12).flatMap(m => (m.acts || []).filter(x => x.ok && x.sig).map(x => x.sig)));
     const said = norm(text); let skipped = 0;
+    // « annuler » : on photographie les données que les actions vont modifier
+    const snaps = {};
+    (r.actions || []).forEach(a => { const id = STORE_OF[a.type]; if (id && !snaps[id]) snaps[id] = JSON.stringify(J.store(id, {}).data); });
     for (const a of r.actions || []) {
       const sig = sigOf(a), main = mainOf(a);
       if (done.has(sig) && !(main && said.includes(main))) { skipped++; continue; }
@@ -159,10 +164,11 @@ async function send(text, opts = {}){
       catch(e) { if (e.ask) asks.push(e.ask); else acts.push({ok:false, text:e.message}); }
     }
     // une information manque : Jarvis pose la question au lieu d'annoncer une action qui n'a pas eu lieu
+    if (acts.some(x => x.ok) && Object.keys(snaps).length && !(r.actions || []).some(a => a.type === 'undo')) lastUndo = {snaps, label:acts.filter(x => x.ok).map(x => x.text).join(' · ')};
     if (asks.length) reply = (acts.some(x => x.ok) ? 'C\'est noté pour le reste. ' : '') + asks.join(' ');
     if (!reply) reply = acts.length ? 'C\'est fait.' : 'Je n\'ai pas bien compris, pouvez-vous reformuler ?';
     // garde-fou : jamais « c'est noté » si rien n'a été enregistré (l'IA de secours l'annonce parfois sans créer l'action)
-    else if (!acts.some(a => a.ok) && !asks.length && !briefing && !skipped && /c'est not[ée]|c'est fait|\bfait\.|ajout[ée]|enregistr[ée]|programm[ée]|je vous rappellerai/i.test(reply))
+    else if (!acts.some(a => a.ok) && !asks.length && !briefing && !skipped && /^\s*(c'est (not[ée]|fait)|fait\b|not[ée]\b|entendu, c'est)|j'ai (bien )?(ajout|enregistr|not|programm|cr[ée]|plac)[ée]|je vous rappellerai|(a|ont) été (ajout|enregistr|programm)[ée]/i.test(reply))
       reply = 'Je n\'ai rien pu enregistrer cette fois. Pouvez-vous me redire la demande en une phrase complète ?';
     if (acts.some(a => a.ok)) J.haptic();
   } catch(e) {
@@ -174,13 +180,108 @@ async function send(text, opts = {}){
   if (fromHub) {
     $('#hubReactor').classList.remove('thinking');
     J.say(reply, 'final');
-    $('#hubActs').innerHTML = acts.map(a => `<button class="ca ${a.ok ? '' : 'ko'}" ${a.go ? `data-go="${a.go}"` : ''}>${a.ok ? '✓' : '⚠'} ${esc(a.text)}${a.go ? ' ›' : ''}</button>`).join('');
+    $('#hubActs').innerHTML = acts.map(a => `<button class="ca ${a.ok ? '' : 'ko'}" ${a.go ? `data-go="${a.go}"` : ''}>${a.ok ? '✓' : '⚠'} ${esc(a.text)}${a.go ? ' ›' : ''}</button>`).join('') + (lastUndo && acts.some(a => a.ok && a.text !== 'Annulé') ? '<button class="ca undo" data-undo>↶ Annuler</button>' : '');
     $('#hubConv').hidden = false;
     if (J.renderBriefing) J.renderBriefing();
   } else render();
-  if (voice || briefing) J.speak(reply);
+  if (voice || briefing) {
+    const spoken = J.speak(reply);
+    if (voice && fromHub && /\?\s*$/.test(reply) && !briefing) spoken.then(() => { if (!J.sheetOpen() && $('#hub').classList.contains('active')) setTimeout(hubListen, 250); });
+  }
 }
 J.ask = send;
+
+/* ---------- annuler la dernière action ---------- */
+const STORE_OF = {add_expense:'finances', add_income:'finances', log_food:'nutrition', log_weight:'nutrition', add_task:'taches', complete_task:'taches',
+  reschedule_overdue:'taches', log_habit:'habitudes', add_note:'notes', remember:'memory', forget:'memory'};
+let lastUndo = null;
+function undo(){
+  if (!lastUndo) throw Object.assign(new Error('rien à annuler'), {ask:'Il n\'y a rien à annuler pour le moment.'});
+  const u = lastUndo; lastUndo = null;
+  Object.entries(u.snaps).forEach(([id, json]) => { const st = J.store(id, {}); st.data = JSON.parse(json); st.save(); st.listeners.forEach(f => { try { f(st.data); } catch(e) {} }); });
+  const cur = J.modules.find(m => document.getElementById('mv-' + m.id) && document.getElementById('mv-' + m.id).classList.contains('active'));
+  try { if (cur && cur.onShow) cur.onShow(); } catch(e) {}
+  if (J.renderBriefing) J.renderBriefing();
+  J.haptic('warning');
+  return {text:'Annulé : ' + u.label};
+}
+J.actions = J.actions || {};
+J.actions.undo = () => undo();
+document.addEventListener('click', e => {
+  if (!e.target.closest('[data-undo]')) return;
+  try { const r = undo(); J.toast(r.text); e.target.closest('[data-undo]').remove(); } catch(err) { J.toast(err.ask || err.message); }
+});
+
+/* ---------- mémoire : ce que l'utilisateur demande à Jarvis de retenir ---------- */
+const mem = () => J.store('memory', {facts:[]});
+J.actions.remember = a => {
+  const fact = String(a.fact || '').trim().replace(/\s+/g, ' ').slice(0, 220);
+  if (!fact) throw Object.assign(new Error('?'), {ask:'Que dois-je retenir ?'});
+  const st = mem(), f = st.data.facts = st.data.facts || [];
+  if (!f.some(x => norm(x.t) === norm(fact))) f.push({t:fact, at:Date.now()});
+  st.data.facts = f.slice(-60); st.save(); renderMemory();
+  return {text:'Mémorisé : ' + fact};
+};
+J.actions.forget = a => {
+  const words = norm(a.fact || '').split(/\s+/).filter(w => w.length > 2), st = mem(), f = st.data.facts || [];
+  const keep = f.filter(x => !words.length || words.filter(w => norm(x.t).includes(w)).length < Math.max(1, Math.ceil(words.length / 2)));
+  if (keep.length === f.length) throw Object.assign(new Error('?'), {ask:`Je n'ai rien en mémoire sur « ${a.fact} ».`});
+  st.data.facts = keep; st.save(); renderMemory();
+  return {text:`Oublié (${f.length - keep.length})`};
+};
+J.memoryText = () => (mem().data.facts || []).map(x => x.t).join(' ; ');
+function renderMemory(){
+  const box = document.getElementById('sMemory'); if (!box) return;
+  const f = mem().data.facts || [];
+  box.innerHTML = f.length ? f.map((x, i) => `<div class="memrow"><span>${esc(x.t)}</span><button data-memdel="${i}" aria-label="Oublier">✕</button></div>`).join('')
+    : '<p class="note">Dites « retiens que… » à Jarvis : il s\'en souviendra dans toutes vos conversations.</p>';
+}
+document.addEventListener('click', e => {
+  const b = e.target.closest('[data-memdel]'); if (!b) return;
+  const st = mem(); st.data.facts.splice(+b.dataset.memdel, 1); st.save(); renderMemory(); J.haptic();
+});
+J.renderMemory = renderMemory;
+
+/* ---------- minuteurs : « minuteur 12 minutes pour les pâtes » ---------- */
+const TKEY = 'jarvis.timers';
+J.timers = () => (ls.get(TKEY) || []).filter(t => t.at > Date.now() - 5000);
+J.actions.timer = a => {
+  const min = parseFloat(String(a.minutes ?? '').replace(',', '.')), sec = parseFloat(String(a.seconds ?? '').replace(',', '.'));
+  const ms = (min > 0 ? min * 60 : 0) * 1000 + (sec > 0 ? sec * 1000 : 0);
+  if (!(ms >= 5000 && ms <= 24 * 3600e3)) throw Object.assign(new Error('?'), {ask:'Pour combien de temps, le minuteur ?'});
+  const label = String(a.label || 'Minuteur').trim().slice(0, 40) || 'Minuteur';
+  const t = {id:Date.now().toString(36), at:Date.now() + ms, label};
+  ls.set(TKEY, [...J.timers(), t]);
+  armTimers(); if (J.scheduleNotifs) J.scheduleNotifs();
+  if (J.notifPrompt) J.notifPrompt('Pour être prévenu même app fermée,');
+  const m = Math.round(ms / 60000);
+  return {text:`Minuteur ${label === 'Minuteur' ? '' : label + ' '}· ${m >= 1 ? m + ' min' : Math.round(ms / 1000) + ' s'}`};
+};
+let timerT = 0, tickT = 0;
+function armTimers(){
+  clearTimeout(timerT); clearInterval(tickT);
+  const list = J.timers().sort((a, b) => a.at - b.at);
+  renderTimers();
+  if (!list.length) return;
+  tickT = setInterval(renderTimers, 1000);
+  timerT = setTimeout(() => {
+    const due = J.timers().filter(t => t.at <= Date.now() + 500);
+    ls.set(TKEY, J.timers().filter(t => t.at > Date.now() + 500));
+    due.forEach(t => { J.toast(`⏱ ${t.label} : c'est l'heure.`); J.haptic('success'); if (J.speak) J.speak(`${t.label === 'Minuteur' ? 'Le minuteur est' : t.label + ' : le minuteur est'} terminé.`); });
+    armTimers();
+  }, Math.max(0, list[0].at - Date.now()));
+}
+function renderTimers(){
+  const box = document.getElementById('hubTimers'); if (!box) return;
+  const list = J.timers().filter(t => t.at > Date.now()).sort((a, b) => a.at - b.at);
+  const mmss = ms => { const s = Math.ceil(ms / 1000); return Math.floor(s / 60) + ':' + String(s % 60).padStart(2, '0'); };
+  box.innerHTML = list.map(t => `<button class="tmr" data-tmr="${t.id}"><b>${mmss(t.at - Date.now())}</b>${esc(t.label)}<i>✕</i></button>`).join('');
+}
+document.addEventListener('click', e => {
+  const b = e.target.closest('[data-tmr]'); if (!b) return;
+  ls.set(TKEY, J.timers().filter(t => t.id !== b.dataset.tmr)); J.haptic(); armTimers(); if (J.scheduleNotifs) J.scheduleNotifs();
+});
+setTimeout(armTimers, 1500);
 J.chatContext = context;   // diagnostic : ce qui part vers l'IA
 
 /* la liste des messages reste collée en bas quand la feuille change de taille (clavier) ou qu'un message arrive,

@@ -317,6 +317,14 @@ J.module({
   brief(){ return ''; },
   report(){ return status(); },
   chat(){ const k = today(); return `HABITUDES aujourd'hui : ${habits().map(h => `${h.name} ${scheduled(h, k) ? value(h, k) + '/' + h.target + (isDone(h, k) ? ' (fait)' : '') : '(repos)'}${streak(h) > 1 ? ', série ' + streak(h) + ' j' : ''}`).join(' ; ') || 'aucune habitude'}.`; },
+  /* observations : série en jeu ce soir */
+  insights(){
+    const out = [], k = today();
+    if (new Date().getHours() < 17) return out;
+    habits().filter(h => scheduled(h, k) && !isDone(h, k) && streak(h) >= 3).sort((a, b) => streak(b) - streak(a)).slice(0, 2)
+      .forEach(h => out.push({level:'warn', score:68 + Math.min(12, streak(h)), text:`Série de ${streak(h)} jours en jeu ce soir : ${h.name}.`, go:'habitudes'}));
+    return out;
+  },
   briefingSpeech(){
     const hs = habits(), k = today(), left = hs.filter(h => scheduled(h, k) && !isDone(h, k));
     return left.length ? `${left.length} habitude${left.length > 1 ? 's' : ''} à valider aujourd'hui.` : '';

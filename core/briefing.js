@@ -30,6 +30,7 @@ const I = {
   fog:'<svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.6"><path d="M4 10h16M3 14h18M6 18h12M7 6h10"/></svg>',
   cal:'<svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.6"><rect x="3" y="5" width="18" height="16" rx="2"/><path d="M3 10h18M8 3v4M16 3v4"/></svg>',
   check:'<svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.6"><path d="M9 11l3 3 8-8"/><path d="M20 12v7a2 2 0 0 1-2 2H6a2 2 0 0 1-2-2V5a2 2 0 0 1 2-2h9"/></svg>',
+  eye:'<svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.6" stroke-linecap="round"><path d="M2 12s3.6-7 10-7 10 7 10 7-3.6 7-10 7S2 12 2 12z"/><circle cx="12" cy="12" r="3"/><path d="M12 2v1.5M12 20.5V22"/></svg>',
   bell:'<svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.6" stroke-linecap="round"><path d="M6 16V11a6 6 0 0 1 12 0v5l1.5 2h-15z"/><path d="M10 20a2 2 0 0 0 4 0"/></svg>',
   link:'<svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.6"><path d="M10 13a5 5 0 0 0 7.5.5l3-3a5 5 0 0 0-7-7l-1.7 1.7"/><path d="M14 11a5 5 0 0 0-7.5-.5l-3 3a5 5 0 0 0 7 7l1.7-1.7"/></svg>',
   spark:'<svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.6"><path d="M12 3l1.8 5.2L19 10l-5.2 1.8L12 17l-1.8-5.2L5 10l5.2-1.8z"/></svg>',
@@ -189,6 +190,22 @@ function quickTile({label, value, sub = '', ratio = null, act = '', icon = '', a
     <span class="ql">${icon}${esc(label)}</span><span class="qv">${value}</span>${sub ? `<span class="qs">${sub}</span>` : ''}
     ${ratio !== null ? `<span class="qb"><i style="width:${Math.max(0, Math.min(1, ratio)) * 100}%"></i></span>` : ''}</button>`;
 }
+/* observations de tous les modules, les plus importantes d'abord */
+J.insights = () => {
+  const all = [];
+  J.modules.filter(m => !m.soon && m.insights).forEach(m => { try { (m.insights() || []).forEach(x => all.push(Object.assign({go:m.id}, x))); } catch(e) { J.report(m.id + '.insights : ' + e); } });
+  return all.sort((a, b) => b.score - a.score);
+};
+/* anneaux du réacteur : pas (cyan), calories (vert), tâches terminées (ambre) */
+function hubRings(){
+  const stat = id => { const m = J.modules.find(x => x.id === id && !x.soon); try { return m && m.stat ? m.stat() : null; } catch(e) { return null; } };
+  const set = (cls, r, ratio) => { const el = $('#hubReactor .' + cls), C = 2 * Math.PI * r; if (el) el.setAttribute('stroke-dasharray', `${Math.max(0.001, Math.min(1, ratio || 0)) * C} ${C}`); };
+  const s = stat('sante'), n = stat('nutrition'), t = stat('taches');
+  set('r-steps', 111, s && s.ratio); set('r-kcal', 105, n && n.ratio); set('r-tasks', 99, t && t.ratio);
+  const pct = x => x && x.ratio !== null && x.ratio !== undefined ? Math.round(x.ratio * 100) + ' %' : '—';
+  const lg = $('#hubLegend');
+  if (lg) lg.innerHTML = `<span style="--c:#3fe0ff"><i></i>PAS <b>${pct(s)}</b></span><span style="--c:#4dffc3"><i></i>KCAL <b>${pct(n)}</b></span><span style="--c:#ffb347"><i></i>TÂCHES <b>${pct(t)}</b></span>`;
+}
 J.renderBriefing = () => {
   try { renderBriefingInner(); } catch(e) { J.report('renderBriefing : ' + (e.stack || e)); }
 };
@@ -204,11 +221,16 @@ function renderBriefingInner(){
     try { const t = m.stat(); if (t) tiles.push(quickTile(Object.assign({icon:m.icon, accent:m.accent, act:'mod:' + m.id}, t))); } catch(e) {}
   });
   $('#quick').innerHTML = tiles.join('');
+  hubRings();
 
   const html = [];
   const ag = agenda(), rm = reminders(), synced = appleDoc().syncedAt;
   if (!synced) html.push(card({cls:'setup', icon:I.link, title:'CONNECTER APPLE SANTÉ', act:'guide',
     body:'<p class="bs">Vos pas et calories actives dans Jarvis : 5 minutes de configuration.</p>'}));
+  // analyse de Jarvis : ce qui mérite l'attention aujourd'hui
+  const ins = J.insights().slice(0, 3);
+  if (ins.length) html.push(card({cls:'insight', icon:I.eye, title:'ANALYSE DE JARVIS', right:ins.length + ' / ' + J.insights().length,
+    body:'<ul class="ilist">' + ins.map(x => `<li class="${x.level}" data-go="${x.go}"><i></i><span>${esc(x.text)}</span></li>`).join('') + '</ul>'}));
   // personne n'avait activé les notifications : on le propose clairement, une carte qu'on peut repousser
   if (J.notifState && J.notifState() === 'off' && !J.notifSnoozed()) html.push(card({cls:'setup', icon:I.bell, title:'ACTIVER LES NOTIFICATIONS',
     body:'<p class="bs">Rappels de tâches à l\'heure, briefing du matin, journal du soir… et quand un ami vous 🔥 ou vous dépasse dans un défi.</p><div class="bbtns"><button class="btn primary" data-act="notif">ACTIVER</button><button class="btn ghost" data-act="notif-later">PLUS TARD</button></div>'}));
@@ -228,6 +250,7 @@ function renderBriefingInner(){
 }
 
 function onAct(e){
+  const g = e.target.closest('[data-go]'); if (g && !e.target.closest('[data-act]')) { J.haptic(); J.go(g.dataset.go); return; }
   const c = e.target.closest('[data-act]'); if (!c) return;
   J.haptic();
   const a = c.dataset.act;
@@ -257,6 +280,8 @@ J.briefingSpeech = () => {
   const rm = reminders();
   if (rm && rm.items.length) parts.push(`${rm.items.length} rappel${rm.items.length > 1 ? 's' : ''}, dont ${rm.items[0]}.`);
   J.modules.filter(m => !m.soon && m.briefingSpeech).sort((a, b) => (a.order || 50) - (b.order || 50)).forEach(m => { try { const t = m.briefingSpeech(); if (t) parts.push(t); } catch(e) {} });
+  const top = J.insights().filter(x => x.level !== 'good').slice(0, 2);
+  if (top.length) parts.push('À noter : ' + top.map(x => x.text).join(' '));
   return parts.join(' ');
 };
 

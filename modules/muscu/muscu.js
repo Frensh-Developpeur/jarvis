@@ -664,6 +664,22 @@ J.module({
   },
   summary(){ const last = [...S().sessions].sort((a, b) => b.start - a.start)[0]; return last ? `Dernière : ${esc(last.name)}` : 'Aucune séance'; },
   widget(){ return {week:thisWeek().length, weekGoal:S().weekGoal}; },
+  /* observations : groupe musculaire délaissé, stagnation, objectif de la semaine en danger, records */
+  insights(){
+    const out = [], now = Date.now(), D = 864e5, last = {};
+    S().sessions.forEach(s => s.ex.forEach(e => { const c = (exById(e.id) || {}).c; if (c && (!last[c] || s.start > last[c])) last[c] = s.start; }));
+    ['Jambes', 'Dos', 'Pectoraux', 'Épaules'].forEach(c => {
+      const days = last[c] ? Math.floor((now - last[c]) / D) : null;
+      if (days !== null && days >= 8 && days <= 60) out.push({level:'info', score:48 + Math.min(14, days - 8), text:`${c} : pas travaillé${c === 'Jambes' || c === 'Épaules' ? 'es' : 's'} depuis ${days} jours.`, go:'muscu'});
+    });
+    const st = coachAll().filter(x => x.c.stalled);
+    if (st.length) out.push({level:'info', score:46, text:`${st.map(x => x.name).slice(0, 2).join(' et ')} ${st.length > 1 ? 'stagnent' : 'stagne'} : le coach propose d'alléger de 10 % pour repartir.`, go:'muscu'});
+    const dow = (new Date().getDay() + 6) % 7, left = 7 - dow, need = S().weekGoal - thisWeek().length;
+    if (S().sessions.length && dow >= 3 && need > 0) out.push({level:need > left ? 'info' : 'warn', score:need >= left ? 66 : 50, text:need > left ? `Objectif de ${S().weekGoal} séances hors de portée cette semaine (${thisWeek().length} faites).` : `Encore ${need} séance${need > 1 ? 's' : ''} à caser d'ici dimanche pour tenir l'objectif.`, go:'muscu'});
+    const prs = thisWeek().reduce((a, s) => a + (s.prs || 0), 0);
+    if (prs) out.push({level:'good', score:40, text:`${prs} record${prs > 1 ? 's' : ''} battu${prs > 1 ? 's' : ''} cette semaine. Remarquable.`, go:'muscu'});
+    return out;
+  },
   stat(){
     const a = S().active, w = thisWeek().length;
     if (a) return {label:'MUSCU', value:'En cours', sub:`${a.name} · ${dur(a)} min`, ratio:w / S().weekGoal};

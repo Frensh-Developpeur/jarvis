@@ -95,6 +95,7 @@ function collect(){
       add({id:'weigh-' + k, date:k, time:'07:30', title:'⚖️ Pesée du jour', body:'À jeun, avant le petit-déjeuner : elle affine votre objectif calories.', url:'#/nutrition'});
     }
   } catch(e) {}
+  try { (J.timers ? J.timers() : []).forEach(t => add({id:'timer-' + t.id, at:t.at, title:`⏱ ${t.label}`, body:'Le minuteur est terminé.', url:'#/'})); } catch(e) {}
   return out.sort((a, b) => a.at - b.at).slice(0, 250);
 }
 let last = '', timer = 0;

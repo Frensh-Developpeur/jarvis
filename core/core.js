@@ -8,7 +8,7 @@
    ============================================================ */
 'use strict';
 (() => {
-const APP_VERSION = '46';
+const APP_VERSION = '47';
 const API = location.hostname === 'localhost' ? 'http://localhost:8787' : 'https://jarvis-api.frensh-developpeur.workers.dev';
 const APP_URL = 'https://frensh-developpeur.github.io/jarvis/';
 
@@ -518,15 +518,21 @@ const favTabs = () => {
   return want.map(id => mods.find(m => m.id === id)).filter(Boolean).slice(0, 4);
 };
 function renderTabbar(){
-  const favs = favTabs();
-  $('#tabbar').innerHTML = `<button data-go="" style="--acc:#3fe0ff"><svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.8"><circle cx="12" cy="12" r="8.5"/><circle cx="12" cy="12" r="3.5"/><path d="M12 3.5v3M12 17.5v3M3.5 12h3M17.5 12h3"/></svg><span>Accueil</span></button>` +
-    favs.map(m => `<button data-go="${m.id}" style="--acc:${m.accent}">${m.icon}<span>${esc(m.short || m.name)}</span></button>`).join('') +
-    `<button data-go="@more" style="--acc:#cfe8f3">${ICON_MORE}<span>Plus</span></button>`;
+  const favs = favTabs(), tab = m => `<button data-go="${m.id}" style="--acc:${m.accent}">${m.icon}<span>${esc(m.short || m.name)}</span></button>`;
+  const half = Math.ceil(favs.length / 2);
+  // le réacteur au centre : accueil, et sur l'accueil « parler à Jarvis » (appui long : la conversation)
+  const core = `<button class="dock-core" data-core aria-label="Jarvis"><span class="dc-r"><svg viewBox="0 0 66 66" aria-hidden="true">
+      <g class="spin"><circle cx="33" cy="33" r="29" fill="none" stroke="currentColor" stroke-opacity=".55" stroke-width="2" stroke-dasharray="14 5 3 5"/></g>
+      <g class="spin rev"><circle cx="33" cy="33" r="23" fill="none" stroke="currentColor" stroke-opacity=".45" stroke-dasharray="2 4"/></g>
+      <circle cx="33" cy="33" r="15" fill="currentColor" fill-opacity=".14" stroke="currentColor" stroke-width="1.5"/>
+      <circle cx="33" cy="33" r="7" fill="#c8f6ff"/></svg></span><span>JARVIS</span></button>`;
+  $('#tabbar').innerHTML = favs.slice(0, half).map(tab).join('') + core + favs.slice(half).map(tab).join('');
   setTabbar(current ? current.id : '');
 }
 function setTabbar(id){
   const favIds = favTabs().map(m => m.id);
-  $$('#tabbar [data-go]').forEach(b => b.classList.toggle('on', b.dataset.go === (id || '') || (b.dataset.go === '@more' && id && !favIds.includes(id))));
+  $$('#tabbar [data-go]').forEach(b => b.classList.toggle('on', b.dataset.go === (id || '')));
+  const core = $('#tabbar .dock-core'); if (core) core.classList.toggle('on', !id);
 }
 /* onglet « Plus » : tous les modules */
 function openMore(){
@@ -561,6 +567,7 @@ J.go = (id) => {
     view = document.createElement('section');
     view.className = 'view ' + (mod.cls || '');
     view.id = 'mv-' + mod.id;
+    view.style.setProperty('--acc', mod.accent);
     view.innerHTML = `
       <div class="wrap">
         <header class="mhead"><span class="mh-ic" style="--acc:${mod.accent}">${mod.icon || ''}</span><div><h1>${esc(mod.name)}</h1><small>${esc(mod.tagline || '')}</small></div></header>
@@ -625,7 +632,20 @@ function resetViews(){
   $('#modviews').innerHTML = '';
   current = null;
 }
-$('#tabbar').addEventListener('click', e => { const b = e.target.closest('[data-go]'); if (!b) return; J.haptic(); if (b.dataset.go === '@more') return openMore(); J.go(b.dataset.go || null); });
+$('#tabbar').addEventListener('click', e => {
+  if (e.target.closest('[data-core]')) {
+    if (coreLong) { coreLong = false; return; }
+    J.haptic('medium');
+    if (current) J.go(null); else { const r = $('#hubReactor'); if (r) r.click(); }   // déjà sur l'accueil : on parle à Jarvis
+    return;
+  }
+  const b = e.target.closest('[data-go]'); if (!b) return; J.haptic(); if (b.dataset.go === '@more') return openMore(); J.go(b.dataset.go || null);
+});
+/* appui long sur le réacteur : la conversation, depuis n'importe quel écran */
+let coreT = 0, coreLong = false;
+$('#tabbar').addEventListener('pointerdown', e => { if (!e.target.closest('[data-core]')) return; coreLong = false; clearTimeout(coreT); coreT = setTimeout(() => { coreLong = true; J.haptic('heavy'); if (J.openChat) J.openChat(); }, 480); });
+['pointerup', 'pointerleave', 'pointercancel'].forEach(ev => $('#tabbar').addEventListener(ev, () => clearTimeout(coreT)));
+$('#tabbar').addEventListener('contextmenu', e => e.preventDefault());
 
 /* glisser depuis le bord gauche = retour au hub */
 let edge = null;
@@ -694,6 +714,7 @@ function openSettings(){
   S$('#sVoiceNameField').hidden = prefs.data.voiceMode === 'iphone';
   S$('#sCity').value = prefs.data.city || '';
   if (J.renderNotifSettings) J.renderNotifSettings();
+  if (J.renderMemory) J.renderMemory();
   renderTabPrefs();
   S$('#sUsage').textContent = '';
   J.api('GET', '/api/tts/usage').then(u => {
@@ -949,6 +970,9 @@ async function enter(isNew){
 J.start = () => {
   const steps = ['INITIALISATION…', 'CHARGEMENT DES MODULES…', 'SYSTÈMES EN LIGNE'];
   steps.forEach((s, i) => setTimeout(() => $('#bootTxt').textContent = s, i * 380));
+  // journal d'allumage, ligne par ligne
+  const log = [['NOYAU', 'OK'], [`MODULES · ${J.modules.filter(m => !m.soon).length}`, 'OK'], ['LIAISON SERVEUR', session ? 'OK' : '—'], [J.native ? 'CAPTEURS SANTÉ' : 'INTERFACE WEB', 'OK'], ['SYNTHÈSE VOCALE', 'OK']];
+  log.forEach(([t, v], i) => setTimeout(() => { const el = $('#bootLog'); if (el) el.insertAdjacentHTML('beforeend', `<div>${t}<b>${v}</b></div>`); }, 120 + i * 190));
   setTimeout(() => {
     $('#boot').classList.add('done');
     if (session) {

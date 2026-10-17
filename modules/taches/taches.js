@@ -465,6 +465,20 @@ J.actions.add_task = a => {
   render();
   return {text:`Tâche : ${t.title}${t.due ? ' · ' + dueLabel(t.due).toLowerCase() : ''}${t.time ? ' à ' + t.time.replace(':', 'h') + ' · 🔔 ' + leadName(leadOf(t)) : ''}`, go:'taches'};
 };
+/* « replanifie mes tâches en retard » : réparties sur les prochains jours, les prioritaires d'abord, 3 par jour au plus */
+J.actions.reschedule_overdue = a => {
+  const od = overdue().sort((x, y) => (y.prio || 0) - (x.prio || 0) || x.due.localeCompare(y.due));
+  if (!od.length) throw Object.assign(new Error('?'), {ask:'Aucune tâche en retard, tout est à jour.'});
+  const per = Math.max(1, Math.min(6, +a.per_day || 3)), load = {};
+  active().filter(t => t.due && t.due >= today()).forEach(t => { load[t.due] = (load[t.due] || 0) + 1; });
+  let d = 0, first = null, last = null;
+  od.forEach(t => {
+    while ((load[addDays(today(), d)] || 0) >= per + (d === 0 ? 0 : 1)) d++;
+    const k = addDays(today(), d); t.due = k; load[k] = (load[k] || 0) + 1; first = first || k; last = k;
+  });
+  save(); render();
+  return {text:`${od.length} tâche${od.length > 1 ? 's' : ''} replanifiée${od.length > 1 ? 's' : ''} · ${first === last ? dueLabel(first).toLowerCase() : (first === today() ? 'd\'aujourd\'hui' : 'du ' + dueLabel(first).toLowerCase()) + ' à ' + dueLabel(last).toLowerCase()}`, go:'taches'};
+};
 J.actions.complete_task = a => {
   const words = norm(a.title || '').split(/\s+/).filter(w => w.length > 2);
   const t = active().map(t => [t, words.filter(w => norm(t.title).includes(w)).length]).filter(x => x[1]).sort((a, b) => b[1] - a[1])[0];
@@ -487,6 +501,14 @@ J.module({
 
   init(){ st = J.store('taches', DEFAULTS); st.onChange(() => render()); },
   summary(){ const n = dueToday().length + overdue().length; return n ? `<b>${n}</b> à faire aujourd'hui` : 'Rien aujourd\'hui'; },
+  /* observations : tâche qui traîne, retard qui s'accumule */
+  insights(){
+    const out = [], od = overdue().sort((a, b) => a.due.localeCompare(b.due));
+    if (od.length >= 5) out.push({level:'warn', score:70, text:`${od.length} tâches en retard. Dites « replanifie mes tâches en retard » et je les répartis sur les prochains jours.`, go:'taches'});
+    const old = od[0], age = old ? Math.round((Date.parse(today()) - Date.parse(old.due)) / 864e5) : 0;
+    if (old && age >= 3) out.push({level:'warn', score:56 + Math.min(12, age), text:`« ${old.title} » traîne depuis ${age} jours.`, go:'taches'});
+    return out;
+  },
   widget(){
     const now = new Date().toTimeString().slice(0, 5), next = dueToday().filter(t => t.time && t.time >= now).sort(sortTasks)[0] || [...overdue(), ...dueToday()].sort(sortTasks)[0];
     return {tasksLeft:overdue().length + dueToday().length, overdue:overdue().length, nextTask:next ? next.title : null, nextTime:next && next.time && next.due === today() ? next.time : null};

@@ -1019,7 +1019,24 @@ J.module({
     const k = today(), list = items(k), sm = sums(list), G = goalsFor(k);
     const meals = MEALS.map(m => { const li = list.filter(i => i.meal === m.id); return li.length ? `${m.name} : ${li.map(i => i.name.split(',')[0] + ' ' + Math.round(i.g) + 'g').join(', ')}` : ''; }).filter(Boolean);
     const lw = latestWeight();
-    return `NUTRITION aujourd'hui : ${Math.round(sm.kcal)} kcal consommées sur un objectif de ${G.kcal} (reste ${Math.round(G.kcal - sm.kcal)}) ; protéines ${Math.round(sm.p)}/${G.p} g, glucides ${Math.round(sm.c)}/${G.c} g, lipides ${Math.round(sm.f)}/${G.f} g. ${meals.join(' ; ') || 'Aucun repas saisi.'}${lw ? ` Dernier poids : ${lw.kg} kg.` : ''}`;
+    return `NUTRITION aujourd'hui : ${Math.round(sm.kcal)} kcal consommées sur un objectif de ${G.kcal} (reste ${Math.round(G.kcal - sm.kcal)}) ; protéines consommées ${Math.round(sm.p)} g sur ${G.p} g (reste ${Math.max(0, Math.round(G.p - sm.p))} g), glucides ${Math.round(sm.c)} g sur ${G.c} g, lipides ${Math.round(sm.f)} g sur ${G.f} g. ${meals.join(' ; ') || 'Aucun repas saisi.'}${lw ? ` Dernier poids : ${lw.kg} kg.` : ''}`;
+  },
+  /* observations : protéines souvent trop basses, saisie interrompue, moyenne calorique loin de l'objectif */
+  insights(){
+    const out = [], t = today(), past = [1, 2, 3, 4, 5, 6, 7].map(i => addDays(t, -i)), logged = past.filter(k => items(k).length);
+    if (logged.length >= 4) {
+      const low = logged.filter(k => sums(items(k)).p < goalsFor(k).p * .8);
+      if (low.length >= Math.ceil(logged.length * .6)) {
+        const avg = Math.round(low.reduce((a, k) => a + sums(items(k)).p, 0) / low.length);
+        out.push({level:'warn', score:58, text:`Protéines sous l'objectif ${low.length} jours sur ${logged.length} (moyenne ${avg} g pour ${goalsFor(t).p} g).`, go:'nutrition'});
+      }
+      const avgK = logged.reduce((a, k) => a + sums(items(k)).kcal, 0) / logged.length, gK = logged.reduce((a, k) => a + goalsFor(k).kcal, 0) / logged.length;
+      if (avgK > gK * 1.1) out.push({level:'info', score:55, text:`Moyenne de ${fmt(avgK)} kcal par jour sur ${logged.length} jours, au-dessus de l'objectif (${fmt(gK)}).`, go:'nutrition'});
+      else if (avgK < gK * .72) out.push({level:'info', score:50, text:`Moyenne de ${fmt(avgK)} kcal par jour : nettement sous l'objectif (${fmt(gK)}). Des repas oubliés ?`, go:'nutrition'});
+    }
+    if (logged.length && !items(t).length && !items(past[0]).length && !items(past[1]).length)
+      out.push({level:'info', score:45, text:'Rien de saisi en nutrition depuis 2 jours : l\'objectif adaptatif perd en précision.', go:'nutrition'});
+    return out;
   },
   widget(){ const k = today(), s = sums(items(k)), G = goalsFor(k); return {kcal:Math.round(s.kcal), kcalGoal:G.kcal, prot:Math.round(s.p), protGoal:G.p}; },
   stat(){

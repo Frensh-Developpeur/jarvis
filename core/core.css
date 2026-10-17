@@ -536,7 +536,7 @@ body{position:relative}
 .sheet.show{visibility:visible}
 /* feuille ouverte et clavier : le dessous de la feuille est plein (jamais l'app en transparence pendant que le clavier monte),
    et pendant la saisie la feuille occupe presque toute la hauteur visible, comme une feuille native */
-body.sheet-open::before{content:"";position:fixed;left:0;right:0;bottom:0;height:var(--kb,0px);background:#06131d;z-index:11;pointer-events:none}
+body.sheet-open::before{content:"";position:fixed;left:0;right:0;bottom:0;height:var(--kb,0px);background:#040f18;z-index:11;pointer-events:none}
 body.typing .sheet.show:not(.chat){min-height:calc(var(--vvh,100dvh) - var(--safe-t) - 40px)}
 /* identifiants proposés à la connexion */
 .usugg{display:flex;flex-wrap:wrap;gap:6px;margin-top:8px}
@@ -561,5 +561,5 @@ body.in-app.scrolled:not(.sheet-open) .navbar{opacity:1;transform:none}
 .ptr.spin svg{animation:ptrspin .8s linear infinite}
 @keyframes ptrspin{to{transform:rotate(360deg)}}
 /* accueil : les tuiles de modules font doublon avec la barre d'onglets */
-body.in-app #modLabel,body.in-app #tiles{display:none}
+/* tuiles de modules : visibles, la barre du bas ne montre que les favoris */
 .ptr{background:#06131d;border-radius:50%;border:1px solid rgba(63,224,255,.3);padding:6px;width:40px;height:40px;margin-left:-20px;box-shadow:0 6px 18px rgba(0,0,0,.5)}

@@ -89,6 +89,21 @@ J.module({
     if (!J.appleDoc().syncedAt) return 'À connecter';
     return t && t.steps ? `<b>${fmt(t.steps)}</b> pas${t.energy ? `<br>${fmt(t.energy)} kcal actives` : ''}` : 'Pas encore de données';
   },
+  /* observations : sommeil court, pas en hausse ou en baisse */
+  insights(){
+    const out = [], days = J.appleDoc().days || {}, key = i => { const d = new Date(); d.setDate(d.getDate() - i); return dayKey(d); };
+    const vals = (f, from, to) => { const r = []; for (let i = from; i <= to; i++) { const v = (days[key(i)] || {})[f]; if (v) r.push(v); } return r; };
+    const avg = a => a.reduce((x, y) => x + y, 0) / a.length;
+    const sl = vals('sleep', 0, 6);
+    if (sl.length >= 4 && avg(sl) < 6.5) out.push({level:'warn', score:62, text:`Sommeil moyen de ${avg(sl).toFixed(1).replace('.', ',')} h sur ${sl.length} nuits. Un coucher plus tôt ce soir ?`, go:'sante'});
+    const a = vals('steps', 1, 7), b = vals('steps', 8, 14);
+    if (a.length >= 5 && b.length >= 5) {
+      const ch = avg(a) / avg(b) - 1;
+      if (ch <= -.2) out.push({level:'info', score:52, text:`Activité en baisse : ${fmt(avg(a))} pas par jour cette semaine, ${Math.round(-ch * 100)} % de moins que la précédente.`, go:'sante'});
+      else if (ch >= .2) out.push({level:'good', score:38, text:`Activité en hausse : ${fmt(avg(a))} pas par jour, +${Math.round(ch * 100)} % sur la semaine précédente.`, go:'sante'});
+    }
+    return out;
+  },
   widget(){ const t = today() || {}; return {steps:t.steps || 0, stepGoal:G().stepGoal, energy:t.energy || 0, sleep:t.sleep || null}; },
   stat(){
     if (!J.appleDoc().syncedAt) return null;

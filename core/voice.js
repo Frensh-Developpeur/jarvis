@@ -230,7 +230,10 @@ function meter(on){
   tick();
 }
 
+let doneCb = null;   // fin de la phrase en cours (J.speak renvoie une promesse : true = dite jusqu'au bout)
+const finish = ok => { const f = doneCb; doneCb = null; if (f) f(ok); };
 function stop(){
+  finish(false);
   if (current) { try { current.onended = null; current.stop(); } catch(e) {} current = null; }
   meter(false);
   if ('speechSynthesis' in window) speechSynthesis.cancel();
@@ -243,34 +246,40 @@ function fallback(text){
   const v = speechSynthesis.getVoices().filter(v => v.lang.startsWith('fr'));
   const pick = v.find(v => /Thomas/i.test(v.name) && /amélior|enhanced|premium/i.test(v.name)) || v.find(v => /Thomas|Daniel|Nicolas/i.test(v.name)) || v[0];
   if (pick) u.voice = pick;
+  u.onend = () => finish(true); u.onerror = () => finish(false);
   speechSynthesis.speak(u);
 }
 
 let seq = 0;
-J.speak = async (text) => {
+J.speak = (text) => {
   const p = J.prefs && J.prefs();
-  if (!p || !p.voice) return;
+  if (!p || !p.voice) return Promise.resolve(false);
   stop();
+  const done = new Promise(res => { doneCb = res; });
+  speakNow(text, p);
+  return done;
+};
+async function speakNow(text, p){
   const spoken = speakable(text);
-  if (p.voiceMode === 'iphone' || !J.token()) { fallback(spoken); return; }
+  if (p.voiceMode === 'iphone' || !J.token()) { if (!('speechSynthesis' in window)) finish(false); fallback(spoken); return; }
   audio();                         // doit être appelé pendant le toucher (exigence iOS)
   const my = ++seq;
   J.$$('.view.active .reactor').forEach(el => el.classList.add('thinking'));
   try {
     const {buf, engine} = await render(spoken, p.voiceName || 'george');
-    if (my !== seq) return;        // une autre phrase a été demandée entre-temps
+    if (my !== seq) return;        // une autre phrase a été demandée entre-temps (stop() a déjà conclu)
     const fx = setFx(engine);
     const src = ctx.createBufferSource();
     src.buffer = buf; src.playbackRate.value = fx.rate;
     src.connect(chain.input);
-    src.onended = () => { if (current === src) { current = null; meter(false); } };
+    src.onended = () => { if (current === src) { current = null; meter(false); finish(true); } };
     current = src; src.start(); meter(true);
   } catch(e) {
-    if (my === seq) fallback(spoken);
+    if (my === seq) { if (!('speechSynthesis' in window)) finish(false); fallback(spoken); }
   } finally {
     J.$$('.reactor.thinking').forEach(el => el.classList.remove('thinking'));
   }
-};
+}
 J.stopSpeaking = stop;
 document.addEventListener('visibilitychange', () => { if (document.visibilityState === 'hidden') stop(); });
 })();

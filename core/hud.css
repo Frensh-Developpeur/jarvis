@@ -1,0 +1,190 @@
+/* ============================================================
+   J.A.R.V.I.S. — thème « interface holographique »
+   Chargé après les modules : il redessine les surfaces communes
+   (cadres à angles coupés et crochets lumineux, fond hexagonal,
+   en-têtes HUD, dock avec réacteur central).
+   ============================================================ */
+:root{
+  --cut:12px;                                   /* angle coupé des cadres */
+  --hl:rgba(90,220,255,.16);                    /* trait fin des cadres */
+  --hb:rgba(110,232,255,.85);                   /* crochets des coins */
+  --hud-bg:linear-gradient(155deg,rgba(20,78,108,.26),rgba(3,14,22,.66) 58%);
+  --amber:#ffb347;
+}
+
+/* ---------- fond : grille hexagonale, halo, balayage lent ---------- */
+body{background:#01050a!important}
+.hudbg{position:fixed;inset:0;z-index:-1;pointer-events:none;overflow:hidden;
+  background:
+    radial-gradient(90% 55% at 50% -5%,rgba(40,170,220,.22),transparent 65%),
+    radial-gradient(70% 40% at 50% 105%,rgba(20,110,160,.14),transparent 70%),
+    url("data:image/svg+xml,%3Csvg xmlns='http://www.w3.org/2000/svg' width='28' height='48.5' viewBox='0 0 28 48.5'%3E%3Cpath d='M14 0l14 8.08v16.17L14 32.33 0 24.25V8.08zM14 32.33v16.17' fill='none' stroke='%233fe0ff' stroke-opacity='.07' stroke-width='.8'/%3E%3C/svg%3E") 0 0/28px 48.5px,
+    #01050a}
+.hudbg::after{content:"";position:absolute;left:0;right:0;height:180px;top:-180px;
+  background:linear-gradient(180deg,transparent,rgba(63,224,255,.05) 85%,rgba(63,224,255,.12));animation:hudscan 9s linear infinite}
+@keyframes hudscan{to{transform:translateY(calc(100vh + 180px))}}
+body::after{opacity:.22!important}   /* lignes de balayage plus discrètes */
+
+/* ---------- cadre HUD commun ---------- */
+.qt,.bcard,.panel,.tile,
+.fin .hero,.fin .dcard,.hab .hcard,.hab .hhero,.hab .hstat,
+.mus .exc,.mus .live,.mus .mhero,.mus .rcard,.mus .scard,.mus .coach,.mus .stall,
+.nb .ncard,.nb .jtoday,.nut .kpi,.nut .mac,.nut .meal,.nut .ohero,
+.so .sochal,.so .sopost,.so .soconsent,.tsk .tcard,.tsk .thero,.fin .duo>div,.fin .kpi{
+  position:relative;border-radius:2px!important;border:1px solid var(--hl)!important;
+  clip-path:polygon(0 0,calc(100% - var(--cut)) 0,100% var(--cut),100% 100%,var(--cut) 100%,0 calc(100% - var(--cut)));
+  box-shadow:inset 0 1px 0 rgba(140,235,255,.07),inset 0 0 24px rgba(63,224,255,.03)}
+.qt::before,.bcard::before,.panel::before,.tile::before,
+.fin .hero::before,.fin .dcard::before,.hab .hcard::before,.hab .hhero::before,.hab .hstat::before,
+.mus .exc::before,.mus .live::before,.mus .mhero::before,.mus .rcard::before,.mus .scard::before,.mus .coach::before,.mus .stall::before,
+.nb .ncard::before,.nb .jtoday::before,.nut .kpi::before,.nut .mac::before,.nut .meal::before,.nut .ohero::before,
+.so .sochal::before,.so .sopost::before,.so .soconsent::before,.tsk .tcard::before,.tsk .thero::before,.fin .duo>div::before,.fin .kpi::before{
+  content:""!important;display:block!important;position:absolute;inset:-1px;pointer-events:none;z-index:3;opacity:1!important;
+  border:0!important;width:auto!important;height:auto!important;border-radius:0!important;
+  --c:var(--acc,var(--hb));
+  background:
+    linear-gradient(var(--c),var(--c)) 0 0/16px 1.5px no-repeat,
+    linear-gradient(var(--c),var(--c)) 0 0/1.5px 16px no-repeat,
+    linear-gradient(var(--c),var(--c)) 100% 100%/16px 1.5px no-repeat,
+    linear-gradient(var(--c),var(--c)) 100% 100%/1.5px 16px no-repeat,
+    linear-gradient(225deg,transparent 50%,var(--hl) 50%,var(--hl) calc(50% + 1.2px),transparent calc(50% + 1.2px)) 100% 0/var(--cut) var(--cut) no-repeat,
+    linear-gradient(225deg,transparent calc(50% - 1.2px),var(--hl) calc(50% - 1.2px),var(--hl) 50%,transparent 50%) 0 100%/var(--cut) var(--cut) no-repeat;
+  filter:drop-shadow(0 0 3px color-mix(in srgb,var(--c) 70%,transparent))}
+/* surfaces génériques : fond holographique */
+.qt,.bcard,.panel,.tile{background:var(--hud-bg)!important}
+.panel::after{display:none!important}
+
+/* ---------- typographie HUD ---------- */
+body{font-variant-numeric:tabular-nums}
+.slabel{position:relative;align-items:center;gap:10px;color:#7fb4c8;margin:24px 2px 10px}
+.slabel>span:first-child{display:flex;align-items:center;gap:8px;color:#9fd8ea}
+.slabel>span:first-child::before{content:"";width:7px;height:7px;flex:none;border:1px solid var(--cyan);transform:rotate(45deg);box-shadow:0 0 6px var(--cyan)}
+.slabel::after{content:"";order:1;flex:1;height:1px;margin:0 2px;background:linear-gradient(90deg,rgba(63,224,255,.35),rgba(63,224,255,.04))}
+.slabel>span:last-child:not(:first-child){order:2}
+/* réplique de Jarvis : une transcription */
+.msg{position:relative;border-left:0!important;padding:16px 0 2px 14px!important;margin-top:14px!important}
+.msg::before{content:"J.A.R.V.I.S. //";position:absolute;left:14px;top:0;font-family:var(--hud);font-size:8px;letter-spacing:.32em;color:var(--cyan);opacity:.65}
+.msg::after{content:"";position:absolute;left:0;top:3px;bottom:3px;width:2px;background:linear-gradient(var(--cyan),rgba(63,224,255,.1));box-shadow:0 0 8px var(--cyan)}
+
+/* ---------- en-tête de module ---------- */
+.mhead{position:relative;padding-bottom:12px;margin-bottom:2px}
+.mhead::after{content:"";position:absolute;left:0;right:0;bottom:0;height:1px;
+  background:linear-gradient(90deg,var(--acc,var(--cyan)) 0 54px,color-mix(in srgb,var(--acc,#3fe0ff) 35%,transparent) 54px,transparent)}
+.mhead::before{content:"";position:absolute;left:58px;bottom:-2px;width:5px;height:5px;background:var(--acc,var(--cyan));transform:rotate(45deg);box-shadow:0 0 8px var(--acc,var(--cyan))}
+.mh-ic{border-radius:0!important;clip-path:polygon(25% 0,75% 0,100% 50%,75% 100%,25% 100%,0 50%);width:46px!important;height:42px!important;
+  background:color-mix(in srgb,var(--acc) 18%,rgba(2,10,16,.8))!important;border:0!important;box-shadow:inset 0 0 14px color-mix(in srgb,var(--acc) 35%,transparent)}
+.mhead h1{font-size:20px!important;letter-spacing:.18em!important;text-shadow:0 0 14px color-mix(in srgb,var(--acc,#3fe0ff) 45%,transparent)}
+.mhead small{font-family:var(--hud);font-size:8.5px!important;letter-spacing:.22em;text-transform:uppercase;color:#6f9fb2!important;margin-top:4px!important}
+
+/* ---------- accueil ---------- */
+.top .brand{font-size:16px;letter-spacing:.42em}
+.top .brand small::after{content:" · EN LIGNE";color:var(--green)}
+.top .icon-btn,.hbtns .icon-btn{border-radius:0!important;clip-path:polygon(25% 0,75% 0,100% 50%,75% 100%,25% 100%,0 50%);width:44px;height:40px;background:rgba(63,224,255,.08)!important;border:0!important}
+.sys{gap:10px!important;flex-wrap:wrap}
+.sys>span{padding:4px 9px;border:1px solid rgba(63,224,255,.16);background:rgba(4,20,30,.6);clip-path:polygon(6px 0,100% 0,calc(100% - 6px) 100%,0 100%)}
+.sys b::before{content:"";display:inline-block;width:5px;height:5px;border-radius:50%;background:currentColor;margin:0 5px 1px 0;box-shadow:0 0 6px currentColor;animation:blink 2.4s ease-in-out infinite}
+@keyframes blink{50%{opacity:.35}}
+.rlegend{display:flex;justify-content:center;gap:14px;margin-top:8px;font-family:var(--hud);font-size:8.5px;letter-spacing:.16em;color:#7fb4c8}
+.rlegend span{display:flex;align-items:center;gap:5px}
+.rlegend i{width:10px;height:2px;background:var(--c);box-shadow:0 0 6px var(--c)}
+.rlegend b{color:var(--text);font-weight:500}
+/* anneaux de données du réacteur */
+.hub-reactor .trk{fill:none;stroke:rgba(63,224,255,.08);stroke-width:3}
+.hub-reactor .ring{fill:none;stroke-width:3;stroke-linecap:round;transition:stroke-dasharray 1.2s cubic-bezier(.2,.8,.2,1);filter:drop-shadow(0 0 3px currentColor)}
+.hub-reactor .spin.slow{animation-duration:60s}
+/* barre de saisie : console */
+.askbar{border-radius:0!important;clip-path:polygon(0 0,calc(100% - 14px) 0,100% 14px,100% 100%,14px 100%,0 calc(100% - 14px));border:1px solid rgba(63,224,255,.3)!important;background:rgba(3,16,26,.8)!important}
+.askbar button{border-radius:0!important;clip-path:polygon(25% 0,75% 0,100% 50%,75% 100%,25% 100%,0 50%)}
+/* tuiles du jour */
+.qt .ql{font-size:8.5px!important;letter-spacing:.2em!important}
+.qt .qv{text-shadow:0 0 12px color-mix(in srgb,var(--acc,#3fe0ff) 40%,transparent)}
+.qt .qb{height:2px!important;border-radius:0!important}
+.qt .qb i{border-radius:0!important}
+.tile .ic{border-radius:0!important;clip-path:polygon(25% 0,75% 0,100% 50%,75% 100%,25% 100%,0 50%)}
+
+/* ---------- boutons, champs, onglets ---------- */
+.btn{border-radius:0!important;clip-path:polygon(10px 0,100% 0,100% calc(100% - 10px),calc(100% - 10px) 100%,0 100%,0 10px);letter-spacing:.24em}
+.btn.primary{box-shadow:none!important;background:linear-gradient(180deg,color-mix(in srgb,var(--acc,#3fe0ff) 100%,#fff 15%),var(--acc,#3fe0ff))}
+.field input,.field select,.field textarea,.sbar input,.psearch input{border-radius:0!important;clip-path:polygon(0 0,calc(100% - 8px) 0,100% 8px,100% 100%,8px 100%,0 calc(100% - 8px))}
+.seg{border-radius:0!important;clip-path:polygon(8px 0,100% 0,100% calc(100% - 8px),calc(100% - 8px) 100%,0 100%,0 8px)}
+.utabs button.on::after{left:30%!important;right:30%!important;height:2px!important;border-radius:0!important}
+.utabs button.on::before{content:"";position:absolute;left:50%;bottom:-4px;width:6px;height:6px;margin-left:-3px;background:currentColor;transform:rotate(45deg);box-shadow:0 0 8px currentColor}
+.fab{border-radius:0!important;clip-path:polygon(25% 0,75% 0,100% 50%,75% 100%,25% 100%,0 50%);width:62px!important;height:56px!important}
+.fab::before{display:none!important}
+
+/* ---------- feuilles : console qui monte ---------- */
+.sheet{border-radius:0!important;clip-path:polygon(0 18px,18px 0,calc(100% - 18px) 0,100% 18px,100% 100%,0 100%);
+  border-top:1px solid rgba(63,224,255,.35)!important;background:linear-gradient(180deg,#071824,#040f18 120px)!important}
+.sheet .grab{border-radius:0!important;width:56px!important;height:3px!important;background:var(--cyan)!important;opacity:.6;box-shadow:0 0 8px var(--cyan)}
+
+/* ============================================================
+   Dock : réacteur central (accueil / parler à Jarvis) + favoris
+   ============================================================ */
+body.in-app .tabbar{display:flex!important;align-items:flex-end;gap:0;left:10px!important;right:10px!important;bottom:calc(var(--safe-b) + 6px)!important;
+  height:64px;padding:0 4px!important;background:rgba(3,12,20,.84)!important;border:1px solid rgba(63,224,255,.22)!important;border-radius:0!important;
+  clip-path:polygon(16px 0,calc(50% - 40px) 0,calc(50% - 40px) -32px,calc(50% + 40px) -32px,calc(50% + 40px) 0,calc(100% - 16px) 0,100% 16px,100% 100%,0 100%,0 16px);   /* la zone au-dessus du centre reste visible pour le réacteur */
+  overflow:visible;box-shadow:0 -1px 0 rgba(63,224,255,.08),0 10px 30px rgba(0,0,0,.6)}
+body.in-app .tabbar::before{content:"";position:absolute;left:16px;right:16px;top:0;height:1px;background:linear-gradient(90deg,transparent,rgba(63,224,255,.55) 20%,rgba(63,224,255,.55) 80%,transparent)}
+.tabbar>button{flex:1;position:relative;height:64px;justify-content:center;padding:6px 0 8px!important;gap:4px!important;color:#5f8798!important;font-family:var(--hud);font-size:7.5px!important;letter-spacing:.16em!important;text-transform:uppercase}
+.tabbar>button svg{width:22px!important;height:22px!important}
+.tabbar>button.on{color:var(--acc)!important}
+.tabbar>button.on::before{content:"";position:absolute;top:-1px;left:28%;right:28%;height:2px;background:var(--acc);box-shadow:0 0 10px var(--acc),0 0 2px var(--acc)}
+.tabbar>button.on::after{content:"";position:absolute;inset:8px 18% 6px;background:radial-gradient(closest-side,color-mix(in srgb,var(--acc) 22%,transparent),transparent);pointer-events:none}
+/* réacteur central */
+.tabbar .dock-core{flex:0 0 78px;height:64px;position:relative;color:var(--cyan)!important}
+.dock-core .dc-r{position:absolute;left:50%;top:-24px;width:66px;height:66px;margin-left:-33px;border-radius:50%;
+  background:radial-gradient(circle,#0b3a50 0%,#03121c 62%);box-shadow:0 0 0 1px rgba(63,224,255,.45),0 0 22px rgba(63,224,255,.45),inset 0 0 18px rgba(63,224,255,.35)}
+.dock-core .dc-r svg{position:absolute;inset:0;width:100%!important;height:100%!important}
+.dock-core .dc-r .spin{transform-origin:50% 50%;animation:spin 12s linear infinite}
+.dock-core .dc-r .spin.rev{animation-direction:reverse;animation-duration:8s}
+.dock-core span{position:absolute;left:0;right:0;bottom:8px;text-align:center;font-size:7.5px;letter-spacing:.24em;color:var(--cyan)}
+.dock-core.on .dc-r{box-shadow:0 0 0 1px var(--cyan),0 0 30px rgba(63,224,255,.75),inset 0 0 22px rgba(63,224,255,.5)}
+.dock-core.listening .dc-r{box-shadow:0 0 0 1px #ff5f8f,0 0 30px rgba(255,95,143,.8),inset 0 0 22px rgba(255,95,143,.5)}
+.dock-core.listening .dc-r svg{color:#ff5f8f}
+.dock-core:active .dc-r{transform:scale(.93)}
+@keyframes spin{to{transform:rotate(360deg)}}
+/* éléments au-dessus du dock */
+body.in-app .fab{bottom:calc(var(--safe-b) + 84px)!important}
+body.in-app .restbar{bottom:calc(var(--safe-b) + 80px)!important}
+body.in-app .wrap{padding-bottom:calc(var(--safe-b) + 130px)!important}
+
+/* ---------- démarrage : séquence d'allumage ---------- */
+.boot .bootlog{margin-top:14px;min-height:64px;font-family:var(--hud);font-size:8.5px;letter-spacing:.2em;color:#6fa8bd;text-align:left;width:230px}
+.boot .bootlog div{opacity:0;animation:bootln .25s forwards}
+.boot .bootlog div b{color:var(--green);font-weight:500;float:right}
+@keyframes bootln{to{opacity:1}}
+
+/* ---------- petits éléments : angles coupés, sans crochets ---------- */
+.fin .alert,.fin .cat,.fin .chip,.fin .cchip,.fin .dgroup .srow,.fin .pill,.nut .chip,.mus .wgoal,.mus .rgo,.mus .set input,.hab .hd-ic,
+.so .sotpl button,.so .sofire,.tsk .chips button,.chips button,.usugg button,.nut .scan,.mus .sck{
+  border-radius:0!important;clip-path:polygon(7px 0,100% 0,100% calc(100% - 7px),calc(100% - 7px) 100%,0 100%,0 7px)}
+.fin .dgroup .srow{margin-bottom:6px}
+/* bulle d'information */
+.toast{border-radius:0!important;clip-path:polygon(0 0,calc(100% - 12px) 0,100% 12px,100% 100%,12px 100%,0 calc(100% - 12px));
+  background:linear-gradient(155deg,#0a2a3c,#04121c)!important;border:1px solid rgba(63,224,255,.5)!important;box-shadow:0 0 24px rgba(63,224,255,.25)!important}
+/* fondu sous le dock : le contenu ne se mélange plus aux onglets */
+.dockfade{display:none}
+body.in-app .dockfade{display:block;position:fixed;left:0;right:0;bottom:0;height:calc(var(--safe-b) + 92px);z-index:6;pointer-events:none;
+  background:linear-gradient(180deg,rgba(1,5,10,0),rgba(1,5,10,.86) 45%,#01050a)}
+body.in-app.sheet-open .dockfade,body.in-app.kb-open .dockfade,body.in-app.typing .dockfade{opacity:0}
+/* ---------- analyse de Jarvis ---------- */
+.bcard.insight{--acc:#ffb347}
+.bcard.insight .bt{color:#ffd28a}
+.ilist{list-style:none;margin:8px 0 0;padding:0}
+.ilist li{display:flex;gap:10px;align-items:flex-start;padding:8px 0;border-top:1px solid rgba(63,224,255,.07);font-size:14.5px;line-height:1.35;cursor:pointer}
+.ilist li:first-child{border-top:0}
+.ilist li i{flex:none;width:7px;height:7px;margin-top:6px;transform:rotate(45deg);background:var(--cyan);box-shadow:0 0 8px var(--cyan)}
+.ilist li.warn i{background:#ffb347;box-shadow:0 0 8px #ffb347}
+.ilist li.good i{background:#4dffc3;box-shadow:0 0 8px #4dffc3}
+.ilist li:active{background:rgba(63,224,255,.06)}
+/* ---------- minuteurs, annuler, mémoire ---------- */
+.hubtimers{display:flex;flex-wrap:wrap;gap:8px;margin-top:10px}
+.hubtimers:empty{display:none}
+.tmr{display:flex;align-items:center;gap:8px;padding:8px 12px;border:1px solid rgba(255,179,71,.45);background:rgba(255,179,71,.08);color:var(--text);font-size:14px;
+  clip-path:polygon(7px 0,100% 0,100% calc(100% - 7px),calc(100% - 7px) 100%,0 100%,0 7px)}
+.tmr b{font-family:var(--hud);font-size:15px;color:#ffb347;text-shadow:0 0 8px rgba(255,179,71,.6)}
+.tmr i{font-style:normal;color:var(--muted);margin-left:4px}
+.ca.undo{border-color:rgba(255,179,71,.45)!important;color:#ffcf8a!important}
+.memrow{display:flex;align-items:center;gap:10px;padding:9px 0;border-top:1px solid rgba(63,224,255,.08);font-size:14.5px}
+.memrow span{flex:1}
+.memrow button{background:none;border:none;color:var(--muted);font-size:16px;padding:4px 8px}

@@ -850,6 +850,26 @@ J.module({
   },
   report(){ return spoken(thisMonth()); },
   chat(){ return chatContext(); },
+  /* observations de Jarvis : budgets qui vont déraper, catégories en forte hausse, fin de mois dans le rouge */
+  insights(){
+    const out = [], k = thisMonth(), d = todayD(), D = dim(k), pk = shift(k, -1);
+    for (const [c, b] of Object.entries(S().budgets)) {
+      if (!b) continue;
+      const s = spentCat(k, c);
+      if (s >= b) { out.push({level:'warn', score:88, text:`Budget ${c} dépassé de ${eur(r2(s - b))}.`, go:'finances'}); continue; }
+      if (d >= 5 && s > b * .35 && s / d * D > b * 1.05) out.push({level:'warn', score:74, text:`Au rythme actuel, le budget ${c} sera épuisé vers le ${Math.min(D, Math.ceil(b / (s / d)))}.`, go:'finances'});
+    }
+    const by = (m, upto) => { const r = {}; S().tx.filter(t => t.month === m && t.type === 'out' && t.day <= upto).forEach(t => { r[t.cat] = (r[t.cat] || 0) + t.amount; }); return r; };
+    const now = by(k, d), prev = by(pk, d);
+    Object.entries(now).forEach(([c, v]) => {
+      const p = prev[c] || 0;
+      if (p >= 20 && v - p >= 30 && v / p >= 1.3 && !['Logement', 'Factures', 'Crédit', 'Épargne'].includes(c))
+        out.push({level:'info', score:52 + Math.min(18, (v / p - 1) * 15), text:`${c} : ${eur(r2(v))} depuis le début du mois, +${Math.round((v / p - 1) * 100)} % par rapport au mois dernier à la même date.`, go:'finances'});
+    });
+    const end = balanceEnd(k);
+    if (end !== null && end < 0) out.push({level:'warn', score:94, text:`Le solde prévu en fin de mois est négatif : ${eur(end)}.`, go:'finances'});
+    return out;
+  },
   stat(){
     const k = thisMonth(), T = totals(k), now = balanceNow(), end = balanceEnd(k), left = r2(T.inc - T.out);
     const short = n => Math.round(n).toLocaleString('fr-FR') + ' €';
