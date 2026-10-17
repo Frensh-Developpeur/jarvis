@@ -10,16 +10,23 @@
 const {$, $$, esc, ls} = J;
 const DEFAULT_PREFS = {tasks:true, habits:true, journal:true, morning:'08:00', weigh:true, social:true, taskLead:15};
 const prefsN = () => Object.assign({}, DEFAULT_PREFS, (J.prefs() || {}).notif || {});
-const supported = () => 'serviceWorker' in navigator && 'PushManager' in window && 'Notification' in window;
+const NAT = () => J.native;   // app iPhone : notifications locales programmées sur le téléphone
+const supported = () => !!NAT() || ('serviceWorker' in navigator && 'PushManager' in window && 'Notification' in window);
 const standalone = () => window.navigator.standalone === true || matchMedia('(display-mode: standalone)').matches;
 const b64uToBytes = s => Uint8Array.from(atob(s.replace(/-/g, '+').replace(/_/g, '/') + '==='.slice((s.length + 3) % 4)), c => c.charCodeAt(0));
 
 async function subscription(){
+  if (NAT()) return ls.get('jarvis.push') ? {native:true} : null;
   if (!supported()) return null;
   const reg = await navigator.serviceWorker.ready;
   return reg.pushManager.getSubscription();
 }
 async function enable(){
+  if (NAT()) {
+    const st = await NAT().call('notify.authorize');
+    if (st !== 'granted') { J.toast('Notifications refusées : Réglages iPhone › Notifications › Jarvis'); return false; }
+    ls.set('jarvis.push', true); last = ''; await schedule(true); return true;
+  }
   if (!supported()) { J.toast(standalone() ? 'Notifications non prises en charge : iOS 16.4 minimum' : 'Installez Jarvis sur l\'écran d\'accueil pour recevoir des notifications'); return false; }
   const perm = await Notification.requestPermission();
   if (perm !== 'granted') { J.toast('Notifications refusées : Réglages iPhone › Notifications › Jarvis'); return false; }
@@ -33,6 +40,7 @@ async function enable(){
   return true;
 }
 async function disable(){
+  if (NAT()) { await NAT().call('notify.clear'); ls.del('jarvis.push'); return; }
   const sub = await subscription();
   if (sub) { try { await J.api('POST', '/api/push/unsubscribe', {endpoint:sub.endpoint}); } catch(e) {} await sub.unsubscribe(); }
   ls.del('jarvis.push');
@@ -57,7 +65,7 @@ function collect(){
   if (p.morning) for (let i = 0; i < 7; i++) {
     const d = new Date(); d.setDate(d.getDate() + i); const k = dk(d);
     let tasks = 0; try { tasks = J.store('taches', {tasks:[]}).data.tasks.filter(t => !t.done && t.due && t.due <= k).length; } catch(e) {}
-    add({id:'morning-' + k, date:k, time:p.morning, title:`☀️ ${J.greeting().replace(/\.$/, '')}`, body:(tasks ? `${tasks} tâche${tasks > 1 ? 's' : ''} au programme. ` : '') + 'Votre briefing du jour est prêt.', url:'#/'});
+    add({id:'morning-' + k, date:k, time:p.morning, title:`☀️ Bonjour ${(J.prefs() || {}).name || 'Monsieur'}`, body:(tasks ? `${tasks} tâche${tasks > 1 ? 's' : ''} au programme. ` : '') + 'Votre briefing du jour est prêt.', url:'#/'});
   }
   // pesée (objectif calories adaptatif) : lundi et jeudi
   try {
@@ -74,6 +82,12 @@ let last = '', timer = 0;
 async function schedule(force){
   if (!ls.get('jarvis.push') || !J.user()) return;
   const items = collect(), sig = JSON.stringify(items);
+  if (NAT()) {   // pastille : tâches du jour et en retard
+    let badge = 0; try { const k = dk(new Date()); badge = J.store('taches', {tasks:[]}).data.tasks.filter(t => !t.done && t.due && t.due <= k).length; } catch(e) {}
+    const nsig = sig + badge; if (!force && nsig === last) return;
+    try { await NAT().call('notify.schedule', {items, badge}); last = nsig; } catch(e) {}
+    return;
+  }
   if (!force && sig === last) return;
   try { await J.api('PUT', '/api/push/schedule', {items}); last = sig; } catch(e) {}
 }
@@ -82,7 +96,8 @@ J.scheduleNotifs = () => { clearTimeout(timer); timer = setTimeout(() => schedul
 /* ---------- réglages ---------- */
 async function renderSettings(){
   const box = $('#sNotif'); if (!box) return;
-  const p = prefsN(), sub = await subscription().catch(() => null), on = !!sub && Notification.permission === 'granted';
+  const p = prefsN(), sub = await subscription().catch(() => null);
+  const on = NAT() ? !!sub && (await NAT().call('notify.status').catch(() => '')) === 'granted' : !!sub && Notification.permission === 'granted';
   const row = (k, label, small) => `<div class="toggle"><span>${label}<small>${small}</small></span><label class="sw"><input type="checkbox" data-np="${k}" ${p[k] !== false && p[k] !== null ? 'checked' : ''}><i></i></label></div>`;
   box.innerHTML = !supported() ? `<p class="note">${standalone() ? 'Votre version d\'iOS ne permet pas les notifications web (iOS 16.4 minimum).' : 'Pour recevoir des notifications, ouvrez Jarvis depuis son icône sur l\'écran d\'accueil.'}</p>`
     : !on ? `<p class="note">Rappels de tâches à l'heure, habitudes, journal du soir, briefing du matin… même quand Jarvis est fermé.</p><button class="btn primary" id="nEnable">ACTIVER LES NOTIFICATIONS</button>`
@@ -93,12 +108,15 @@ async function renderSettings(){
       ${row('journal', 'Journal du soir', 'À 21 h 30 si pas encore rempli')}
       <div class="toggle"><span>Briefing du matin<small>Résumé de la journée</small></span><input type="time" class="ntime" id="nMorning" value="${p.morning || ''}"></div>
       ${row('weigh', 'Pesée', 'Lundi et jeudi, avec l\'objectif calories adaptatif')}
-      ${row('social', 'Défis entre amis', 'Un ami vous 🔥, vous dépasse, termine une séance ou lance un défi')}
+      ${NAT() ? '<p class="note">Dans l\'app iPhone, les notifications des amis (🔥, défis) ne sont pas disponibles : elles passent par l\'écran d\'accueil web.</p>' : row('social', 'Défis entre amis', 'Un ami vous 🔥, vous dépasse, termine une séance ou lance un défi')}
       <div class="two"><button class="btn ghost" id="nTest">TESTER</button><button class="btn ghost" id="nOff">DÉSACTIVER</button></div>`;
 }
 document.addEventListener('click', async e => {
   if (e.target.id === 'nEnable') { e.target.disabled = true; try { if (await enable()) { J.toast('Notifications activées'); J.haptic(); } } catch(err) { J.toast('Activation impossible : ' + err.message); J.report('push enable : ' + (err.stack || err)); } renderSettings(); }
-  if (e.target.id === 'nTest') { try { await J.api('POST', '/api/push/test'); J.toast('Notification envoyée : verrouillez l\'écran pour la voir'); } catch(err) { J.toast(err.message); } }
+  if (e.target.id === 'nTest') {
+    if (NAT()) { try { await NAT().call('notify.schedule', {items:[...collect(), {nid:'test', at:Date.now() + 5000, title:'J.A.R.V.I.S.', body:'Notifications opérationnelles. À votre service.', url:'#/'}]}); last = ''; J.toast('Notification dans 5 secondes : verrouillez l\'écran pour la voir'); } catch(err) { J.toast(err.message); } return; }
+    try { await J.api('POST', '/api/push/test'); J.toast('Notification envoyée : verrouillez l\'écran pour la voir'); } catch(err) { J.toast(err.message); }
+  }
   if (e.target.id === 'nOff') { await disable(); J.toast('Notifications désactivées'); renderSettings(); }
 });
 document.addEventListener('change', e => {
@@ -115,6 +133,7 @@ J.renderNotifSettings = renderSettings;
 /* ---------- proposer d'activer, au bon moment ----------
    état : 'on' | 'off' (possible, pas encore activé) | 'denied' | 'install' (iPhone : ouvrir depuis l'écran d'accueil) | 'no' */
 J.notifState = () => {
+  if (NAT()) return ls.get('jarvis.push') ? 'on' : 'off';
   if (!supported()) return /iPhone|iPad/.test(navigator.userAgent) && !standalone() ? 'install' : 'no';
   if (Notification.permission === 'denied') return 'denied';
   return Notification.permission === 'granted' && ls.get('jarvis.push') ? 'on' : 'off';

@@ -1,0 +1,35 @@
+<?xml version="1.0" encoding="UTF-8"?>
+<!DOCTYPE plist PUBLIC "-//Apple//DTD PLIST 1.0//EN" "http://www.apple.com/DTDs/PropertyList-1.0.dtd">
+<plist version="1.0">
+<dict>
+	<key>CFBundleDevelopmentRegion</key><string>fr</string>
+	<key>CFBundleDisplayName</key><string>Jarvis</string>
+	<key>CFBundleExecutable</key><string>$(EXECUTABLE_NAME)</string>
+	<key>CFBundleIdentifier</key><string>$(PRODUCT_BUNDLE_IDENTIFIER)</string>
+	<key>CFBundleInfoDictionaryVersion</key><string>6.0</string>
+	<key>CFBundleName</key><string>$(PRODUCT_NAME)</string>
+	<key>CFBundlePackageType</key><string>APPL</string>
+	<key>CFBundleShortVersionString</key><string>$(MARKETING_VERSION)</string>
+	<key>CFBundleVersion</key><string>$(CURRENT_PROJECT_VERSION)</string>
+	<key>LSRequiresIPhoneOS</key><true/>
+	<key>UILaunchScreen</key>
+	<dict><key>UIColorName</key><string>LaunchBg</string></dict>
+	<key>UIRequiredDeviceCapabilities</key><array><string>arm64</string></array>
+	<key>UISupportedInterfaceOrientations</key><array><string>UIInterfaceOrientationPortrait</string></array>
+	<key>UIStatusBarStyle</key><string>UIStatusBarStyleLightContent</string>
+	<key>UIViewControllerBasedStatusBarAppearance</key><false/>
+	<key>UIUserInterfaceStyle</key><string>Dark</string>
+	<key>NSHealthShareUsageDescription</key><string>Jarvis lit vos pas, votre énergie, votre sommeil et votre poids pour votre briefing et votre objectif calories.</string>
+	<key>NSHealthUpdateUsageDescription</key><string>Jarvis n'écrit rien dans Santé.</string>
+	<key>NSSpeechRecognitionUsageDescription</key><string>Pour parler à Jarvis en touchant le réacteur.</string>
+	<key>NSMicrophoneUsageDescription</key><string>Pour parler à Jarvis en touchant le réacteur.</string>
+	<key>NSCameraUsageDescription</key><string>Pour photographier un repas ou scanner un code-barres.</string>
+	<key>NSPhotoLibraryUsageDescription</key><string>Pour choisir la photo d'un repas.</string>
+	<key>NSLocationWhenInUseUsageDescription</key><string>Pour la météo de votre ville dans le briefing.</string>
+	<key>WKAppBoundDomains</key>
+	<array>
+		<string>frensh-developpeur.github.io</string>
+		<string>jarvis-api.frensh-developpeur.workers.dev</string>
+	</array>
+</dict>
+</plist>
