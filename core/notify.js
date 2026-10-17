@@ -8,7 +8,7 @@
 'use strict';
 (() => {
 const {$, $$, esc, ls} = J;
-const DEFAULT_PREFS = {tasks:true, habits:true, journal:true, morning:'08:00', weigh:true, social:true, taskLead:15};
+const DEFAULT_PREFS = {tasks:true, habits:true, journal:true, morning:'08:00', evening:'21:00', weigh:true, social:true, taskLead:15};
 const prefsN = () => Object.assign({}, DEFAULT_PREFS, (J.prefs() || {}).notif || {});
 const NAT = () => J.native;   // app iPhone : notifications locales programmées sur le téléphone
 const supported = () => !!NAT() || ('serviceWorker' in navigator && 'PushManager' in window && 'Notification' in window);
@@ -61,11 +61,30 @@ function collect(){
       add(r);
     });
   });
-  // briefing du matin
+  // briefing du matin : le programme réel de la journée (tâches, premier rendez-vous, séance conseillée)
+  const name = (J.prefs() || {}).name || 'Monsieur';
+  let tasksAll = []; try { tasksAll = J.store('taches', {tasks:[]}).data.tasks.filter(t => !t.done && t.due); } catch(e) {}
   if (p.morning) for (let i = 0; i < 7; i++) {
     const d = new Date(); d.setDate(d.getDate() + i); const k = dk(d);
-    let tasks = 0; try { tasks = J.store('taches', {tasks:[]}).data.tasks.filter(t => !t.done && t.due && t.due <= k).length; } catch(e) {}
-    add({id:'morning-' + k, date:k, time:p.morning, title:`☀️ Bonjour ${(J.prefs() || {}).name || 'Monsieur'}`, body:(tasks ? `${tasks} tâche${tasks > 1 ? 's' : ''} au programme. ` : '') + 'Votre briefing du jour est prêt.', url:'#/'});
+    const day = tasksAll.filter(t => t.due <= k), timed = tasksAll.filter(t => t.due === k && t.time).sort((a, b) => a.time.localeCompare(b.time));
+    const parts = [];
+    if (day.length) parts.push(`${day.length} tâche${day.length > 1 ? 's' : ''} au programme`);
+    if (timed[0]) parts.push(`premier rendez-vous à ${timed[0].time.replace(':', 'h')} : ${timed[0].title}`);
+    add({id:'morning-' + k, date:k, time:p.morning, title:`☀️ Bonjour ${name}`, body:(parts.length ? parts.join(', ') + '. ' : 'Journée libre pour l\'instant. ') + 'Touchez pour le briefing.', url:'#/'});
+  }
+  // bilan du soir (aujourd'hui : avec les chiffres du moment ; ils sont recalculés à chaque modification)
+  if (p.evening) for (let i = 0; i < 7; i++) {
+    const d = new Date(); d.setDate(d.getDate() + i); const k = dk(d);
+    let body = 'Faisons le point sur votre journée.';
+    if (i === 0) {
+      const w = {}; J.modules.forEach(m => { if (m.widget && !m.soon) try { Object.assign(w, m.widget()); } catch(e) {} });
+      const bits = [];
+      if (w.tasksLeft) bits.push(`${w.tasksLeft} tâche${w.tasksLeft > 1 ? 's' : ''} encore ouverte${w.tasksLeft > 1 ? 's' : ''}`);
+      if (w.kcalGoal) bits.push(w.kcal ? `${Math.round(Math.max(0, w.kcalGoal - w.kcal)).toLocaleString('fr-FR')} kcal restantes` : 'aucun repas saisi');
+      if (w.stepGoal && w.steps < w.stepGoal) bits.push(`${Math.round(w.steps).toLocaleString('fr-FR')} pas sur ${Math.round(w.stepGoal).toLocaleString('fr-FR')}`);
+      body = bits.length ? bits.join(' · ') + '.' : 'Tout est à jour. Belle journée, ' + name + '.';
+    }
+    add({id:'evening-' + k, date:k, time:p.evening, title:'🌙 Bilan du soir', body, url:'#/'});
   }
   // pesée (objectif calories adaptatif) : lundi et jeudi
   try {
@@ -106,7 +125,8 @@ async function renderSettings(){
       <div class="toggle"><span>Rappel des tâches<small>Par défaut ; modifiable tâche par tâche</small></span><select class="ntime" id="nTaskLead">${[[0, 'À l\'heure'], [5, '5 min avant'], [10, '10 min avant'], [15, '15 min avant'], [30, '30 min avant'], [60, '1 h avant'], [1440, 'La veille']].map(([v, n]) => `<option value="${v}" ${(typeof p.taskLead === 'number' ? p.taskLead : 15) === v ? 'selected' : ''}>${n}</option>`).join('')}</select></div>
       ${row('habits', 'Habitudes', 'À l\'heure de rappel de chaque habitude')}
       ${row('journal', 'Journal du soir', 'À 21 h 30 si pas encore rempli')}
-      <div class="toggle"><span>Briefing du matin<small>Résumé de la journée</small></span><input type="time" class="ntime" id="nMorning" value="${p.morning || ''}"></div>
+      <div class="toggle"><span>Briefing du matin<small>Programme de la journée</small></span><input type="time" class="ntime" id="nMorning" value="${p.morning || ''}"></div>
+      <div class="toggle"><span>Bilan du soir<small>Tâches, calories et pas restants</small></span><input type="time" class="ntime" id="nEvening" value="${p.evening || ''}"></div>
       ${row('weigh', 'Pesée', 'Lundi et jeudi, avec l\'objectif calories adaptatif')}
       ${NAT() ? '<p class="note">Dans l\'app iPhone, les notifications des amis (🔥, défis) ne sont pas disponibles : elles passent par l\'écran d\'accueil web.</p>' : row('social', 'Défis entre amis', 'Un ami vous 🔥, vous dépasse, termine une séance ou lance un défi')}
       <div class="two"><button class="btn ghost" id="nTest">TESTER</button><button class="btn ghost" id="nOff">DÉSACTIVER</button></div>`;
@@ -122,6 +142,7 @@ document.addEventListener('click', async e => {
 document.addEventListener('change', e => {
   const k = e.target.dataset && e.target.dataset.np;
   if (e.target.id === 'nTaskLead') { const pr = J.prefs(); pr.notif = Object.assign({}, DEFAULT_PREFS, pr.notif || {}); pr.notif.taskLead = +e.target.value; J.store('core', {}).save(); schedule(true); return; }
+  if (e.target.id === 'nEvening') { const pr = J.prefs(); pr.notif = Object.assign({}, DEFAULT_PREFS, pr.notif || {}); pr.notif.evening = e.target.value || null; J.store('core', {}).save(); schedule(true); return; }
   if (k || e.target.id === 'nMorning') {
     const pr = J.prefs(); pr.notif = Object.assign({}, DEFAULT_PREFS, pr.notif || {});
     if (k) pr.notif[k] = e.target.checked; else pr.notif.morning = e.target.value || null;

@@ -7,6 +7,8 @@ import HealthKit
 import UserNotifications
 import Speech
 import AVFoundation
+import WidgetKit
+import AppIntents
 
 let APP_URL = URL(string: "https://frensh-developpeur.github.io/jarvis/?app=ios")!
 
@@ -24,6 +26,10 @@ class AppDelegate: UIResponder, UIApplicationDelegate, UNUserNotificationCenterD
     return true
   }
   func applicationDidBecomeActive(_ app: UIApplication) { web.emit("foreground", [:]) }
+  // jarvis://nutrition (widgets) : ouvre le module
+  func application(_ app: UIApplication, open url: URL, options: [UIApplication.OpenURLOptionsKey: Any] = [:]) -> Bool {
+    web.open("#/" + (url.host ?? "")); return true
+  }
 
   // notification reçue app ouverte : on l'affiche quand même
   func userNotificationCenter(_ c: UNUserNotificationCenter, willPresent n: UNNotification, withCompletionHandler done: @escaping (UNNotificationPresentationOptions) -> Void) {
@@ -80,6 +86,8 @@ class WebController: UIViewController, WKScriptMessageHandler, WKNavigationDeleg
     js("window.JarvisNative && JarvisNative._emit(\(Bridge.quote(event)), \(s))")
   }
   func open(_ url: String) { if ready { emit("open", ["url": url]) } else { pendingOpen = url } }
+  var queue: [(String, [String: Any])] = []
+  func deliver(_ event: String, _ data: [String: Any]) { if ready { emit(event, data) } else { queue.append((event, data)) } }
 
   // appels venant du JavaScript : {id, name, args}
   func userContentController(_ c: WKUserContentController, didReceive m: WKScriptMessage) {
@@ -88,6 +96,8 @@ class WebController: UIViewController, WKScriptMessageHandler, WKNavigationDeleg
     if name == "ready" {
       ready = true
       if let u = pendingOpen { pendingOpen = nil; emit("open", ["url": u]) }
+      let q = queue; queue = []
+      DispatchQueue.main.asyncAfter(deadline: .now() + 0.8) { q.forEach { self.emit($0.0, $0.1) } }
     }
     bridge.handle(name, args) { ok, value in
       let v = (try? JSONSerialization.data(withJSONObject: ["v": value ?? NSNull()])).flatMap { String(data: $0, encoding: .utf8) } ?? "{\"v\":null}"
@@ -154,6 +164,7 @@ class Bridge {
     case "notify.schedule": notifySchedule(a["items"] as? [[String: Any]] ?? [], badge: a["badge"] as? Int, done)
     case "notify.clear": UNUserNotificationCenter.current().removeAllPendingNotificationRequests(); setBadge(0); done(true, nil)
     case "badge": setBadge(a["count"] as? Int ?? 0); done(true, nil)
+    case "widget.update": widgetUpdate(a["data"] as? [String: Any] ?? [:]); done(true, nil)
     case "speech.start": speech.start(web: web, done)
     case "speech.stop": speech.stop(); done(true, nil)
     default: done(false, "Fonction inconnue : \(name)")
@@ -268,6 +279,50 @@ class Bridge {
     done(true, list.count)
   }
   func setBadge(_ n: Int) { UNUserNotificationCenter.current().setBadgeCount(max(0, n)) }
+
+  // ---------- widgets : l'app dépose les chiffres du moment, les widgets les relisent ----------
+  var lastWidget: Data?
+  func widgetUpdate(_ d: [String: Any]) {
+    var w = d; w["updatedAt"] = Date().timeIntervalSince1970 * 1000
+    guard let json = try? JSONSerialization.data(withJSONObject: w), let decoded = try? JSONDecoder().decode(WidgetData.self, from: json),
+          let data = try? JSONEncoder().encode(decoded) else { return }
+    var cmp = decoded; cmp.updatedAt = 0
+    let sig = try? JSONEncoder().encode(cmp)
+    UserDefaults(suiteName: APP_GROUP)?.set(data, forKey: "widget")
+    if sig != lastWidget { lastWidget = sig; WidgetCenter.shared.reloadAllTimelines() }   // ne redessine que si un chiffre change
+  }
+}
+
+// MARK: - Siri et Raccourcis
+// « Dis Siri, demande à Jarvis » → Siri demande quoi, l'app s'ouvre et Jarvis répond à voix haute
+func deliverToWeb(_ event: String, _ data: [String: Any] = [:]) {
+  DispatchQueue.main.async { (UIApplication.shared.delegate as? AppDelegate)?.web.deliver(event, data) }
+}
+struct AskJarvisIntent: AppIntent {
+  static var title: LocalizedStringResource = "Demander à Jarvis"
+  static var description = IntentDescription("Envoie une demande à Jarvis : une dépense, un repas, une tâche, une question.")
+  static var openAppWhenRun = true
+  @Parameter(title: "Demande", requestValueDialog: "Que dois-je faire ?") var text: String
+  @MainActor func perform() async throws -> some IntentResult { deliverToWeb("ask", ["text": text]); return .result() }
+}
+struct BriefingIntent: AppIntent {
+  static var title: LocalizedStringResource = "Briefing de Jarvis"
+  static var description = IntentDescription("Jarvis vous fait le point de la journée.")
+  static var openAppWhenRun = true
+  @MainActor func perform() async throws -> some IntentResult { deliverToWeb("briefing"); return .result() }
+}
+struct ListenIntent: AppIntent {
+  static var title: LocalizedStringResource = "Parler à Jarvis"
+  static var description = IntentDescription("Ouvre Jarvis en écoute.")
+  static var openAppWhenRun = true
+  @MainActor func perform() async throws -> some IntentResult { deliverToWeb("listen"); return .result() }
+}
+struct JarvisShortcuts: AppShortcutsProvider {
+  static var appShortcuts: [AppShortcut] {
+    AppShortcut(intent: AskJarvisIntent(), phrases: ["Demande à \(.applicationName)", "Dis à \(.applicationName)", "\(.applicationName) note"], shortTitle: "Demander", systemImageName: "bubble.left.and.bubble.right")
+    AppShortcut(intent: BriefingIntent(), phrases: ["Briefing \(.applicationName)", "Mon briefing \(.applicationName)", "\(.applicationName) quoi de neuf"], shortTitle: "Briefing", systemImageName: "sun.max")
+    AppShortcut(intent: ListenIntent(), phrases: ["Parle à \(.applicationName)", "Écoute \(.applicationName)"], shortTitle: "Parler", systemImageName: "waveform")
+  }
 }
 
 // MARK: - Dictée (reconnaissance vocale de l'iPhone, en français)

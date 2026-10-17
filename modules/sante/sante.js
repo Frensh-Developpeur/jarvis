@@ -89,6 +89,7 @@ J.module({
     if (!J.appleDoc().syncedAt) return 'À connecter';
     return t && t.steps ? `<b>${fmt(t.steps)}</b> pas${t.energy ? `<br>${fmt(t.energy)} kcal actives` : ''}` : 'Pas encore de données';
   },
+  widget(){ const t = today() || {}; return {steps:t.steps || 0, stepGoal:G().stepGoal, energy:t.energy || 0, sleep:t.sleep || null}; },
   stat(){
     if (!J.appleDoc().syncedAt) return null;
     const t = today() || {}, steps = t.steps || 0;

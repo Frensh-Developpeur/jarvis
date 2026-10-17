@@ -543,3 +543,23 @@ body.typing .sheet.show:not(.chat){min-height:calc(var(--vvh,100dvh) - var(--saf
 .usugg:empty{display:none}
 .usugg button{padding:7px 13px;border-radius:16px;border:1px solid rgba(63,224,255,.25);background:rgba(63,224,255,.05);color:var(--text);font-size:14px}
 .usugg button.on{border-color:var(--cyan);background:rgba(63,224,255,.16);color:var(--cyan)}
+
+/* ============================================================
+   Mode app : barre de titre, tirer pour actualiser, accueil allégé
+   ============================================================ */
+.navbar{display:none}
+body.in-app .navbar{display:flex;align-items:flex-end;justify-content:center;position:fixed;left:0;right:0;top:0;z-index:9;pointer-events:none;
+  height:calc(var(--safe-t) + 44px);padding-bottom:12px;opacity:0;transform:translateY(-6px);transition:opacity .2s,transform .2s;
+  background:rgba(3,10,16,.78);backdrop-filter:blur(20px) saturate(1.5);-webkit-backdrop-filter:blur(20px) saturate(1.5);border-bottom:1px solid rgba(63,224,255,.08)}
+body.in-app .navbar span{font-family:var(--hud);font-size:12px;font-weight:700;letter-spacing:.24em;color:var(--acc,var(--cyan));text-shadow:0 0 10px color-mix(in srgb,var(--acc,#3fe0ff) 50%,transparent)}
+body.in-app.scrolled:not(.sheet-open) .navbar{opacity:1;transform:none}
+#auth ~ * .navbar,body:not(.in-app) .ptr{display:none}
+.ptr{position:fixed;left:50%;top:calc(var(--safe-t) - 34px);width:34px;height:34px;margin-left:-17px;z-index:9;color:var(--cyan);opacity:0;pointer-events:none;
+  filter:drop-shadow(0 0 8px rgba(63,224,255,.7))}
+.ptr svg{width:100%;height:100%;display:block}
+.ptr:not(.pull){transition:transform .3s cubic-bezier(.2,.8,.2,1),opacity .25s}
+.ptr.spin svg{animation:ptrspin .8s linear infinite}
+@keyframes ptrspin{to{transform:rotate(360deg)}}
+/* accueil : les tuiles de modules font doublon avec la barre d'onglets */
+body.in-app #modLabel,body.in-app #tiles{display:none}
+.ptr{background:#06131d;border-radius:50%;border:1px solid rgba(63,224,255,.3);padding:6px;width:40px;height:40px;margin-left:-20px;box-shadow:0 6px 18px rgba(0,0,0,.5)}

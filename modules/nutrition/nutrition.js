@@ -1021,6 +1021,7 @@ J.module({
     const lw = latestWeight();
     return `NUTRITION aujourd'hui : ${Math.round(sm.kcal)} kcal consommées sur un objectif de ${G.kcal} (reste ${Math.round(G.kcal - sm.kcal)}) ; protéines ${Math.round(sm.p)}/${G.p} g, glucides ${Math.round(sm.c)}/${G.c} g, lipides ${Math.round(sm.f)}/${G.f} g. ${meals.join(' ; ') || 'Aucun repas saisi.'}${lw ? ` Dernier poids : ${lw.kg} kg.` : ''}`;
   },
+  widget(){ const k = today(), s = sums(items(k)), G = goalsFor(k); return {kcal:Math.round(s.kcal), kcalGoal:G.kcal, prot:Math.round(s.p), protGoal:G.p}; },
   stat(){
     const k = today(), list = items(k), s = sums(list), goal = goalK(k), left = goal - s.kcal;
     if (!list.length) return {label:'CALORIES', value:fmt(goal) + '<small> kcal</small>', sub:'rien de saisi aujourd\'hui', ratio:0};

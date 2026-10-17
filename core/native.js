@@ -58,6 +58,7 @@ J.syncHealth = async (ask) => {
     st.save();
     st.listeners.forEach(f => { try { f(d); } catch(e) {} });   // l'objectif calories et la santé se recalculent
     if (J.renderBriefing) J.renderBriefing();
+    J.updateWidgets();
     if (ask) J.toast('Santé synchronisée');
   } catch(e) {
     J.report('santé native : ' + e.message);
@@ -71,12 +72,35 @@ document.addEventListener('click', e => {
   if (a) { e.stopImmediatePropagation(); e.preventDefault(); J.haptic(); J.syncHealth(true); }
 }, true);
 
+/* ---------- widgets : les chiffres du moment, déposés pour l'écran d'accueil et l'écran verrouillé ---------- */
+let widT = 0;
+J.updateWidgets = () => {
+  clearTimeout(widT);
+  widT = setTimeout(() => {
+    if (!J.user()) return;
+    const data = {name:(J.prefs() || {}).name || 'Monsieur'};
+    J.modules.forEach(m => { if (m.widget && !m.soon) try { Object.assign(data, m.widget()); } catch(e) {} });
+    N.call('widget.update', {data}).catch(() => {});
+  }, 800);
+};
+document.addEventListener('visibilitychange', () => { if (document.visibilityState === 'hidden') J.updateWidgets(); });
+
+/* ---------- Siri : « Dis Siri, demande à Jarvis… », « briefing Jarvis », « parle à Jarvis » ---------- */
+const onHub = f => whenUser().then(() => { J.go(null); setTimeout(f, 500); });
+N.on('ask', d => onHub(() => { if (d && d.text) J.ask(d.text, {from:'hub', voice:true}); }));
+N.on('briefing', () => onHub(() => { const t = J.briefingSpeech ? J.briefingSpeech() : ''; if (t) { J.say(t); J.speak(t); } }));
+N.on('listen', () => onHub(() => { const r = document.getElementById('hubReactor'); if (r) r.click(); }));
+
 /* ---------- cycle de vie ---------- */
 const whenUser = () => new Promise(res => { const t = setInterval(() => { if (J.user()) { clearInterval(t); res(); } }, 500); });
 whenUser().then(() => {
   setTimeout(() => J.syncHealth(false), 1200);
   setInterval(() => { if (document.visibilityState === 'visible') J.syncHealth(false); }, 10 * 60e3);
-  if (J.scheduleNotifs) J.scheduleNotifs();
+  if (J.scheduleNotifs) {   // chaque modification de données met aussi les widgets à jour
+    const sched = J.scheduleNotifs; J.scheduleNotifs = () => { sched(); J.updateWidgets(); };
+    J.scheduleNotifs();
+  }
+  J.updateWidgets();
 });
 N.on('foreground', () => { if (J.user()) { J.syncHealth(false); if (J.scheduleNotifs) J.scheduleNotifs(); } });
 // notification touchée : ouvre le bon module

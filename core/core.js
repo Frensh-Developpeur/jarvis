@@ -8,7 +8,7 @@
    ============================================================ */
 'use strict';
 (() => {
-const APP_VERSION = '45';
+const APP_VERSION = '46';
 const API = location.hostname === 'localhost' ? 'http://localhost:8787' : 'https://jarvis-api.frensh-developpeur.workers.dev';
 const APP_URL = 'https://frensh-developpeur.github.io/jarvis/';
 
@@ -547,6 +547,7 @@ J.go = (id) => {
   current = mod;
   history.replaceState(null, '', '#/' + (mod ? mod.id : ''));
   setTabbar(mod ? mod.id : '');
+  $('#navTitle').textContent = mod ? mod.name.toUpperCase() : 'J.A.R.V.I.S.'; $('#navbar').style.setProperty('--acc', mod ? mod.accent : '#3fe0ff');
   if (!mod) {
     showView($('#hub'));
     renderHub();
@@ -577,6 +578,48 @@ J.go = (id) => {
     window.scrollTo(0, scrollMem[mod.id] || 0);
   }
 };
+/* barre de titre façon iOS : apparaît, floutée, quand le grand titre sort de l'écran */
+let navRaf = 0;
+const onNavScroll = () => { cancelAnimationFrame(navRaf); navRaf = requestAnimationFrame(() => document.body.classList.toggle('scrolled', window.scrollY > 70)); };
+window.addEventListener('scroll', onNavScroll, {passive:true});
+
+/* tirer vers le bas pour actualiser (données, Santé, météo), comme dans les apps natives */
+let ptr = null, ptrBusy = false;
+const ptrEl = $('#ptr'), PTR_GO = 64;
+document.addEventListener('touchstart', e => {
+  ptr = null;
+  if (ptrBusy || !document.body.classList.contains('in-app') || openSheetEl || window.scrollY > 0 || e.touches.length > 1) return;
+  const t = e.touches[0];
+  if (t.clientX < 28 || e.target.closest('input,textarea,select,.hscroll,.srow,.sheet,#tabbar,.scanner')) return;
+  ptr = {x:t.clientX, y:t.clientY, d:0, on:false, armed:false};
+}, {passive:true});
+document.addEventListener('touchmove', e => {
+  if (!ptr) return;
+  const t = e.touches[0], dy = t.clientY - ptr.y, dx = t.clientX - ptr.x;
+  if (!ptr.on) {
+    if (dy < -4 || Math.abs(dx) > Math.abs(dy) + 4 || window.scrollY > 0) { ptr = null; return; }
+    if (dy < 8) return;
+    ptr.on = true; ptrEl.classList.add('pull');
+  }
+  ptr.d = Math.max(0, Math.min(110, (dy - 8) * .5));
+  ptrEl.style.transform = `translateY(${ptr.d}px) rotate(${ptr.d * 4}deg)`;
+  ptrEl.style.opacity = Math.min(1, ptr.d / 40);
+  if (ptr.d >= PTR_GO !== ptr.armed) { ptr.armed = ptr.d >= PTR_GO; if (ptr.armed) J.haptic('select'); }
+}, {passive:true});
+document.addEventListener('touchend', () => {
+  const p = ptr; ptr = null;
+  if (!p || !p.on) return;
+  if (p.armed) refreshAll(); else ptrReset();
+}, {passive:true});
+function ptrReset(){ ptrEl.classList.remove('pull', 'spin'); ptrEl.style.transform = ''; ptrEl.style.opacity = ''; }
+async function refreshAll(){
+  ptrBusy = true; J.haptic('medium');
+  ptrEl.classList.add('spin'); ptrEl.style.transform = `translateY(${PTR_GO}px)`; ptrEl.style.opacity = 1;
+  await Promise.allSettled([J.sync(), J.syncHealth ? J.syncHealth(false) : null, J.refreshWeather && ((J.prefs() || {}).city || ls.get('jarvis.geo')) ? J.refreshWeather() : null, new Promise(r => setTimeout(r, 700))]);
+  try { if (current) { if (current.onShow) current.onShow(); } else { renderHub(); if (J.renderBriefing) J.renderBriefing(); } } catch(e) {}
+  J.haptic('success'); ptrReset(); ptrBusy = false;
+}
+
 function resetViews(){
   J.modules.forEach(m => { if (m.unmount && $('#mv-' + m.id)) { try { m.unmount(); } catch(e) {} } });
   $('#modviews').innerHTML = '';

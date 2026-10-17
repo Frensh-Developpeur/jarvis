@@ -7,23 +7,67 @@
 	objects = {
 
 /* Begin PBXBuildFile section */
+		0C6B2DCC8CF1410F6EE57760 /* JarvisWidget.swift in Sources */ = {isa = PBXBuildFile; fileRef = 34A4B36C7A03225DC6A2BB10 /* JarvisWidget.swift */; };
+		1D330C190FC8E9534D401CD3 /* WidgetData.swift in Sources */ = {isa = PBXBuildFile; fileRef = 126B99BE6781EF096C85771B /* WidgetData.swift */; };
+		BF25359AEBC82D75037D5A6B /* JarvisWidget.appex in Embed Foundation Extensions */ = {isa = PBXBuildFile; fileRef = 4614CBDB883BEB7229DE3049 /* JarvisWidget.appex */; settings = {ATTRIBUTES = (RemoveHeadersOnCopy, ); }; };
 		C343F3A867CF91369ACAD1A6 /* App.swift in Sources */ = {isa = PBXBuildFile; fileRef = 26A68668ADC68F0389772F8B /* App.swift */; };
+		D9A275A158931B282CA2DD74 /* WidgetData.swift in Sources */ = {isa = PBXBuildFile; fileRef = 126B99BE6781EF096C85771B /* WidgetData.swift */; };
 		DEBFA12BB1A100389711262E /* Assets.xcassets in Resources */ = {isa = PBXBuildFile; fileRef = 61C76376F114B708AF2B9EF1 /* Assets.xcassets */; };
 /* End PBXBuildFile section */
 
+/* Begin PBXContainerItemProxy section */
+		2CAA42A7D67B5EF4435798F9 /* PBXContainerItemProxy */ = {
+			isa = PBXContainerItemProxy;
+			containerPortal = 33E99CF1F5349721FD0BB40B /* Project object */;
+			proxyType = 1;
+			remoteGlobalIDString = 5D71A70851C4BC7143FB22EF;
+			remoteInfo = JarvisWidget;
+		};
+/* End PBXContainerItemProxy section */
+
+/* Begin PBXCopyFilesBuildPhase section */
+		6B8E08B60F849102D210A039 /* Embed Foundation Extensions */ = {
+			isa = PBXCopyFilesBuildPhase;
+			buildActionMask = 2147483647;
+			dstPath = "";
+			dstSubfolderSpec = 13;
+			files = (
+				BF25359AEBC82D75037D5A6B /* JarvisWidget.appex in Embed Foundation Extensions */,
+			);
+			name = "Embed Foundation Extensions";
+			runOnlyForDeploymentPostprocessing = 0;
+		};
+/* End PBXCopyFilesBuildPhase section */
+
 /* Begin PBXFileReference section */
+		126B99BE6781EF096C85771B /* WidgetData.swift */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.swift; path = WidgetData.swift; sourceTree = "<group>"; };
 		26A68668ADC68F0389772F8B /* App.swift */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.swift; path = App.swift; sourceTree = "<group>"; };
+		34A4B36C7A03225DC6A2BB10 /* JarvisWidget.swift */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.swift; path = JarvisWidget.swift; sourceTree = "<group>"; };
+		4614CBDB883BEB7229DE3049 /* JarvisWidget.appex */ = {isa = PBXFileReference; includeInIndex = 0; lastKnownFileType = "wrapper.app-extension"; path = JarvisWidget.appex; sourceTree = BUILT_PRODUCTS_DIR; };
 		61C76376F114B708AF2B9EF1 /* Assets.xcassets */ = {isa = PBXFileReference; lastKnownFileType = folder.assetcatalog; path = Assets.xcassets; sourceTree = "<group>"; };
+		B0DECB7F56BC277241F897A8 /* Info.plist */ = {isa = PBXFileReference; lastKnownFileType = text.plist; path = Info.plist; sourceTree = "<group>"; };
 		BCD242C83ADE5623EDB958B3 /* Jarvis.entitlements */ = {isa = PBXFileReference; lastKnownFileType = text.plist.entitlements; path = Jarvis.entitlements; sourceTree = "<group>"; };
+		CAB8781BD405E0F81F04DB24 /* JarvisWidget.entitlements */ = {isa = PBXFileReference; lastKnownFileType = text.plist.entitlements; path = JarvisWidget.entitlements; sourceTree = "<group>"; };
 		D758DDA5F42A49B6CB275DED /* Info.plist */ = {isa = PBXFileReference; lastKnownFileType = text.plist; path = Info.plist; sourceTree = "<group>"; };
 		F2EA89B09E63D9954B6EA5A4 /* Jarvis.app */ = {isa = PBXFileReference; includeInIndex = 0; lastKnownFileType = wrapper.application; path = Jarvis.app; sourceTree = BUILT_PRODUCTS_DIR; };
 /* End PBXFileReference section */
 
 /* Begin PBXGroup section */
+		6A4919CF07EA454133805788 /* JarvisWidget */ = {
+			isa = PBXGroup;
+			children = (
+				B0DECB7F56BC277241F897A8 /* Info.plist */,
+				CAB8781BD405E0F81F04DB24 /* JarvisWidget.entitlements */,
+				34A4B36C7A03225DC6A2BB10 /* JarvisWidget.swift */,
+			);
+			path = JarvisWidget;
+			sourceTree = "<group>";
+		};
 		7370B301BC3824D8E135198C /* Products */ = {
 			isa = PBXGroup;
 			children = (
 				F2EA89B09E63D9954B6EA5A4 /* Jarvis.app */,
+				4614CBDB883BEB7229DE3049 /* JarvisWidget.appex */,
 			);
 			name = Products;
 			sourceTree = "<group>";
@@ -32,6 +76,8 @@
 			isa = PBXGroup;
 			children = (
 				FC737B8F8A91C66ADA6702EE /* Jarvis */,
+				6A4919CF07EA454133805788 /* JarvisWidget */,
+				FD904DF667D8BA6251A626DA /* Shared */,
 				7370B301BC3824D8E135198C /* Products */,
 			);
 			sourceTree = "<group>";
@@ -47,6 +93,14 @@
 			path = Jarvis;
 			sourceTree = "<group>";
 		};
+		FD904DF667D8BA6251A626DA /* Shared */ = {
+			isa = PBXGroup;
+			children = (
+				126B99BE6781EF096C85771B /* WidgetData.swift */,
+			);
+			path = Shared;
+			sourceTree = "<group>";
+		};
 /* End PBXGroup section */
 
 /* Begin PBXNativeTarget section */
@@ -56,10 +110,12 @@
 			buildPhases = (
 				E0992BE4761F337F2AC5BF62 /* Sources */,
 				C593366D9BBD0DC5F45EA023 /* Resources */,
+				6B8E08B60F849102D210A039 /* Embed Foundation Extensions */,
 			);
 			buildRules = (
 			);
 			dependencies = (
+				7E6DFBB7E65A914EA0A49DD6 /* PBXTargetDependency */,
 			);
 			name = Jarvis;
 			packageProductDependencies = (
@@ -67,6 +123,23 @@
 			productName = Jarvis;
 			productReference = F2EA89B09E63D9954B6EA5A4 /* Jarvis.app */;
 			productType = "com.apple.product-type.application";
+		};
+		5D71A70851C4BC7143FB22EF /* JarvisWidget */ = {
+			isa = PBXNativeTarget;
+			buildConfigurationList = 036E591F88B9BEB6ECE3B487 /* Build configuration list for PBXNativeTarget "JarvisWidget" */;
+			buildPhases = (
+				2EC2F5207D350D1E9AE3FFB9 /* Sources */,
+			);
+			buildRules = (
+			);
+			dependencies = (
+			);
+			name = JarvisWidget;
+			packageProductDependencies = (
+			);
+			productName = JarvisWidget;
+			productReference = 4614CBDB883BEB7229DE3049 /* JarvisWidget.appex */;
+			productType = "com.apple.product-type.app-extension";
 		};
 /* End PBXNativeTarget section */
 
@@ -78,6 +151,10 @@
 				LastUpgradeCheck = 1430;
 				TargetAttributes = {
 					461D90920FCD8CAF83348871 = {
+						DevelopmentTeam = UNB8SQ689Y;
+						ProvisioningStyle = Automatic;
+					};
+					5D71A70851C4BC7143FB22EF = {
 						DevelopmentTeam = UNB8SQ689Y;
 						ProvisioningStyle = Automatic;
 					};
@@ -98,6 +175,7 @@
 			projectRoot = "";
 			targets = (
 				461D90920FCD8CAF83348871 /* Jarvis */,
+				5D71A70851C4BC7143FB22EF /* JarvisWidget */,
 			);
 		};
 /* End PBXProject section */
@@ -114,15 +192,33 @@
 /* End PBXResourcesBuildPhase section */
 
 /* Begin PBXSourcesBuildPhase section */
+		2EC2F5207D350D1E9AE3FFB9 /* Sources */ = {
+			isa = PBXSourcesBuildPhase;
+			buildActionMask = 2147483647;
+			files = (
+				0C6B2DCC8CF1410F6EE57760 /* JarvisWidget.swift in Sources */,
+				D9A275A158931B282CA2DD74 /* WidgetData.swift in Sources */,
+			);
+			runOnlyForDeploymentPostprocessing = 0;
+		};
 		E0992BE4761F337F2AC5BF62 /* Sources */ = {
 			isa = PBXSourcesBuildPhase;
 			buildActionMask = 2147483647;
 			files = (
 				C343F3A867CF91369ACAD1A6 /* App.swift in Sources */,
+				1D330C190FC8E9534D401CD3 /* WidgetData.swift in Sources */,
 			);
 			runOnlyForDeploymentPostprocessing = 0;
 		};
 /* End PBXSourcesBuildPhase section */
+
+/* Begin PBXTargetDependency section */
+		7E6DFBB7E65A914EA0A49DD6 /* PBXTargetDependency */ = {
+			isa = PBXTargetDependency;
+			target = 5D71A70851C4BC7143FB22EF /* JarvisWidget */;
+			targetProxy = 2CAA42A7D67B5EF4435798F9 /* PBXContainerItemProxy */;
+		};
+/* End PBXTargetDependency section */
 
 /* Begin XCBuildConfiguration section */
 		06169DA02795A8ED87F6F021 /* Debug */ = {
@@ -139,6 +235,42 @@
 				);
 				PRODUCT_BUNDLE_IDENTIFIER = com.sebckyser.jarvis;
 				SDKROOT = iphoneos;
+				TARGETED_DEVICE_FAMILY = 1;
+			};
+			name = Debug;
+		};
+		145B136A8F14A6BC98C5AB89 /* Release */ = {
+			isa = XCBuildConfiguration;
+			buildSettings = {
+				CODE_SIGN_ENTITLEMENTS = JarvisWidget/JarvisWidget.entitlements;
+				GENERATE_INFOPLIST_FILE = NO;
+				INFOPLIST_FILE = JarvisWidget/Info.plist;
+				LD_RUNPATH_SEARCH_PATHS = (
+					"$(inherited)",
+					"@executable_path/Frameworks",
+					"@executable_path/../../Frameworks",
+				);
+				PRODUCT_BUNDLE_IDENTIFIER = com.sebckyser.jarvis.widget;
+				SDKROOT = iphoneos;
+				SKIP_INSTALL = YES;
+				TARGETED_DEVICE_FAMILY = 1;
+			};
+			name = Release;
+		};
+		154757FE732765B615073F7D /* Debug */ = {
+			isa = XCBuildConfiguration;
+			buildSettings = {
+				CODE_SIGN_ENTITLEMENTS = JarvisWidget/JarvisWidget.entitlements;
+				GENERATE_INFOPLIST_FILE = NO;
+				INFOPLIST_FILE = JarvisWidget/Info.plist;
+				LD_RUNPATH_SEARCH_PATHS = (
+					"$(inherited)",
+					"@executable_path/Frameworks",
+					"@executable_path/../../Frameworks",
+				);
+				PRODUCT_BUNDLE_IDENTIFIER = com.sebckyser.jarvis.widget;
+				SDKROOT = iphoneos;
+				SKIP_INSTALL = YES;
 				TARGETED_DEVICE_FAMILY = 1;
 			};
 			name = Debug;
@@ -291,6 +423,15 @@
 /* End XCBuildConfiguration section */
 
 /* Begin XCConfigurationList section */
+		036E591F88B9BEB6ECE3B487 /* Build configuration list for PBXNativeTarget "JarvisWidget" */ = {
+			isa = XCConfigurationList;
+			buildConfigurations = (
+				154757FE732765B615073F7D /* Debug */,
+				145B136A8F14A6BC98C5AB89 /* Release */,
+			);
+			defaultConfigurationIsVisible = 0;
+			defaultConfigurationName = Debug;
+		};
 		5FF39917AC552CB1A0BD9FBA /* Build configuration list for PBXProject "Jarvis" */ = {
 			isa = XCConfigurationList;
 			buildConfigurations = (

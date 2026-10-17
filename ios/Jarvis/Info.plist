@@ -26,6 +26,8 @@
 	<key>NSCameraUsageDescription</key><string>Pour photographier un repas ou scanner un code-barres.</string>
 	<key>NSPhotoLibraryUsageDescription</key><string>Pour choisir la photo d'un repas.</string>
 	<key>NSLocationWhenInUseUsageDescription</key><string>Pour la météo de votre ville dans le briefing.</string>
+	<key>CFBundleURLTypes</key>
+	<array><dict><key>CFBundleURLName</key><string>com.sebckyser.jarvis</string><key>CFBundleURLSchemes</key><array><string>jarvis</string></array></dict></array>
 	<key>WKAppBoundDomains</key>
 	<array>
 		<string>frensh-developpeur.github.io</string>

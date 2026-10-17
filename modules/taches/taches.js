@@ -487,6 +487,10 @@ J.module({
 
   init(){ st = J.store('taches', DEFAULTS); st.onChange(() => render()); },
   summary(){ const n = dueToday().length + overdue().length; return n ? `<b>${n}</b> à faire aujourd'hui` : 'Rien aujourd\'hui'; },
+  widget(){
+    const now = new Date().toTimeString().slice(0, 5), next = dueToday().filter(t => t.time && t.time >= now).sort(sortTasks)[0] || [...overdue(), ...dueToday()].sort(sortTasks)[0];
+    return {tasksLeft:overdue().length + dueToday().length, overdue:overdue().length, nextTask:next ? next.title : null, nextTime:next && next.time && next.due === today() ? next.time : null};
+  },
   stat(){
     const od = overdue().length, td = dueToday().length, dn = doneToday().length, total = od + td + dn;
     const next = dueToday().filter(t => t.time).sort(sortTasks).find(t => t.time >= new Date().toTimeString().slice(0, 5));

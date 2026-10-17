@@ -663,6 +663,7 @@ J.module({
     loadLib();
   },
   summary(){ const last = [...S().sessions].sort((a, b) => b.start - a.start)[0]; return last ? `Dernière : ${esc(last.name)}` : 'Aucune séance'; },
+  widget(){ return {week:thisWeek().length, weekGoal:S().weekGoal}; },
   stat(){
     const a = S().active, w = thisWeek().length;
     if (a) return {label:'MUSCU', value:'En cours', sub:`${a.name} · ${dur(a)} min`, ratio:w / S().weekGoal};
