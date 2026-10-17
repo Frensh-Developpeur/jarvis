@@ -128,19 +128,28 @@ async function runChat(env, messages, stream) {
 }
 
 /* ---------- voix Gemini : PCM 24 kHz renvoyé par Google, emballé en WAV ---------- */
-const GEMINI_STYLE = "Voix française de doublage de film, timbre médium-grave, articulation très nette, phrasé fluide et distingué, ton d'assistant IA courtois et légèrement ironique, rythme assez vif, sans emphase";
+// texte seul : une consigne de ton serait lue à voix haute ; le ton vient de la voix Charon et de l'effet « IA » de l'app.
+// offre gratuite : ~10 phrases par jour et par modèle → on passe d'un modèle à l'autre, puis ElevenLabs prend le relais
+const GEMINI_TTS = ['gemini-3.8-flash-tts', 'gemini-3.1-flash-tts-preview', 'gemini-2.5-flash-preview-tts', 'gemini-3.8-flash-lite-tts'];
 async function geminiSpeech(env, text) {
-  const ctl = new AbortController(), timer = setTimeout(() => ctl.abort(), 20000);
-  const r = await fetch('https://generativelanguage.googleapis.com/v1beta/models/gemini-3.8-flash-tts:generateContent', {
-    method: 'POST', signal: ctl.signal,
-    headers: { 'x-goog-api-key': env.GEMINI_API_KEY, 'Content-Type': 'application/json' },
-    body: JSON.stringify({ contents: [{ parts: [{ text: GEMINI_STYLE + ' : ' + text }] }],
-      generationConfig: { responseModalities: ['AUDIO'], speechConfig: { voiceConfig: { prebuiltVoiceConfig: { voiceName: 'Charon' } } } } }),
-  });
-  clearTimeout(timer);
-  if (!r.ok) throw new Error(r.status + ' ' + (await r.text()).slice(0, 160));
-  const j = await r.json(), b64 = j && j.candidates && j.candidates[0] && j.candidates[0].content.parts.find(p => p.inlineData);
-  if (!b64) throw new Error('réponse sans audio');
+  let b64 = null, last = '';
+  for (const model of GEMINI_TTS) {
+    const ctl = new AbortController(), timer = setTimeout(() => ctl.abort(), 20000);
+    try {
+      const r = await fetch(`https://generativelanguage.googleapis.com/v1beta/models/${model}:generateContent`, {
+        method: 'POST', signal: ctl.signal,
+        headers: { 'x-goog-api-key': env.GEMINI_API_KEY, 'Content-Type': 'application/json' },
+        body: JSON.stringify({ contents: [{ parts: [{ text }] }],
+          generationConfig: { responseModalities: ['AUDIO'], speechConfig: { voiceConfig: { prebuiltVoiceConfig: { voiceName: 'Charon' } } } } }),
+      });
+      clearTimeout(timer);
+      if (!r.ok) { last = model + ' ' + r.status; continue; }
+      const j = await r.json();
+      b64 = j && j.candidates && j.candidates[0] && j.candidates[0].content.parts.find(p => p.inlineData);
+      if (b64) break;
+    } catch (e) { clearTimeout(timer); last = model + ' ' + e.message; }
+  }
+  if (!b64) throw new Error('voix Gemini indisponible : ' + last);
   const pcm = Uint8Array.from(atob(b64.inlineData.data), c => c.charCodeAt(0));
   const wav = new Uint8Array(44 + pcm.length), v = new DataView(wav.buffer), str = (o, t) => [...t].forEach((c, i) => wav[o + i] = c.charCodeAt(0));
   str(0, 'RIFF'); v.setUint32(4, 36 + pcm.length, true); str(8, 'WAVEfmt '); v.setUint32(16, 16, true); v.setUint16(20, 1, true); v.setUint16(22, 1, true);
@@ -560,7 +569,7 @@ const routes = {
     if (!clean) fail(400, 'Texte vide');
     // voix « jarvis » : Google Gemini (voix Charon, ton de doublage dicté), puis ElevenLabs, puis la voix Cloudflare
     if (voice === 'jarvis' && env.GEMINI_API_KEY) {
-      const gh = await sha256('gem1:Charon:' + clean);
+      const gh = await sha256('gem2:Charon:' + clean);
       const gHit = await env.DB.prepare('SELECT engine, mime, audio FROM tts_cache WHERE hash = ?').bind(gh).first();
       if (gHit) return new Response(new Uint8Array(gHit.audio), { headers: { 'Content-Type': gHit.mime, 'X-Voice-Engine': gHit.engine, 'Access-Control-Expose-Headers': 'X-Voice-Engine' } });
       try {
