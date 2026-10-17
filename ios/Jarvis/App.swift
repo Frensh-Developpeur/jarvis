@@ -28,6 +28,7 @@ class AppDelegate: UIResponder, UIApplicationDelegate, UNUserNotificationCenterD
   func applicationDidBecomeActive(_ app: UIApplication) { web.emit("foreground", [:]) }
   // jarvis://nutrition (widgets) : ouvre le module
   func application(_ app: UIApplication, open url: URL, options: [UIApplication.OpenURLOptionsKey: Any] = [:]) -> Bool {
+    if url.host == "listen" { web.deliver("listen", [:]); return true }   // réacteur (widget, Centre de contrôle, bouton Action)
     web.open("#/" + (url.host ?? "")); return true
   }
 
