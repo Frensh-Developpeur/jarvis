@@ -8,7 +8,7 @@
    ============================================================ */
 'use strict';
 (() => {
-const APP_VERSION = '50';
+const APP_VERSION = '51';
 const API = location.hostname === 'localhost' ? 'http://localhost:8787' : 'https://jarvis-api.frensh-developpeur.workers.dev';
 const APP_URL = 'https://frensh-developpeur.github.io/jarvis/';
 
@@ -710,7 +710,7 @@ function openSettings(){
   S$('#sName').value = prefs.data.name;
   S$('#sVoice').checked = prefs.data.voice;
   $$('#sVoiceMode button').forEach(b => b.classList.toggle('on', b.dataset.v === (prefs.data.voiceMode || 'jarvis')));
-  $$('#sVoiceName button').forEach(b => b.classList.toggle('on', b.dataset.v === (prefs.data.voiceName || 'george')));
+  $$('#sVoiceName button').forEach(b => b.classList.toggle('on', b.dataset.v === (prefs.data.voiceName || 'jarvis')));
   S$('#sVoiceNameField').hidden = prefs.data.voiceMode === 'iphone';
   S$('#sCity').value = prefs.data.city || '';
   if (J.renderNotifSettings) J.renderNotifSettings();
@@ -956,7 +956,8 @@ function loadQR(){
    Démarrage
    ============================================================ */
 async function enter(isNew){
-  prefs = J.store('core', {name:'Monsieur', voice:true, voiceMode:'jarvis', voiceName:'george'});
+  prefs = J.store('core', {name:'Monsieur', voice:true, voiceMode:'jarvis', voiceName:'jarvis'});
+  if (!prefs.data.voiceV2) { prefs.data.voiceV2 = 1; prefs.data.voiceName = 'jarvis'; prefs.save(); }   // nouvelle voix de Jarvis pour tout le monde (une fois)
   J.modules.forEach(m => { if (!m.soon && m.init) { try { m.init(); } catch(e) { report(m.id + '.init : ' + (e.stack || e)); } } });
   renderTabbar();
   document.body.classList.add('in-app');

@@ -127,6 +127,28 @@ async function runChat(env, messages, stream) {
   fail(503, errors.some(m => /quota|limit|neuron|allocation|4006|429/i.test(m)) ? 'Quota quotidien de l\'IA atteint, réessayez demain.' : 'IA momentanément indisponible');
 }
 
+/* ---------- voix Gemini : PCM 24 kHz renvoyé par Google, emballé en WAV ---------- */
+const GEMINI_STYLE = "Voix française de doublage de film, timbre médium-grave, articulation très nette, phrasé fluide et distingué, ton d'assistant IA courtois et légèrement ironique, rythme assez vif, sans emphase";
+async function geminiSpeech(env, text) {
+  const ctl = new AbortController(), timer = setTimeout(() => ctl.abort(), 20000);
+  const r = await fetch('https://generativelanguage.googleapis.com/v1beta/models/gemini-3.8-flash-tts:generateContent', {
+    method: 'POST', signal: ctl.signal,
+    headers: { 'x-goog-api-key': env.GEMINI_API_KEY, 'Content-Type': 'application/json' },
+    body: JSON.stringify({ contents: [{ parts: [{ text: GEMINI_STYLE + ' : ' + text }] }],
+      generationConfig: { responseModalities: ['AUDIO'], speechConfig: { voiceConfig: { prebuiltVoiceConfig: { voiceName: 'Charon' } } } } }),
+  });
+  clearTimeout(timer);
+  if (!r.ok) throw new Error(r.status + ' ' + (await r.text()).slice(0, 160));
+  const j = await r.json(), b64 = j && j.candidates && j.candidates[0] && j.candidates[0].content.parts.find(p => p.inlineData);
+  if (!b64) throw new Error('réponse sans audio');
+  const pcm = Uint8Array.from(atob(b64.inlineData.data), c => c.charCodeAt(0));
+  const wav = new Uint8Array(44 + pcm.length), v = new DataView(wav.buffer), str = (o, t) => [...t].forEach((c, i) => wav[o + i] = c.charCodeAt(0));
+  str(0, 'RIFF'); v.setUint32(4, 36 + pcm.length, true); str(8, 'WAVEfmt '); v.setUint32(16, 16, true); v.setUint16(20, 1, true); v.setUint16(22, 1, true);
+  v.setUint32(24, 24000, true); v.setUint32(28, 48000, true); v.setUint16(32, 2, true); v.setUint16(34, 16, true); str(36, 'data'); v.setUint32(40, pcm.length, true);
+  wav.set(pcm, 44);
+  return wav;
+}
+
 /* flux SSE de Workers AI → texte brut (seulement les morceaux de réponse) */
 function sseToText() {
   const dec = new TextDecoder(), enc = new TextEncoder();
@@ -536,6 +558,17 @@ const routes = {
     const { text, voice } = await body(req);
     const clean = String(text || '').trim().slice(0, 600);
     if (!clean) fail(400, 'Texte vide');
+    // voix « jarvis » : Google Gemini (voix Charon, ton de doublage dicté), puis ElevenLabs, puis la voix Cloudflare
+    if (voice === 'jarvis' && env.GEMINI_API_KEY) {
+      const gh = await sha256('gem1:Charon:' + clean);
+      const gHit = await env.DB.prepare('SELECT engine, mime, audio FROM tts_cache WHERE hash = ?').bind(gh).first();
+      if (gHit) return new Response(new Uint8Array(gHit.audio), { headers: { 'Content-Type': gHit.mime, 'X-Voice-Engine': gHit.engine, 'Access-Control-Expose-Headers': 'X-Voice-Engine' } });
+      try {
+        const wav = await geminiSpeech(env, clean);
+        ctx.waitUntil(env.DB.prepare('INSERT OR REPLACE INTO tts_cache (hash, engine, mime, audio, created_at) VALUES (?, ?, ?, ?, ?)').bind(gh, 'gemini', 'audio/wav', wav, now()).run());
+        return new Response(wav, { headers: { 'Content-Type': 'audio/wav', 'X-Voice-Engine': 'gemini', 'Access-Control-Expose-Headers': 'X-Voice-Engine' } });
+      } catch (e) { console.log('voix gemini', e.message); }   // quota ou panne : on continue avec ElevenLabs
+    }
     const voiceId = VOICES[voice] || VOICES.george;
     const useEleven = !!env.ELEVENLABS_API_KEY;
     const hash = await sha256((useEleven ? 'el4:' + voiceId + ':' + EL_MODEL : 'melo') + ':' + clean);

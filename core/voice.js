@@ -142,7 +142,7 @@ function buildChain(ac){
   const out = gain(1.3);
   const analyser = ac.createAnalyser(); analyser.fftSize = 1024;
   bus.connect(comp); comp.connect(out); out.connect(analyser); analyser.connect(ac.destination);
-  return {input, analyser, combOut, dblOut, verbOut, presence, warm, air, satOut, widthOut, hp};
+  return {input, analyser, combOut, dblOut, verbOut, presence, warm, air, satOut, widthOut, hp, dbl, depth};
 }
 
 /* WSOLA : change la durée sans changer la hauteur.
@@ -178,6 +178,8 @@ function stretch(x, alpha, sr){
 const FX = {
   eleven: {comb:0,   dbl:0,   verb:.07, presence:2, warm:1,   air:2.5, sat:0,   width:.16, hp:110, rate:1},   // voix propre : le peigne et le dédoublement la rendaient « bizarre »
   melo:   {comb:.16, dbl:.22, verb:.14, presence:4, warm:3,   air:2,   sat:.05, width:.2,  hp:90,  rate:PITCH},
+  // voix « jarvis » (Gemini) : le réglage choisi à l'écoute (version D2) — chorus court, brillance, petite pièce, stéréo large
+  gemini: {comb:0,   dbl:.26, verb:.13, presence:3, warm:-2,  air:3,   sat:0,   width:.32, hp:110, rate:1, dblDelay:.015, dblDepth:.0022},
 };
 function setFx(engine){
   const f = FX[engine] || FX.eleven, t = ctx.currentTime, c = chain;
@@ -186,6 +188,7 @@ function setFx(engine){
   c.warm.gain.setValueAtTime(f.warm, t);    c.air.gain.setValueAtTime(f.air, t);
   c.satOut.gain.setValueAtTime(f.sat, t);   c.widthOut.gain.setValueAtTime(f.width, t);
   c.hp.frequency.setValueAtTime(f.hp, t);
+  c.dbl.delayTime.setValueAtTime(f.dblDelay || .0035, t); c.depth.gain.setValueAtTime(f.dblDepth || .0012, t);
   return f;
 }
 
@@ -266,7 +269,7 @@ async function speakNow(text, p){
   const my = ++seq;
   J.$$('.view.active .reactor').forEach(el => el.classList.add('thinking'));
   try {
-    const {buf, engine} = await render(spoken, p.voiceName || 'george');
+    const {buf, engine} = await render(spoken, p.voiceName || 'jarvis');
     if (my !== seq) return;        // une autre phrase a été demandée entre-temps (stop() a déjà conclu)
     const fx = setFx(engine);
     const src = ctx.createBufferSource();
