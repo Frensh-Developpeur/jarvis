@@ -171,12 +171,23 @@ struct ReactorWidget: Widget {
 struct JarvisControl: ControlWidget {
   var body: some ControlWidgetConfiguration {
     StaticControlConfiguration(kind: "com.sebckyser.jarvis.listen") {
-      ControlWidgetButton(action: OpenURLIntent(URL(string: "jarvis://listen")!)) {
+      ControlWidgetButton(action: AskJarvisIntent()) {
         Label("Jarvis", systemImage: "circle.hexagongrid.circle.fill")
       }
     }
     .displayName("Parler à Jarvis")
-    .description("Ouvre Jarvis en écoute.")
+    .description("Parlez à Jarvis sans ouvrir l'app.")
+  }
+}
+
+@available(iOS 18.0, *)
+struct JarvisOpenControl: ControlWidget {
+  var body: some ControlWidgetConfiguration {
+    StaticControlConfiguration(kind: "com.sebckyser.jarvis.open") {
+      ControlWidgetButton(action: OpenURLIntent(URL(string: "jarvis://listen")!)) { Label("Jarvis (app)", systemImage: "waveform.circle") }
+    }
+    .displayName("Ouvrir Jarvis en écoute")
+    .description("Ouvre l'app Jarvis, micro allumé.")
   }
 }
 
@@ -185,7 +196,7 @@ struct JarvisWidgets: WidgetBundle {
   var body: some Widget {
     JarvisWidget()
     ReactorWidget()
-    if #available(iOS 18.0, *) { JarvisControl() }
+    if #available(iOS 18.0, *) { JarvisControl(); JarvisOpenControl() }
   }
 }
 

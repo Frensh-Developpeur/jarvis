@@ -33,6 +33,7 @@ targets:
     settings:
       base:
         PRODUCT_BUNDLE_IDENTIFIER: com.sebckyser.jarvis.widget
+        SWIFT_ACTIVE_COMPILATION_CONDITIONS: "$(inherited) WIDGET"
         INFOPLIST_FILE: JarvisWidget/Info.plist
         CODE_SIGN_ENTITLEMENTS: JarvisWidget/JarvisWidget.entitlements
         TARGETED_DEVICE_FAMILY: "1"

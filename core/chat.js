@@ -190,6 +190,29 @@ async function send(text, opts = {}){
   }
 }
 J.ask = send;
+J.chatCalendar = calendar;
+/* demande faite hors de l'app (Siri, Centre de contrôle, bouton Action) : la réponse a déjà été dite,
+   on applique les actions et on range l'échange dans la conversation */
+J.applyRemote = async (item) => {
+  if (!item || !item.text) return;
+  if (!msgs.length) load();
+  const acts = [], asks = [];
+  J.chatRecentText = item.text;
+  for (const a of item.actions || []) {
+    if (a.type === 'briefing' || a.type === 'open') continue;
+    const fn = J.actions && J.actions[a.type]; if (!fn) continue;
+    try { const res = await fn(a); acts.push({ok:true, text:res.text || res, go:res.go}); }
+    catch(e) { if (e.ask) asks.push(e.ask); else acts.push({ok:false, text:e.message}); }
+  }
+  delete J.chatRecentText;
+  msgs.push({role:'user', content:item.text});
+  msgs.push({role:'assistant', content:asks.length ? asks.join(' ') : item.reply, acts});
+  persist();
+  if (document.querySelector('.sheet.chat.show')) render();
+  if (acts.some(a => a.ok)) J.toast('Via Siri · ' + acts.filter(a => a.ok).map(a => a.text).join(' · '));
+  if (asks.length) J.toast('Jarvis a une question : ' + asks[0], {action:'RÉPONDRE', onAction:() => J.openChat && J.openChat()});
+  if (J.renderBriefing) J.renderBriefing();
+};
 
 /* ---------- annuler la dernière action ---------- */
 const STORE_OF = {add_expense:'finances', add_income:'finances', log_food:'nutrition', log_weight:'nutrition', add_task:'taches', complete_task:'taches',

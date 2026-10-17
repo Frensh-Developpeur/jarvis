@@ -9,8 +9,10 @@
 /* Begin PBXBuildFile section */
 		0C6B2DCC8CF1410F6EE57760 /* JarvisWidget.swift in Sources */ = {isa = PBXBuildFile; fileRef = 34A4B36C7A03225DC6A2BB10 /* JarvisWidget.swift */; };
 		1D330C190FC8E9534D401CD3 /* WidgetData.swift in Sources */ = {isa = PBXBuildFile; fileRef = 126B99BE6781EF096C85771B /* WidgetData.swift */; };
+		499D3D8ECE123B3C293E085F /* Intents.swift in Sources */ = {isa = PBXBuildFile; fileRef = 9C0875E06BEE89685C710763 /* Intents.swift */; };
 		BF25359AEBC82D75037D5A6B /* JarvisWidget.appex in Embed Foundation Extensions */ = {isa = PBXBuildFile; fileRef = 4614CBDB883BEB7229DE3049 /* JarvisWidget.appex */; settings = {ATTRIBUTES = (RemoveHeadersOnCopy, ); }; };
 		C343F3A867CF91369ACAD1A6 /* App.swift in Sources */ = {isa = PBXBuildFile; fileRef = 26A68668ADC68F0389772F8B /* App.swift */; };
+		C9B8CD81FF4C41AC9DDB1B8C /* Intents.swift in Sources */ = {isa = PBXBuildFile; fileRef = 9C0875E06BEE89685C710763 /* Intents.swift */; };
 		D9A275A158931B282CA2DD74 /* WidgetData.swift in Sources */ = {isa = PBXBuildFile; fileRef = 126B99BE6781EF096C85771B /* WidgetData.swift */; };
 		DEBFA12BB1A100389711262E /* Assets.xcassets in Resources */ = {isa = PBXBuildFile; fileRef = 61C76376F114B708AF2B9EF1 /* Assets.xcassets */; };
 /* End PBXBuildFile section */
@@ -45,6 +47,7 @@
 		34A4B36C7A03225DC6A2BB10 /* JarvisWidget.swift */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.swift; path = JarvisWidget.swift; sourceTree = "<group>"; };
 		4614CBDB883BEB7229DE3049 /* JarvisWidget.appex */ = {isa = PBXFileReference; includeInIndex = 0; lastKnownFileType = "wrapper.app-extension"; path = JarvisWidget.appex; sourceTree = BUILT_PRODUCTS_DIR; };
 		61C76376F114B708AF2B9EF1 /* Assets.xcassets */ = {isa = PBXFileReference; lastKnownFileType = folder.assetcatalog; path = Assets.xcassets; sourceTree = "<group>"; };
+		9C0875E06BEE89685C710763 /* Intents.swift */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.swift; path = Intents.swift; sourceTree = "<group>"; };
 		B0DECB7F56BC277241F897A8 /* Info.plist */ = {isa = PBXFileReference; lastKnownFileType = text.plist; path = Info.plist; sourceTree = "<group>"; };
 		BCD242C83ADE5623EDB958B3 /* Jarvis.entitlements */ = {isa = PBXFileReference; lastKnownFileType = text.plist.entitlements; path = Jarvis.entitlements; sourceTree = "<group>"; };
 		CAB8781BD405E0F81F04DB24 /* JarvisWidget.entitlements */ = {isa = PBXFileReference; lastKnownFileType = text.plist.entitlements; path = JarvisWidget.entitlements; sourceTree = "<group>"; };
@@ -96,6 +99,7 @@
 		FD904DF667D8BA6251A626DA /* Shared */ = {
 			isa = PBXGroup;
 			children = (
+				9C0875E06BEE89685C710763 /* Intents.swift */,
 				126B99BE6781EF096C85771B /* WidgetData.swift */,
 			);
 			path = Shared;
@@ -196,6 +200,7 @@
 			isa = PBXSourcesBuildPhase;
 			buildActionMask = 2147483647;
 			files = (
+				499D3D8ECE123B3C293E085F /* Intents.swift in Sources */,
 				0C6B2DCC8CF1410F6EE57760 /* JarvisWidget.swift in Sources */,
 				D9A275A158931B282CA2DD74 /* WidgetData.swift in Sources */,
 			);
@@ -206,6 +211,7 @@
 			buildActionMask = 2147483647;
 			files = (
 				C343F3A867CF91369ACAD1A6 /* App.swift in Sources */,
+				C9B8CD81FF4C41AC9DDB1B8C /* Intents.swift in Sources */,
 				1D330C190FC8E9534D401CD3 /* WidgetData.swift in Sources */,
 			);
 			runOnlyForDeploymentPostprocessing = 0;
@@ -253,6 +259,7 @@
 				PRODUCT_BUNDLE_IDENTIFIER = com.sebckyser.jarvis.widget;
 				SDKROOT = iphoneos;
 				SKIP_INSTALL = YES;
+				SWIFT_ACTIVE_COMPILATION_CONDITIONS = "$(inherited) WIDGET";
 				TARGETED_DEVICE_FAMILY = 1;
 			};
 			name = Release;
@@ -271,6 +278,7 @@
 				PRODUCT_BUNDLE_IDENTIFIER = com.sebckyser.jarvis.widget;
 				SDKROOT = iphoneos;
 				SKIP_INSTALL = YES;
+				SWIFT_ACTIVE_COMPILATION_CONDITIONS = "$(inherited) WIDGET";
 				TARGETED_DEVICE_FAMILY = 1;
 			};
 			name = Debug;

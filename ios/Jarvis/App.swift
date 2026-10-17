@@ -166,6 +166,15 @@ class Bridge {
     case "notify.clear": UNUserNotificationCenter.current().removeAllPendingNotificationRequests(); setBadge(0); done(true, nil)
     case "badge": setBadge(a["count"] as? Int ?? 0); done(true, nil)
     case "widget.update": widgetUpdate(a["data"] as? [String: Any] ?? [:]); done(true, nil)
+    case "shared.set":   // session, résumé des données et briefing pour Siri / Centre de contrôle (app fermée)
+      let d = UserDefaults(suiteName: APP_GROUP)
+      for k in ["token", "api", "name", "context", "calendar", "briefing"] { if let v = a[k] as? String { d?.set(v, forKey: k) } }
+      if a["logout"] as? Bool == true { ["token", "siriLog", "pending"].forEach { d?.removeObject(forKey: $0) } }
+      done(true, nil)
+    case "pending.take":   // demandes faites hors de l'app : à appliquer
+      let d = UserDefaults(suiteName: APP_GROUP), list = (d?.array(forKey: "pending") as? [Data]) ?? []
+      d?.removeObject(forKey: "pending")
+      done(true, list.compactMap { try? JSONSerialization.jsonObject(with: $0) })
     case "speech.start": speech.start(web: web, done)
     case "speech.stop": speech.stop(); done(true, nil)
     default: done(false, "Fonction inconnue : \(name)")
@@ -299,30 +308,17 @@ class Bridge {
 func deliverToWeb(_ event: String, _ data: [String: Any] = [:]) {
   DispatchQueue.main.async { (UIApplication.shared.delegate as? AppDelegate)?.web.deliver(event, data) }
 }
-struct AskJarvisIntent: AppIntent {
-  static var title: LocalizedStringResource = "Demander à Jarvis"
-  static var description = IntentDescription("Envoie une demande à Jarvis : une dépense, un repas, une tâche, une question.")
-  static var openAppWhenRun = true
-  @Parameter(title: "Demande", requestValueDialog: "Que dois-je faire ?") var text: String
-  @MainActor func perform() async throws -> some IntentResult { deliverToWeb("ask", ["text": text]); return .result() }
-}
-struct BriefingIntent: AppIntent {
-  static var title: LocalizedStringResource = "Briefing de Jarvis"
-  static var description = IntentDescription("Jarvis vous fait le point de la journée.")
-  static var openAppWhenRun = true
-  @MainActor func perform() async throws -> some IntentResult { deliverToWeb("briefing"); return .result() }
-}
 struct ListenIntent: AppIntent {
-  static var title: LocalizedStringResource = "Parler à Jarvis"
+  static var title: LocalizedStringResource = "Ouvrir Jarvis en écoute"
   static var description = IntentDescription("Ouvre Jarvis en écoute.")
   static var openAppWhenRun = true
   @MainActor func perform() async throws -> some IntentResult { deliverToWeb("listen"); return .result() }
 }
 struct JarvisShortcuts: AppShortcutsProvider {
   static var appShortcuts: [AppShortcut] {
-    AppShortcut(intent: AskJarvisIntent(), phrases: ["Demande à \(.applicationName)", "Dis à \(.applicationName)", "\(.applicationName) note"], shortTitle: "Demander", systemImageName: "bubble.left.and.bubble.right")
+    AppShortcut(intent: AskJarvisIntent(), phrases: ["Demande à \(.applicationName)", "Dis à \(.applicationName)", "Parle à \(.applicationName)", "\(.applicationName) note"], shortTitle: "Demander", systemImageName: "bubble.left.and.bubble.right")
     AppShortcut(intent: BriefingIntent(), phrases: ["Briefing \(.applicationName)", "Mon briefing \(.applicationName)", "\(.applicationName) quoi de neuf"], shortTitle: "Briefing", systemImageName: "sun.max")
-    AppShortcut(intent: ListenIntent(), phrases: ["Parle à \(.applicationName)", "Écoute \(.applicationName)"], shortTitle: "Parler", systemImageName: "waveform")
+    AppShortcut(intent: ListenIntent(), phrases: ["Ouvre \(.applicationName) en écoute", "Écoute \(.applicationName)"], shortTitle: "Ouvrir en écoute", systemImageName: "waveform")
   }
 }
 

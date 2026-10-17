@@ -81,6 +81,7 @@ J.updateWidgets = () => {
     const data = {name:(J.prefs() || {}).name || 'Monsieur'};
     J.modules.forEach(m => { if (m.widget && !m.soon) try { Object.assign(data, m.widget()); } catch(e) {} });
     N.call('widget.update', {data}).catch(() => {});
+    J.shareWithSiri();
   }, 800);
 };
 document.addEventListener('visibilitychange', () => { if (document.visibilityState === 'hidden') J.updateWidgets(); });
@@ -90,6 +91,28 @@ const onHub = f => whenUser().then(() => { J.go(null); setTimeout(f, 500); });
 N.on('ask', d => onHub(() => { if (d && d.text) J.ask(d.text, {from:'hub', voice:true}); }));
 N.on('briefing', () => onHub(() => { const t = J.briefingSpeech ? J.briefingSpeech() : ''; if (t) { J.say(t); J.speak(t); } }));
 N.on('listen', () => onHub(() => { const r = document.getElementById('hubReactor'); if (r) r.click(); }));
+
+/* ---------- Siri et Centre de contrôle (app fermée) : session, résumé et briefing partagés ; demandes en attente ---------- */
+let shareT = 0;
+J.shareWithSiri = () => {
+  clearTimeout(shareT);
+  shareT = setTimeout(() => {
+    if (!J.user() || !J.token()) return;
+    let context = '', briefing = '', calendar = '';
+    try { context = J.chatContext ? J.chatContext('bilan de la journée') : ''; } catch(e) {}
+    try { briefing = J.briefingSpeech ? J.briefingSpeech() : ''; } catch(e) {}
+    try { calendar = J.chatCalendar ? J.chatCalendar() : ''; } catch(e) {}
+    N.call('shared.set', {token:J.token(), api:J.API, name:(J.prefs() || {}).name || 'Monsieur', context, calendar, briefing}).catch(() => {});
+  }, 1500);
+};
+let taking = false;
+const takePending = async () => {
+  if (taking || !J.user() || !J.applyRemote) return;
+  taking = true;
+  try { const list = await N.call('pending.take'); for (const it of list || []) await J.applyRemote(it); } catch(e) {}
+  taking = false;
+};
+N.on('pending', () => whenUser().then(takePending));
 
 /* ---------- cycle de vie ---------- */
 const whenUser = () => new Promise(res => { const t = setInterval(() => { if (J.user()) { clearInterval(t); res(); } }, 500); });
@@ -101,8 +124,9 @@ whenUser().then(() => {
     J.scheduleNotifs();
   }
   J.updateWidgets();
+  J.shareWithSiri(); takePending();
 });
-N.on('foreground', () => { if (J.user()) { J.syncHealth(false); if (J.scheduleNotifs) J.scheduleNotifs(); } });
+N.on('foreground', () => { if (J.user()) { J.syncHealth(false); if (J.scheduleNotifs) J.scheduleNotifs(); takePending(); J.shareWithSiri(); } });
 // notification touchée : ouvre le bon module
 N.on('open', d => { const id = String((d && d.url) || '').replace(/^#\/?/, ''); if (J.user()) J.go(id || null); });
 N.call('ready').catch(() => {});
